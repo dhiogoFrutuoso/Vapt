@@ -1,0 +1,599 @@
+import type { Request, Response } from 'express';
+import { z } from 'zod';
+import { AppProject } from '../models/AppProject.js';
+import { User } from '../models/User.js';
+import { Image } from '../models/Image.js';
+import { HttpError } from '../utils/httpError.js';
+import { asyncHandler } from '../middlewares/errorHandler.js';
+import { uniqueSlug } from '../utils/codes.js';
+import { toWebpBase64 } from '../services/imageProcessor.js';
+import { env } from '../config/env.js';
+
+const createAppSchema = z.object({
+  name: z.string().min(1, 'Informe o nome do aplicativo.').max(80),
+  businessType: z.enum(['restaurante', 'bar', 'lanchonete', 'pizzaria', 'cafeteria', 'mercado']).default('restaurante'),
+});
+
+export const createApp = asyncHandler(async (req: Request, res: Response) => {
+  const { name, businessType } = createAppSchema.parse(req.body);
+  const ownerId = req.user!.id;
+
+  const slug = await uniqueSlug(name, async (s) => {
+    const exists = await AppProject.exists({ slug: s });
+    return exists !== null;
+  });
+
+  const app = new AppProject({
+    owner: ownerId,
+    name,
+    slug,
+    businessType,
+  });
+
+  await app.save();
+
+  res.status(201).json({ ok: true, data: (app as any).toSummary() });
+});
+
+export const listApps = asyncHandler(async (req: Request, res: Response) => {
+  const apps = await AppProject.find({ owner: req.user!.id }).sort({ updatedAt: -1 });
+  res.json({ ok: true, data: apps.map((a) => (a as any).toSummary()) });
+});
+
+export const deleteApp = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOneAndDelete({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+  res.json({ ok: true, data: { deleted: true } });
+});
+
+export const getApp = asyncHandler(async (req: Request, res: Response) => {
+  const app = (await AppProject.findOne({ _id: req.params.id, owner: req.user!.id }).lean()) as any;
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  // Filtra promoções vencidas para não enviar promoções expiradas no passado
+  const now = new Date();
+  app.promotions = (app.promotions || []).filter((p: any) => {
+    if (p.validUntil && new Date(p.validUntil) < now) return false;
+    return true;
+  });
+
+  res.json({ ok: true, data: app });
+});
+
+const updateAppSchema = z.object({
+  name: z.string().max(80).optional(),
+  businessType: z.enum(['restaurante', 'bar', 'lanchonete', 'pizzaria', 'cafeteria', 'mercado']).optional(),
+  brand: z
+    .object({
+      primaryColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Cor inválida.').optional(),
+      secondaryColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, 'Cor inválida.').optional(),
+      theme: z.enum(['claro', 'escuro']).optional(),
+      tagline: z.string().max(120).optional(),
+      logoBase64: z.string().optional(),
+    })
+    .optional(),
+  delivery: z
+    .object({
+      enabled: z.boolean().optional(),
+      fee: z.number().min(0).max(999).optional(),
+      minOrder: z.number().min(0).max(9999).optional(),
+      estimatedMinutes: z.number().min(5).max(240).optional(),
+      channel: z.enum(['whatsapp', 'painel', 'ambos']).optional(),
+      whatsapp: z.string().max(30).optional(),
+      courierPaidPerDelivery: z.boolean().optional(),
+    })
+    .optional(),
+  dining: z
+    .object({
+      isWaiterCommissionEnabled: z.boolean().optional(),
+      waiterCommissionPercentage: z.number().min(0).max(100).optional(),
+    })
+    .optional(),
+  categories: z.array(z.string().max(40)).optional(),
+});
+
+export const updateApp = asyncHandler(async (req: Request, res: Response) => {
+  const updates = updateAppSchema.parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  if (updates.name) app.name = updates.name;
+  if (updates.businessType) app.businessType = updates.businessType;
+  
+  if (updates.brand) {
+    const brandData = { ...updates.brand } as any;
+    if (brandData.logoBase64) {
+      const processed = await toWebpBase64(brandData.logoBase64);
+      const imageDoc = await Image.create({
+        owner: req.user!.id,
+        kind: 'logo',
+        mimeType: processed.mimeType,
+        data: processed.base64,
+        width: processed.width,
+        height: processed.height,
+        bytes: processed.bytes,
+      });
+      brandData.logo = imageDoc._id;
+      delete brandData.logoBase64;
+    }
+    app.brand = { ...app.brand, ...brandData } as any;
+  }
+  
+  if (updates.delivery) {
+    app.delivery = { ...app.delivery, ...updates.delivery } as any;
+  }
+  
+  if (updates.dining) {
+    app.dining = { ...app.dining, ...updates.dining } as any;
+  }
+  
+  
+
+  await app.save();
+  res.json({ ok: true, data: app });
+});
+
+const addProductSchema = z.object({
+  name: z.string().min(1, 'O produto precisa de um nome.').max(80),
+  description: z.string().max(240).optional().default(''),
+  price: z.number().min(0).max(99999),
+  category: z.string().max(40).optional().default('Destaques'),
+  isFeatured: z.boolean().optional().default(false),
+  available: z.boolean().optional().default(true),
+  order: z.number().optional().default(0),
+  imageBase64: z.string().optional(),
+});
+
+export const addProduct = asyncHandler(async (req: Request, res: Response) => {
+  const data = addProductSchema.parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  let imageId = null;
+  if (data.imageBase64) {
+    const processed = await toWebpBase64(data.imageBase64);
+    const imageDoc = await Image.create({
+      owner: req.user!.id,
+      kind: 'produto',
+      mimeType: processed.mimeType,
+      data: processed.base64,
+      width: processed.width,
+      height: processed.height,
+      bytes: processed.bytes,
+    });
+    imageId = imageDoc._id;
+  }
+
+  const newProduct = {
+    name: data.name,
+    description: data.description,
+    price: data.price,
+    category: data.category,
+    isFeatured: data.isFeatured,
+    available: data.available,
+    order: data.order,
+    image: imageId,
+  };
+
+  app.products.push(newProduct as any);
+  await app.save();
+
+  res.status(201).json({ ok: true, data: app.products[app.products.length - 1] });
+});
+
+export const updateProduct = asyncHandler(async (req: Request, res: Response) => {
+  const data = addProductSchema.partial().parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const productIndex = app.products.findIndex((p: any) => String(p._id) === req.params.productId);
+  if (productIndex === -1) throw HttpError.notFound('Produto não encontrado.');
+
+  const product = app.products[productIndex];
+
+  if (data.imageBase64 !== undefined) {
+    if (data.imageBase64 === null || data.imageBase64 === '') {
+      if (product.image) {
+        await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
+        product.image = undefined;
+      }
+    } else {
+      const processed = await toWebpBase64(data.imageBase64);
+      const imageDoc = await Image.create({
+        owner: req.user!.id,
+        kind: 'produto',
+        mimeType: processed.mimeType,
+        data: processed.base64,
+        width: processed.width,
+        height: processed.height,
+        bytes: processed.bytes,
+      });
+      if (product.image) {
+        await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
+      }
+      product.image = imageDoc._id;
+    }
+  }
+
+  if (data.name !== undefined) product.name = data.name;
+  if (data.description !== undefined) product.description = data.description;
+  if (data.price !== undefined) product.price = data.price;
+  if (data.category !== undefined) product.category = data.category;
+  if (data.isFeatured !== undefined) product.isFeatured = data.isFeatured;
+  if (data.available !== undefined) product.available = data.available;
+  if (data.order !== undefined) product.order = data.order;
+
+  await app.save();
+  res.json({ ok: true, data: product });
+});
+
+export const removeProduct = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const productIndex = app.products.findIndex((p: any) => String(p._id) === req.params.productId);
+  if (productIndex === -1) throw HttpError.notFound('Produto não encontrado.');
+
+  const product = app.products[productIndex];
+  if (product.image) {
+    await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
+  }
+
+  app.products.splice(productIndex, 1);
+  await app.save();
+
+  res.json({ ok: true, data: { removed: req.params.categoryId } });
+});
+
+const addTableSchema = z.object({
+  label: z.string().min(1).max(10),
+  seats: z.number().min(1).max(40),
+  area: z.string().max(40).optional().default('Salão'),
+});
+
+const categorySchemaApi = z.object({
+  name: z.string().min(1, 'A categoria precisa de um nome.').max(40),
+  imageBase64: z.string().optional(),
+});
+
+export const addCategory = asyncHandler(async (req: Request, res: Response) => {
+  const data = categorySchemaApi.parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  let imageId = null;
+  if (data.imageBase64) {
+    const processed = await toWebpBase64(data.imageBase64, { maxSize: 400 });
+    const imageDoc = await Image.create({
+      owner: req.user!.id,
+      kind: 'categoria',
+      mimeType: processed.mimeType,
+      data: processed.base64,
+      width: processed.width,
+      height: processed.height,
+      bytes: processed.bytes,
+    });
+    imageId = imageDoc._id;
+  }
+
+  app.categories.push({ name: data.name, image: imageId } as any);
+  await app.save();
+
+  res.status(201).json({ ok: true, data: app.categories[app.categories.length - 1] });
+});
+
+export const updateCategory = asyncHandler(async (req: Request, res: Response) => {
+  const parsedData = categorySchemaApi.partial().parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const category = app.categories.id(req.params.categoryId);
+  if (!category) throw HttpError.notFound('Categoria não encontrada.');
+
+  if (parsedData.name !== undefined) category.name = parsedData.name;
+  
+  if (parsedData.imageBase64 !== undefined) {
+    if (parsedData.imageBase64 === null) {
+      category.image = null;
+    } else {
+      const processed = await toWebpBase64(parsedData.imageBase64, { maxSize: 400 });
+      const imageDoc = await Image.create({
+        owner: req.user!.id,
+        kind: 'categoria',
+        mimeType: processed.mimeType,
+        data: processed.base64,
+        width: processed.width,
+        height: processed.height,
+        bytes: processed.bytes,
+      });
+      category.image = imageDoc._id;
+    }
+  }
+
+  await app.save();
+  res.json({ ok: true, data: category });
+});
+
+export const removeCategory = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const catIndex = app.categories.findIndex((c: any) => String(c._id) === req.params.categoryId);
+  if (catIndex === -1) throw HttpError.notFound('Categoria não encontrada.');
+
+  app.categories.splice(catIndex, 1);
+  await app.save();
+
+  res.json({ ok: true, data: { removed: req.params.productId } });
+});
+
+export const addTable = asyncHandler(async (req: Request, res: Response) => {
+  const data = addTableSchema.parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  app.tables.push(data as any);
+  await app.save();
+
+  res.status(201).json({ ok: true, data: app.tables[app.tables.length - 1] });
+});
+
+export const updateTable = asyncHandler(async (req: Request, res: Response) => {
+  const data = addTableSchema.partial().parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const table = app.tables.id(req.params.tableId);
+  if (!table) throw HttpError.notFound('Mesa não encontrada.');
+
+  if (data.label !== undefined) table.label = data.label;
+  if (data.seats !== undefined) table.seats = data.seats;
+  if (data.area !== undefined) table.area = data.area;
+
+  await app.save();
+  res.json({ ok: true, data: table });
+});
+
+export const removeTable = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const tableIndex = app.tables.findIndex((t: any) => String(t._id) === req.params.tableId);
+  if (tableIndex === -1) throw HttpError.notFound('Mesa não encontrada.');
+
+  app.tables.splice(tableIndex, 1);
+  await app.save();
+
+  res.json({ ok: true, data: { removed: req.params.tableId } });
+});
+
+const planSchema = z.object({
+  planName: z.string().min(1, 'Plano não informado.'),
+});
+
+export const requestPlan = asyncHandler(async (req: Request, res: Response) => {
+  const { planName } = planSchema.parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const user = await User.findById(req.user!.id);
+  if (!user) throw HttpError.notFound('Usuário não encontrado.');
+
+  app.selectedPlan = planName;
+  app.status = 'aguardando_contato';
+  app.planRequestedAt = new Date();
+  
+  await app.save();
+
+  const address = user.address;
+  const addressString = `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ''}, ${address.district}, ${address.city} - ${address.state}`;
+
+  const message = `Olá, quero ativar o VaptApp!
+  
+Meu nome: ${user.displayName || user.username}
+E-mail: ${user.email}
+Telefone: ${user.phone || 'Não informado'}
+Endereço: ${addressString}
+Aplicativo: ${app.name}
+Plano escolhido: ${planName}`;
+
+  const whatsappUrl = `https://wa.me/${env.adminWhatsapp}?text=${encodeURIComponent(message)}`;
+
+  res.json({ ok: true, data: { whatsappUrl } });
+});
+
+
+/* ------------------------- Roles ------------------------- */
+
+export const addRole = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  const newRole = { name: req.body.name, permissions: req.body.permissions || [] };
+  app.roles.push(newRole as any);
+  await app.save();
+  
+  const created = app.roles[app.roles.length - 1];
+  res.json({ ok: true, data: created });
+});
+
+export const updateRole = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  const role = app.roles.id(req.params.roleId);
+  if (!role) throw HttpError.notFound('Funcao nao encontrada');
+
+  if (req.body.name !== undefined) role.name = req.body.name;
+  if (req.body.permissions !== undefined) role.permissions = req.body.permissions;
+  
+  await app.save();
+  res.json({ ok: true, data: role });
+});
+
+export const removeRole = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  const role = app.roles.id(req.params.roleId);
+  if (role) {
+    role.deleteOne();
+    await app.save();
+  }
+  res.json({ ok: true, data: { deleted: true } });
+});
+
+/* ----------------------- Employees ----------------------- */
+
+function generateAccessCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+export const addEmployee = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  const roleExists = app.roles.id(req.body.roleId);
+  if (!roleExists) throw HttpError.badRequest('Funcao invalida');
+
+  const accessCode = generateAccessCode();
+  const newEmployee = { name: req.body.name, roleId: req.body.roleId, accessCode };
+  app.employees.push(newEmployee as any);
+  await app.save();
+  
+  const created = app.employees[app.employees.length - 1];
+  res.json({ ok: true, data: created });
+});
+
+export const updateEmployee = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  const emp = app.employees.id(req.params.empId);
+  if (!emp) throw HttpError.notFound('Funcionario nao encontrado');
+
+  if (req.body.name !== undefined) emp.name = req.body.name;
+  if (req.body.roleId !== undefined) {
+    if (!app.roles.id(req.body.roleId)) throw HttpError.badRequest('Funcao invalida');
+    emp.roleId = req.body.roleId;
+  }
+  
+  await app.save();
+  res.json({ ok: true, data: emp });
+});
+
+/* ------------------------ Promoções e Combos ------------------------ */
+
+const addPromotionSchema = z.object({
+  type: z.enum(['combo', 'discount']),
+  name: z.string().min(1, 'O nome é obrigatório.').max(80),
+  description: z.string().max(240).optional().default(''),
+  promotionalPrice: z.number().min(0).max(99999),
+  targetProductId: z.string().optional(),
+  comboItems: z.array(z.string()).optional().default([]),
+  validUntil: z.string().datetime().nullable().optional(),
+  expiresOnRegisterClose: z.boolean().default(false),
+  active: z.boolean().default(true),
+});
+
+export const addPromotion = asyncHandler(async (req: Request, res: Response) => {
+  const data = addPromotionSchema.parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const newPromo = {
+    type: data.type,
+    name: data.name,
+    description: data.description,
+    promotionalPrice: data.promotionalPrice,
+    targetProductId: data.targetProductId || null,
+    comboItems: data.comboItems,
+    validUntil: data.validUntil ? new Date(data.validUntil) : null,
+    expiresOnRegisterClose: data.expiresOnRegisterClose,
+    active: data.active,
+  };
+
+  app.promotions.push(newPromo as any);
+  await app.save();
+
+  res.status(201).json({ ok: true, data: app.promotions[app.promotions.length - 1] });
+});
+
+export const updatePromotion = asyncHandler(async (req: Request, res: Response) => {
+  const data = addPromotionSchema.partial().parse(req.body);
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const promoIndex = app.promotions.findIndex((p: any) => String(p._id) === req.params.promoId);
+  if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
+
+  const promo = app.promotions[promoIndex] as any;
+
+  if (data.type !== undefined) promo.type = data.type;
+  if (data.name !== undefined) promo.name = data.name;
+  if (data.description !== undefined) promo.description = data.description;
+  if (data.promotionalPrice !== undefined) promo.promotionalPrice = data.promotionalPrice;
+  if (data.targetProductId !== undefined) promo.targetProductId = data.targetProductId || null;
+  if (data.comboItems !== undefined) promo.comboItems = data.comboItems;
+  if (data.validUntil !== undefined) promo.validUntil = data.validUntil ? new Date(data.validUntil) : null;
+  if (data.expiresOnRegisterClose !== undefined) promo.expiresOnRegisterClose = data.expiresOnRegisterClose;
+  if (data.active !== undefined) promo.active = data.active;
+
+  await app.save();
+  res.json({ ok: true, data: promo });
+});
+
+export const removePromotion = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+
+  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+  const promoIndex = app.promotions.findIndex((p: any) => String(p._id) === req.params.promoId);
+  if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
+
+  app.promotions.splice(promoIndex, 1);
+  await app.save();
+
+  res.json({ ok: true, deleted: true });
+});
+
+export const removeEmployee = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  const emp = app.employees.id(req.params.empId);
+  if (emp) {
+    emp.deleteOne();
+    await app.save();
+  }
+  res.json({ ok: true, data: { deleted: true } });
+});
+
+export const closeCashRegister = asyncHandler(async (req: Request, res: Response) => {
+  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+  if (!app) throw HttpError.notFound('App nao encontrado');
+
+  let updatedCount = 0;
+  for (const promo of app.promotions) {
+    if (promo.expiresOnRegisterClose && promo.active) {
+      promo.active = false;
+      updatedCount++;
+    }
+  }
+
+  if (updatedCount > 0) {
+    await app.save();
+  }
+
+  res.json({ ok: true, data: { deactivatedPromotions: updatedCount } });
+});

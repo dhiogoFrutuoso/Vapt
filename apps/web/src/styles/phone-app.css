@@ -1,0 +1,914 @@
+/* ==================================================================
+   FastWeb — Simulação do app dentro do celular:
+   pedido pelo site (cliente), lista do cardápio na comanda (equipe)
+   e fila de entregas (entregador).
+   ================================================================== */
+
+/* ------------------------- Abas (3 agora) -------------------------- */
+.phone__tabs button {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.phone__tab-dot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-500);
+}
+
+/* ------------- Faixa "de quem e esta tela" (topo do corpo) --------- */
+.phone__role {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ink-900);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.phone__role span {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+/* --------------------------- Cardápio ----------------------------- */
+.phone__item {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phone__item-main {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Botão de adicionar: alvo de toque grande e com a palavra escrita. */
+.phone__add-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 11px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition: filter 0.15s ease, transform 0.12s ease;
+}
+
+.phone__add-btn span {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.phone__add-btn:hover {
+  filter: brightness(1.08);
+}
+
+.phone__add-btn:active {
+  transform: scale(0.98);
+}
+
+/* Depois de adicionado vira contador, para ajustar sem sair da tela. */
+.phone__stepper {
+  display: grid;
+  grid-template-columns: 38px 1fr 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 11px;
+  background: var(--brand-50);
+  border: 1.5px solid var(--brand-300);
+}
+
+.phone__stepper button {
+  height: 32px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--brand-700);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  border: 1.5px solid var(--brand-300);
+}
+
+.phone__stepper button:hover {
+  background: var(--brand-100);
+}
+
+.phone__stepper > span {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand-700);
+}
+
+.phone__stepper strong {
+  font-size: 0.9rem;
+}
+
+/* ------------------------ Barra da sacola ------------------------- */
+.phone__cartbar {
+  background: var(--brand);
+  color: var(--on-brand);
+  box-shadow: 0 -8px 24px rgba(18, 16, 14, 0.16);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 50;
+}
+
+.phone__cartbar-items {
+  display: grid;
+  gap: 5px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 12px 16px 4px;
+  animation: cartOpen 0.22s ease;
+}
+
+@keyframes cartOpen {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.phone__cartbar-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.phone__cartbar-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  color: inherit;
+  text-align: left;
+}
+
+.phone__cartbar-info {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.phone__cartbar-info strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.phone__cartbar-info small {
+  font-size: 0.64rem;
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.phone__cartbar-total {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+/* Setinha: aponta para cima (abre) e gira para baixo (fecha). */
+.phone__chevron {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.phone__chevron::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-left: 2px solid currentColor;
+  border-top: 2px solid currentColor;
+  transform: translate(-50%, -30%) rotate(45deg);
+}
+
+.phone__chevron.is-down {
+  transform: rotate(180deg);
+}
+
+.phone__cartbar-cta {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  color: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.phone__cartbar-cta:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ------------------- Sheet: campos e variações --------------------- */
+.phone__sheet--tall {
+  max-height: 88%;
+}
+
+.phone__sheet-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-400);
+  margin: 14px 0 7px;
+}
+
+.phone__sheet-empty {
+  padding: 18px 4px;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--ink-300);
+}
+
+.phone__sheet-error {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--red-50);
+  color: var(--red-500);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.phone__sheet-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone__sheet-right button {
+  color: var(--ink-300);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.phone__sheet-btn.is-block {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 12px;
+  display: block;
+  text-align: center;
+}
+
+.phone__field {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.phone__field > label,
+.phone__field > span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.phone__field-hint {
+  font-size: 0.64rem;
+  color: var(--ink-400);
+  line-height: 1.4;
+}
+
+.phone__field input,
+.phone__field textarea {
+  width: 100%;
+  padding: 11px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.84rem;
+  /* Cor e fundo explícitos: o texto digitado nunca herda a cor da marca. */
+  color: var(--ink-900);
+  background: #fff;
+  resize: vertical;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.phone__field input::placeholder,
+.phone__field textarea::placeholder {
+  color: var(--ink-300);
+}
+
+.phone__field input:focus,
+.phone__field textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+/* --------------------- Pagamento e localização --------------------- */
+.phone__pay {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.phone__pay button {
+  display: grid;
+  gap: 2px;
+  place-items: center;
+  padding: 9px 4px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--ink-500);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.phone__pay button span {
+  font-size: 1rem;
+}
+
+.phone__pay button.is-active {
+  border-color: var(--brand);
+  background: var(--brand-50);
+  color: var(--ink-900);
+}
+
+/* Split Payment Toggle Link */
+.phone__split-toggle {
+  display: block;
+  width: 100%;
+  text-align: center;
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 16px 0 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.phone__split-toggle:hover {
+  opacity: 0.8;
+}
+
+.phone__split-toggle:active {
+  transform: scale(0.98);
+}
+
+/* Split Payment Container */
+.split-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.split-pay__row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.split-pay__select {
+  flex: 0 0 100px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-900);
+  background-color: #fff;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.split-pay__select:focus {
+  border-color: var(--brand);
+}
+
+.split-pay__input-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.split-pay__input-prefix {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-500);
+  font-size: 0.95rem;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.split-pay__input-wrapper input {
+  padding-left: 36px !important;
+  height: 100%;
+  margin: 0 !important;
+}
+
+.split-pay__remove {
+  flex: 0 0 auto;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--red-50);
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  color: var(--red-500);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease, border-color 0.2s ease;
+}
+
+.split-pay__remove:hover {
+  background: var(--red-100);
+  border-color: var(--red-200);
+}
+
+.split-pay__remove:active {
+  transform: scale(0.95);
+}
+
+.split-pay__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1.5px dashed var(--line);
+}
+
+.split-pay__add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1.5px dashed var(--brand);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.split-pay__add-btn:hover {
+  background: var(--brand-100);
+  border-color: var(--brand);
+}
+
+.split-pay__cancel-btn {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-500);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+  padding: 8px;
+  margin-right: -8px;
+}
+
+.split-pay__cancel-btn:hover {
+  color: var(--ink-900);
+  text-decoration-color: var(--line);
+}
+
+.phone__gps-btn {
+  width: 100%;
+  padding: 11px;
+  border-radius: 11px;
+  border: 1.5px dashed var(--brand);
+  background: var(--brand-50);
+  color: var(--brand-700);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.phone__gps-btn:disabled {
+  opacity: 0.6;
+}
+
+.phone__gps {
+  display: grid;
+  gap: 2px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: var(--green-50);
+  border: 1.5px solid rgba(22, 163, 74, 0.28);
+}
+
+.phone__gps strong {
+  font-size: 0.78rem;
+  color: #14532d;
+}
+
+.phone__gps span {
+  font-size: 0.7rem;
+  color: #166534;
+}
+
+/* Link "Não consigo compartilhar ou quero pedir para outro endereço" */
+.phone__manual-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-500);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  line-height: 1.4;
+}
+
+.phone__manual-toggle:hover {
+  color: var(--brand);
+}
+
+.phone__manual {
+  margin-top: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.phone__manual-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.phone__manual-row--street {
+  grid-template-columns: 2fr 1fr;
+}
+
+.phone__reference-hint {
+  margin-top: 8px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: var(--amber-50);
+  color: var(--amber-600);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* ------------------ Lista do cardápio na comanda ------------------- */
+.phone__picker {
+  display: grid;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+}
+
+.phone__picker li button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 8px 9px;
+  border-radius: 11px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  text-align: left;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.phone__picker li button:hover {
+  border-color: var(--brand);
+  background: var(--brand-50);
+}
+
+.phone__picker-emoji {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  overflow: hidden;
+}
+
+.phone__picker-emoji img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.phone__picker-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.phone__picker-text strong {
+  font-size: 0.76rem;
+  color: var(--ink-900);
+}
+
+.phone__picker-text small {
+  font-size: 0.64rem;
+  color: var(--ink-400);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone__picker-price {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.phone__picker-price em {
+  font-style: normal;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--ink-400);
+}
+
+/* ----------------------- Fila do entregador ------------------------ */
+.phone__deliveries {
+  display: grid;
+  gap: 10px;
+}
+
+.phone__delivery {
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 8px;
+}
+
+.phone__delivery.is-novo {
+  border-color: var(--brand);
+}
+
+.phone__delivery.is-entregue {
+  opacity: 0.65;
+}
+
+.phone__delivery header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.phone__delivery header strong {
+  font-size: 0.86rem;
+  color: var(--ink-900);
+}
+
+.phone__delivery-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-500);
+}
+
+.phone__delivery-badge.is-novo {
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+
+.phone__delivery-badge.is-aceito {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.phone__delivery-badge.is-a_caminho {
+  background: #fffbeb;
+  color: var(--amber-600);
+}
+
+.phone__delivery-badge.is-entregue {
+  background: var(--green-50);
+  color: #15803d;
+}
+
+.phone__delivery-client {
+  font-size: 0.7rem;
+  color: var(--ink-400);
+  font-weight: 600;
+}
+
+.phone__delivery-items {
+  display: grid;
+  gap: 3px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+}
+
+.phone__delivery-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--ink-700);
+}
+
+.phone__delivery-pay {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.phone__delivery-pay strong {
+  font-size: 1rem;
+  color: var(--ink-900);
+}
+
+.phone__delivery-pay span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--green-500);
+  text-align: right;
+}
+
+.phone__delivery-address {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.phone__delivery-mode {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-400);
+}
+
+.phone__delivery-address strong {
+  font-size: 0.74rem;
+  color: var(--ink-900);
+}
+
+.phone__delivery-address span {
+  font-size: 0.68rem;
+  color: var(--ink-500);
+}
+
+.phone__delivery-reference {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--amber-50);
+  color: var(--amber-600);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+
+.phone__delivery-reference strong {
+  font-weight: 800;
+}
+
+.phone__delivery-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.phone__delivery-actions .phone__sheet-btn {
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  padding: 10px 6px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.phone__flash--float {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  box-shadow: var(--shadow);
+}
+
+/* --------------- Telefone do cliente (card do entregador) ---------- */
+.phone__delivery-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(37, 211, 102, 0.12);
+  color: #0f7a3d;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.phone__delivery-phone:hover {
+  background: rgba(37, 211, 102, 0.2);
+}
+
+/* --------------------- Mapa Interativo (MapPicker) --------------------- */
+.map-picker-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-picker-header {
+  padding: 16px;
+  background: #fff;
+  border-bottom: 1.5px solid var(--line);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  z-index: 2;
+}
+
+.map-picker-header h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.map-picker-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-500);
+  line-height: 1.4;
+}
+
+.map-picker-body {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  background: var(--ink-100);
+}
+
+.map-picker-footer {
+  padding: 16px;
+  background: #fff;
+  border-top: 1.5px solid var(--line);
+  display: flex;
+  gap: 12px;
+  z-index: 2;
+}
+
+.map-picker-footer button {
+  flex: 1;
+}
