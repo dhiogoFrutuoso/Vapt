@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
-import { getImageUrl } from '../../../lib/api';
+import { getImageUrl } from '../../lib/api';
 import { CategoryGrid } from './CategoryGrid';
 import { MoneyInput } from './MoneyInput';
 import { IconRenderer } from '../IconRenderer';

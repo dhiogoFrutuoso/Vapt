@@ -1,5 +1,5 @@
 import { demo } from '../../data/content';
-import { getImageUrl } from '../../../lib/api';
+import { getImageUrl } from '../../lib/api';
 import type { CategoryItem, PreviewProduct } from './types';
 
 type Props = {
