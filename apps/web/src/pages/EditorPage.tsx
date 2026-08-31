@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { api, type AppProjectFull } from '../lib/api';
+import { api, getImageUrl, type AppProjectFull } from '../lib/api';
 import { EditorPreview } from '../components/EditorPreview';
 import type { DeliveryOrder, PreviewProduct, PreviewTable } from '../components/phone/types';
 import { useConfirm } from '../components/ConfirmModal';
@@ -62,7 +62,7 @@ export function EditorPage() {
         setAppName(data.name);
         setTagline(data.brand.tagline || '');
         setPrimaryColor(data.brand.primaryColor || '#FF6B2C');
-        setLogoUrl(data.brand.logo ? `/api/images/${data.brand.logo}` : null);
+        setLogoUrl(getImageUrl(data.brand.logo));
         
         if (data.categories && data.categories.length > 0) {
           setProdCategory(data.categories[0].name);
@@ -164,7 +164,7 @@ export function EditorPage() {
   function startCategoryEdit(category: { _id: string; name: string; image: string | null }) {
     setEditingCatId(category._id);
     setNewCat(category.name);
-    setCatImage(category.image ? `/api/images/${category.image}` : null);
+    setCatImage(getImageUrl(category.image));
   }
 
   function cancelCategoryEdit() {
@@ -262,7 +262,7 @@ export function EditorPage() {
     setProdPrice(p.price.toString().replace('.', ','));
     setProdCategory(p.category || app?.categories?.[0]?.name || '');
     setProdFeatured(p.isFeatured || false);
-    setProdImage(p.image ? `/api/images/${p.image}` : null);
+    setProdImage(getImageUrl(p.image));
   }
 
   function resetProdForm() {
@@ -412,7 +412,7 @@ export function EditorPage() {
       price: p.price,
       category: p.category,
       isFeatured: p.isFeatured,
-      imageUrl: p.image ? `/api/images/${p.image}` : null,
+      imageUrl: getImageUrl(p.image),
       emoji: ''
     }));
   }, [app]);
@@ -505,7 +505,7 @@ export function EditorPage() {
                       style={{ padding: '10px 14px', borderRadius: '10px', backgroundColor: "var(--ep-bg)", border: emEdicao ? "1px solid #3b82f6" : (isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid var(--ep-border)"), display: 'flex', alignItems: 'center', gap: '12px', boxShadow: isDark ? 'none' : '0 2px 4px rgba(0,0,0,0.02)' }}
                     >
                       {c.image
-                        ? <img src={`/api/images/${c.image}`} alt="" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
+                        ? <img src={getImageUrl(c.image) || undefined} alt="" style={{ width: '32px', height: '32px', borderRadius: '8px', objectFit: 'cover' }} />
                         : <span style={{ width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "var(--ep-panel)", color: "#9ca3af" }}><Utensils size={16} /></span>}
                       
                       <span style={{ flex: 1, fontSize: '0.95rem', fontWeight: 500, color: 'var(--ep-text)' }}>

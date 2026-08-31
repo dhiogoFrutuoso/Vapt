@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Product, Promotion, Category } from '../lib/api';
+import { getImageUrl } from '../lib/api';
 import { FiX, FiClock, FiCalendar, FiTag, FiBox, FiTrash2 } from 'react-icons/fi';
 
 type PromotionsModalProps = {
@@ -130,7 +131,7 @@ export function PromotionsModal({ isOpen, onClose, onSave, products = [], catego
     padding: '12px 14px',
     borderRadius: '8px',
     border: '1px solid var(--ep-border, #333)',
-    backgroundColor: 'var(--ep-bg, #1e1e1e)',
+    backgroundColor: 'var(--ep-bg, #111)',
     color: 'var(--ep-text, #fff)',
     fontSize: '0.95rem',
     outline: 'none'
@@ -364,7 +365,7 @@ export function PromotionsModal({ isOpen, onClose, onSave, products = [], catego
 
                                       <div className="phone__thumb" style={{ backgroundColor: 'var(--ep-border, #333)' }}>
                                         {p.image ? (
-                                          <img src={`/api/images/${p.image}`} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                          <img src={getImageUrl(p.image) || undefined} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
                                           <span className="phone__product-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '1.5rem' }}>
                                             🍽️

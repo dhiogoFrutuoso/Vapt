@@ -3,6 +3,7 @@ import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { CategoryGrid } from './CategoryGrid';
 import { ProductRow, countInList } from './ProductRow';
+import { getImageUrl } from '../../lib/api';
 import type { CategoryItem, OrderItem, PreviewProduct, PreviewPromotion } from './types';
 
 type Props = {
@@ -125,7 +126,7 @@ export function MenuView({
             <header className="cat-header">
               <span className="cat-header__media">
                 {selectedCategory.image ? (
-                  <img src={`/api/images/${selectedCategory.image}`} alt="" />
+                  <img src={getImageUrl(selectedCategory.image) || undefined} alt="" />
                 ) : (
                   <span aria-hidden="true">🍽️</span>
                 )}

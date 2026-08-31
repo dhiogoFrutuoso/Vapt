@@ -1,4 +1,5 @@
 import { demo } from '../../data/content';
+import { getImageUrl } from '../../../lib/api';
 import type { CategoryItem, PreviewProduct } from './types';
 
 type Props = {
@@ -33,13 +34,15 @@ export function CategoryGrid({ categories, products, onSelect, compact = false }
             aria-label={`Abrir a categoria ${category.name}`}
           >
             <span className="cat-card__media">
-              {category.image ? (
-                <img src={`/api/images/${category.image}`} alt="" />
-              ) : (
-                <span className="cat-card__placeholder" aria-hidden="true">
-                  🍽️
-                </span>
-              )}
+              <div className="phone__category-thumb">
+                {category.image ? (
+                  <img src={getImageUrl(category.image) || undefined} alt="" />
+                ) : (
+                  <span className="cat-card__placeholder" aria-hidden="true">
+                    🍽️
+                  </span>
+                )}
+              </div>
               <span className="cat-card__badge">{copy.categoryCount(count)}</span>
             </span>
 

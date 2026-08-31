@@ -2,6 +2,11 @@
 
 const BASE_URL = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '');
 
+export function getImageUrl(id: string | null | undefined): string | null {
+  if (!id) return null;
+  return `${BASE_URL}/images/${id}`;
+}
+
 export type ApiResponse<T> = {
   ok: boolean;
   data?: T;

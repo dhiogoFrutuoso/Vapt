@@ -90,7 +90,7 @@ const userSchema = new Schema(
 
 /** URL da foto para o front consumir direto no <img src>. */
 userSchema.virtual('photoUrl').get(function photoUrl(this: { photo?: Types.ObjectId | null }) {
-  return this.photo ? `/api/images/${String(this.photo)}` : null;
+  return this.photo ? `${env.publicUrl}/api/images/${String(this.photo)}` : null;
 });
 
 userSchema.methods.comparePassword = function comparePassword(this: { passwordHash?: string }, plain: string) {

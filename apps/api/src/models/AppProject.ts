@@ -1,4 +1,5 @@
 import { Schema, model, type InferSchemaType, type Types } from 'mongoose';
+import { env } from '../config/env.js';
 
 /**
  * O "aplicativo" que o dono monta no painel — o que aparece em "Meus Aplicativos".
@@ -171,7 +172,7 @@ appProjectSchema.methods.toSummary = function toSummary(this: Record<string, unk
     status: this.status,
     selectedPlan: this.selectedPlan,
     primaryColor: brand.primaryColor ?? '#FF6B2C',
-    logoUrl: brand.logo ? `/api/images/${String(brand.logo)}` : null,
+    logoUrl: brand.logo ? `${env.publicUrl}/api/images/${String(brand.logo)}` : null,
     productCount: Array.isArray(this.products) ? this.products.length : 0,
     tableCount: Array.isArray(this.tables) ? this.tables.length : 0,
     updatedAt: this.updatedAt,

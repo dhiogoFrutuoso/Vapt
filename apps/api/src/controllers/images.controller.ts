@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { Image } from '../models/Image.js';
 import { HttpError } from '../utils/httpError.js';
+import { env } from '../config/env.js';
 
 /**
  * GET /api/images/:id
@@ -65,7 +66,7 @@ export const imageMeta = asyncHandler(async (req: Request, res: Response) => {
       width: image.width,
       height: image.height,
       bytes: image.bytes,
-      url: `/api/images/${String(image._id)}`,
+      url: `${env.publicUrl}/api/images/${String(image._id)}`,
       createdAt: image.createdAt,
     },
   });

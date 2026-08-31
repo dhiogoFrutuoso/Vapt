@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { auth, site } from '../data/content';
 import { useAuth } from '../context/AuthContext';
-import { api, type AppSummary, type AppProjectFull } from '../lib/api';
+import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
 import { Plus, Trash2, LogOut, Store, Search, LayoutDashboard, Settings, Edit3, Image as ImageIcon, Users, Shield, KeySquare, Save, Phone } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
@@ -122,7 +122,7 @@ export function DashboardPage() {
       setFormName(data.name);
       setFormTagline(data.brand?.tagline || '');
       setFormPrimaryColor(data.brand?.primaryColor || '#FF6B2C');
-      setFormLogoUrl(data.brand?.logo ? `/api/images/${data.brand.logo}` : null);
+      setFormLogoUrl(getImageUrl(data.brand?.logo));
       setFormLogoBase64(null);
       setFormWhatsapp(data.delivery?.whatsapp || '');
       if (data.roles?.length > 0) {

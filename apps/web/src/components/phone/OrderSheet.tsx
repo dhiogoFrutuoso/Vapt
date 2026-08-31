@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
+import { getImageUrl } from '../../../lib/api';
 import { CategoryGrid } from './CategoryGrid';
 import { MoneyInput } from './MoneyInput';
 import { IconRenderer } from '../IconRenderer';
@@ -120,7 +121,7 @@ export function OrderSheet({
           aria-label={`Lançar ${product.name} em ${ticket.title}`}
         >
           <span className="phone__picker-icon" aria-hidden="true">
-            {product.imageUrl ? <img src={product.imageUrl} alt="" /> : <IconRenderer name={product.iconName} size={20} />}
+            {product.imageUrl ? <img src={getImageUrl(product.imageUrl) || undefined} alt="" /> : <IconRenderer name={product.iconName} size={20} />}
           </span>
           <span className="phone__picker-text">
             <strong>{product.name}</strong>
@@ -170,7 +171,7 @@ export function OrderSheet({
               <header className="cat-header cat-header--sheet">
                 <span className="cat-header__media">
                   {selectedCategory.image ? (
-                    <img src={`/api/images/${selectedCategory.image}`} alt="" />
+                    <img src={getImageUrl(selectedCategory.image) || undefined} alt="" />
                   ) : (
                     <span aria-hidden="true">🍽️</span>
                   )}

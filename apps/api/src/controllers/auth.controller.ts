@@ -91,7 +91,7 @@ function publicUser(user: {
     phone: user.phone ?? '',
     role: user.role,
     status: user.status,
-    photoUrl: user.photo ? `/api/images/${String(user.photo)}` : null,
+    photoUrl: user.photo ? `${env.publicUrl}/api/images/${String(user.photo)}` : null,
     address: user.address ?? null,
     createdAt: user.createdAt ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
