@@ -225,7 +225,7 @@ export function DemoBuilder() {
         tables: tables.map((t) => ({ label: t.label, seats: t.seats, area: t.area })),
       });
       setResult({ code: created.code, slug: created.slug, offline: false });
-    } catch (err) {
+    } catch (err: any) {
       const message = err instanceof ApiError ? err.message : 'Não conseguimos salvar agora.';
       setError(message);
       setResult({ code: localCode(), slug: 'demonstracao', offline: true });

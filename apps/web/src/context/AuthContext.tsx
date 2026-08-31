@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.me();
       setUser(data.user);
-    } catch (error) {
+    } catch (error: any) {
       // 401 é resposta esperada para visitante sem sessão: não é erro de verdade.
       if (!(error instanceof ApiError) || error.status !== 401) {
         console.warn('[auth] Não foi possível verificar a sessão:', error);

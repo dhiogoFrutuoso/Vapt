@@ -184,7 +184,7 @@ export function EditorPage() {
       onConfirm: async () => {
         try {
           await api.removeCategory(app._id, categoryId);
-          const newCats = app.categories.filter(c => c._id !== categoryId);
+          const newCats = app.categories.filter((c: any) => c._id !== categoryId);
           setApp({ ...app, categories: newCats });
           if (prodCategory === catName) setProdCategory(newCats[0]?.name || '');
           if (editingCatId === categoryId) cancelCategoryEdit();
@@ -235,7 +235,7 @@ export function EditorPage() {
           isFeatured: prodFeatured,
           imageBase64: prodImage && prodImage.startsWith('data:') ? prodImage.split(',')[1] : undefined
         });
-        setApp({ ...app, products: app.products.map(p => p._id === editingProductId ? updatedProd : p) });
+        setApp({ ...app, products: app.products.map((p: any) => p._id === editingProductId ? updatedProd : p) });
       } else {
         const newProd = await api.addProduct(app._id, {
           name: prodName,
@@ -285,7 +285,7 @@ export function EditorPage() {
       onConfirm: async () => {
         try {
           await api.removeProduct(app._id, productId);
-          setApp({ ...app, products: app.products.filter(p => p._id !== productId) });
+          setApp({ ...app, products: app.products.filter((p: any) => p._id !== productId) });
           if (editingProductId === productId) resetProdForm();
         } catch (err) {
           alert('Erro ao excluir produto.');
@@ -305,8 +305,8 @@ export function EditorPage() {
           seats: parseInt(tableSeats, 10),
           area: tableArea,
         });
-        setApp({ ...app, tables: app.tables.map(t => t._id === editingTableId ? updatedTable : t) });
-        setLiveTables(liveTables.map(t => t.id === editingTableId ? { ...t, label: updatedTable.label, seats: updatedTable.seats, area: updatedTable.area } : t));
+        setApp({ ...app, tables: app.tables.map((t: any) => t._id === editingTableId ? updatedTable : t) });
+        setLiveTables(liveTables.map((t: any) => t.id === editingTableId ? { ...t, label: updatedTable.label, seats: updatedTable.seats, area: updatedTable.area } : t));
       } else {
         const newTable = await api.addTable(app._id, {
           label: tableLabel,
@@ -354,8 +354,8 @@ export function EditorPage() {
       onConfirm: async () => {
         try {
           await api.removeTable(app._id, tableId);
-          setApp({ ...app, tables: app.tables.filter(t => t._id !== tableId) });
-          setLiveTables(liveTables.filter(t => t.id !== tableId));
+          setApp({ ...app, tables: app.tables.filter((t: any) => t._id !== tableId) });
+          setLiveTables(liveTables.filter((t: any) => t.id !== tableId));
           if (editingTableId === tableId) resetTableForm();
         } catch (err) {
           alert('Erro ao excluir mesa');
@@ -368,7 +368,7 @@ export function EditorPage() {
     if (!app) return;
     if (editingPromo) {
       const updated = await api.updatePromotion(app._id, editingPromo._id, promoData);
-      setApp({ ...app, promotions: app.promotions.map(p => p._id === editingPromo._id ? updated : p) });
+      setApp({ ...app, promotions: app.promotions.map((p: any) => p._id === editingPromo._id ? updated : p) });
     } else {
       const newPromo = await api.addPromotion(app._id, promoData);
       setApp({ ...app, promotions: [...(app.promotions || []), newPromo] });
@@ -385,7 +385,7 @@ export function EditorPage() {
       onConfirm: async () => {
         try {
           await api.removePromotion(app._id, promoId);
-          setApp({ ...app, promotions: app.promotions.filter(p => p._id !== promoId) });
+          setApp({ ...app, promotions: app.promotions.filter((p: any) => p._id !== promoId) });
         } catch (err) {
           alert('Erro ao excluir promoção');
         }
@@ -397,7 +397,7 @@ export function EditorPage() {
     if (!app) return;
     try {
       const updated = await api.updatePromotion(app._id, promoId, { active: !currentStatus });
-      setApp({ ...app, promotions: app.promotions.map(p => p._id === promoId ? updated : p) });
+      setApp({ ...app, promotions: app.promotions.map((p: any) => p._id === promoId ? updated : p) });
     } catch (err) {
       alert('Erro ao alterar status da promoção');
     }
@@ -405,7 +405,7 @@ export function EditorPage() {
 
   const previewProducts = useMemo<PreviewProduct[]>(() => {
     if (!app) return [];
-    return app.products.map(p => ({
+    return app.products.map((p: any) => ({
       id: p._id,
       name: p.name,
       description: p.description,
@@ -496,9 +496,9 @@ export function EditorPage() {
               </form>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {app.categories?.map(c => {
+                {app.categories?.map((c: any) => {
                   const emEdicao = editingCatId === c._id;
-                  const itens = app.products.filter(p => p.category === c.name).length;
+                  const itens = app.products.filter((p: any) => p.category === c.name).length;
                   return (
                     <div
                       key={c._id}
@@ -549,7 +549,7 @@ export function EditorPage() {
                   </div>
                   
                   <select required value={prodCategory} onChange={e => setProdCategory(e.target.value)} className="ep-input">
-                    {app.categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                    {app.categories.map((c: any) => <option key={c._id} value={c.name}>{c.name}</option>)}
                   </select>
                   
                   <textarea placeholder="Descrição breve (opcional)" value={prodDesc} onChange={e => setProdDesc(e.target.value)} rows={2} className="ep-input" />
@@ -575,7 +575,7 @@ export function EditorPage() {
             </form>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {app.products.map(p => (
+              {app.products.map((p: any) => (
                 <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid var(--ep-border)", borderRadius: '10px', backgroundColor: "var(--ep-bg)", boxShadow: isDark ? 'none' : '0 2px 4px rgba(0,0,0,0.02)' }}>
                   <div>
                     <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--ep-text)" }}>{p.isFeatured && <Star size={14} fill="#f59e0b" color="#f59e0b" style={{ marginRight: "4px", verticalAlign: "middle" }} /> }{p.name}</strong>
@@ -611,7 +611,7 @@ export function EditorPage() {
               {app.promotions?.length === 0 && (
                 <p style={{ color: 'var(--ep-label)', fontSize: '0.9rem' }}>Nenhuma promoção ativa no momento.</p>
               )}
-              {app.promotions?.map(p => (
+              {app.promotions?.map((p: any) => (
                 <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid var(--ep-border)", borderRadius: '10px', backgroundColor: "var(--ep-bg)" }}>
                   <div>
                     <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--ep-text)" }}>{p.name}</strong>
@@ -716,7 +716,7 @@ export function EditorPage() {
             </form>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {app.tables.map(t => (
+              {app.tables.map((t: any) => (
                 <div key={t._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid var(--ep-border)", borderRadius: '10px', backgroundColor: "var(--ep-bg)", boxShadow: isDark ? 'none' : '0 2px 4px rgba(0,0,0,0.02)' }}>
                   <div>
                     <strong style={{ display: "block", fontSize: "0.95rem", color: "var(--ep-text)" }}>Mesa {t.label}</strong>

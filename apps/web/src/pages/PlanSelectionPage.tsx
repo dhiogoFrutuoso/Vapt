@@ -72,12 +72,12 @@ export function PlanSelectionPage() {
             </div>
             
             <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', flex: 1 }}>
-              {plan.features.map((feature, i) => (
+              {plan.features.map((feature: any, i: any) => (
                 <li key={i} style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem' }}>
                   <span style={{ color: '#22c55e' }}>✓</span> {feature}
                 </li>
               ))}
-              {plan.notIncluded.map((feature, i) => (
+              {plan.notIncluded.map((feature: any, i: any) => (
                 <li key={`not-${i}`} style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <span>✗</span> {feature}
                 </li>

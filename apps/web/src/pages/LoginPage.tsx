@@ -42,7 +42,7 @@ export function LoginPage() {
     try {
       await login({ identifier: identifier.trim(), password });
       navigate(plan ? `/painel?plano=${encodeURIComponent(plan)}` : from, { replace: true });
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof ApiError) {
         setError(err.message);
         setFieldErrors(err.fieldErrors());

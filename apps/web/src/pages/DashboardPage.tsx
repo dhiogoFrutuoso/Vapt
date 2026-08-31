@@ -215,7 +215,7 @@ export function DashboardPage() {
       onConfirm: async () => {
         try {
           await api.removeRole(fullApp._id, roleId);
-          setFullApp({ ...fullApp, roles: fullApp.roles.filter(r => r._id !== roleId) });
+          setFullApp({ ...fullApp, roles: fullApp.roles.filter((r: any) => r._id !== roleId) });
         } catch(err) {
           alert('Erro ao remover função');
         }
@@ -248,7 +248,7 @@ export function DashboardPage() {
       onConfirm: async () => {
         try {
           await api.removeEmployee(fullApp._id, empId);
-          setFullApp({ ...fullApp, employees: fullApp.employees.filter(e => e._id !== empId) });
+          setFullApp({ ...fullApp, employees: fullApp.employees.filter((e: any) => e._id !== empId) });
         } catch(err) {
           alert('Erro ao remover funcionário');
         }
@@ -564,12 +564,12 @@ export function DashboardPage() {
                         </form>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {fullApp.roles?.length > 0 ? fullApp.roles.map(r => (
+                          {fullApp.roles?.length > 0 ? fullApp.roles.map((r: any) => (
                             <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#334155' }}>{r.name}</span>
                                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                    {r.permissions?.map(p => (
+                                    {r.permissions?.map((p: any) => (
                                       <span key={p} style={{ backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', textTransform: 'capitalize' }}>
                                         {PERMISSIONS.find(perm => perm.id === p)?.label || p}
                                       </span>
@@ -591,15 +591,15 @@ export function DashboardPage() {
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <select value={newEmpRoleId} onChange={e => setNewEmpRoleId(e.target.value)} required style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}>
                               <option value="" disabled>Selecione a função</option>
-                              {fullApp.roles?.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                              {fullApp.roles?.map((r: any) => <option key={r._id} value={r._id}>{r.name}</option>)}
                             </select>
                             <button type="submit" disabled={isAddingEmp || !newEmpRoleId} style={{ padding: '10px 14px', background: '#FF6B2C', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', opacity: (!newEmpRoleId) ? 0.5 : 1 }}>Adicionar</button>
                           </div>
                         </form>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {fullApp.employees?.length > 0 ? fullApp.employees.map(emp => {
-                            const role = fullApp.roles?.find(r => r._id === emp.roleId);
+                          {fullApp.employees?.length > 0 ? fullApp.employees.map((emp: any) => {
+                            const role = fullApp.roles?.find((r: any) => r._id === emp.roleId);
                             return (
                               <div key={emp._id} style={{ padding: '12px', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

@@ -174,14 +174,14 @@ export function RegisterPage() {
       await register(formData);
 
       navigate(plan ? `/painel?plano=${encodeURIComponent(plan)}` : '/painel', { replace: true });
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof ApiError) {
         setError(err.message);
         const errors = err.fieldErrors();
         // Erros do servidor vêm como "address.city": normalizamos para o nome do campo.
         const normalized: Record<string, string> = {};
         for (const [key, message] of Object.entries(errors)) {
-          normalized[key.replace('address.', '')] = message;
+          normalized[key.replace('address.', '')] = message as string;
         }
         setFieldErrors(normalized);
 
