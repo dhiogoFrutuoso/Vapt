@@ -352,9 +352,12 @@ export const api = {
   updateMe: (input: Partial<AuthUser>) => request<{ user: AuthUser }>('/auth/me', { method: 'PATCH', body: JSON.stringify(input) }),
 
   /* Apps */
-  getApps: () => request<AppSummary[]>('/apps'),
+  getApps: (targetUserId?: string) => {
+    const query = targetUserId ? `?targetUserId=${encodeURIComponent(targetUserId)}` : '';
+    return request<AppSummary[]>(`/apps${query}`);
+  },
   getApp: (id: string) => request<AppProjectFull>(`/apps/${id}`),
-  createApp: (input: { name: string; businessType: string; appPlanType: string }) => 
+  createApp: (input: { name: string; businessType: string; appPlanType: string; targetUserId?: string }) => 
     request<AppSummary>('/apps', { method: 'POST', body: JSON.stringify(input) }),
   deleteApp: (id: string) => 
     request<{ deleted: true }>(`/apps/${id}`, { method: 'DELETE' }),

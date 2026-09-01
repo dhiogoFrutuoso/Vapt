@@ -19,7 +19,12 @@ export function DashboardPage() {
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const userPlan = (user?.plan || '').toLowerCase().trim();
+  const editUserId = searchParams.get('editUserId');
+  const targetPlan = searchParams.get('plan');
+  
+  // Se for admin em modo edição, o plano efetivo é o plano passado na URL
+  const effectivePlan = (user?.isAdmin && editUserId && targetPlan !== null) ? targetPlan : (user?.plan || '');
+  const userPlan = effectivePlan.toLowerCase().trim();
   const hasCompleto = userPlan.includes('completo') || userPlan.includes('master');
   const hasDelivery = hasCompleto || userPlan.includes('delivery');
   const hasSalao = hasCompleto || userPlan.includes('salão') || userPlan.includes('salao') || userPlan.includes('sal\u00e3o');
@@ -69,7 +74,8 @@ export function DashboardPage() {
   useEffect(() => {
     async function loadApps() {
       try {
-        const data = await api.getApps();
+        const target = (user?.isAdmin && editUserId) ? editUserId : undefined;
+        const data = await api.getApps(target);
         setApps(data);
       } catch (err) {
         console.error(err);
@@ -114,7 +120,8 @@ export function DashboardPage() {
       const newApp = await api.createApp({
         name: newAppName.trim(),
         businessType: 'restaurante',
-        appPlanType: finalAppPlanType
+        appPlanType: finalAppPlanType,
+        targetUserId: (user?.isAdmin && editUserId) ? editUserId : undefined
       });
       resetCreateModal();
       navigate(`/painel/app/${newApp.id}`);
@@ -332,6 +339,13 @@ export function DashboardPage() {
       </header>
 
       <main className="container dash__main" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
+        {user?.isAdmin && editUserId && (
+          <div style={{ backgroundColor: '#FFF0EC', color: '#F95D2A', padding: '12px 20px', borderRadius: '12px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '600', border: '1px solid rgba(249, 93, 42, 0.2)' }}>
+            <Shield size={20} />
+            <span>Modo Edição: Gerenciando aplicativos do cliente (ID: {editUserId.slice(-6)})</span>
+            <Link to="/admin" style={{ marginLeft: 'auto', color: '#F95D2A', textDecoration: 'underline', fontSize: '0.9rem' }}>Voltar ao Admin</Link>
+          </div>
+        )}
         <div className="dash__greeting" style={{ marginBottom: '3rem' }}>
           <h1 style={{ fontSize: '2.2rem', fontWeight: '800', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#111' }}>
             <LayoutDashboard size={32} color="#F95D2A" />

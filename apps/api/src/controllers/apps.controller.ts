@@ -13,11 +13,16 @@ const createAppSchema = z.object({
   name: z.string().min(1, 'Informe o nome do aplicativo.').max(80),
   businessType: z.enum(['restaurante', 'bar', 'lanchonete', 'pizzaria', 'cafeteria', 'mercado']).default('restaurante'),
   appPlanType: z.enum(['TESTE_DELIVERY', 'TESTE_SALAO', 'TESTE_COMPLETO', 'OFICIAL_DELIVERY', 'OFICIAL_SALAO', 'OFICIAL_COMPLETO']),
+  targetUserId: z.string().optional(),
 });
 
 export const createApp = asyncHandler(async (req: Request, res: Response) => {
-  const { name, businessType, appPlanType } = createAppSchema.parse(req.body);
-  const ownerId = req.user!.id;
+  const { name, businessType, appPlanType, targetUserId } = createAppSchema.parse(req.body);
+  let ownerId = req.user!.id;
+  
+  if (req.user!.isAdmin && targetUserId) {
+    ownerId = targetUserId;
+  }
 
   const slug = await uniqueSlug(name, async (s) => {
     const exists = await AppProject.exists({ slug: s });
@@ -38,7 +43,10 @@ export const createApp = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const listApps = asyncHandler(async (req: Request, res: Response) => {
-  const apps = await AppProject.find({ owner: req.user!.id }).sort({ updatedAt: -1 });
+  const targetUserId = req.query.targetUserId as string | undefined;
+  const ownerId = (req.user!.isAdmin && targetUserId) ? targetUserId : req.user!.id;
+  
+  const apps = await AppProject.find({ owner: ownerId }).sort({ updatedAt: -1 });
   res.json({ ok: true, data: apps.map((a) => (a as any).toSummary()) });
 });
 
