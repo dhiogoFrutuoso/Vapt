@@ -110,8 +110,10 @@ export function EditorPreview({
   promotions = [],
   onCloseRegister,
 }: Props) {
-  const [view, setView] = useState<View>('menu');
-  const [receptionTab, setReceptionTab] = useState<ReceptionTab>('pedidos');
+  const [view, setView] = useState<View>(showDeliveryTab ? 'menu' : 'salao');
+  const [receptionTab, setReceptionTab] = useState<ReceptionTab>(
+    showRoomTab && !showDeliveryTab ? 'caixa' : 'pedidos'
+  );
 
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -482,29 +484,31 @@ export function EditorPreview({
 
         {view === 'recepcao' && (
           <>
-            <div className="team-tabs" role="tablist" aria-label="Recepção">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={receptionTab === 'pedidos'}
-                className={receptionTab === 'pedidos' ? 'is-active' : ''}
-                onClick={() => setReceptionTab('pedidos')}
-              >
-                🎧 Pedidos
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={receptionTab === 'caixa'}
-                className={receptionTab === 'caixa' ? 'is-active' : ''}
-                onClick={() => setReceptionTab('caixa')}
-              >
-                💰 {demo.preview.teamTabs.cash}
-                {cashEntries.length > 0 && <span className="team-tabs__count">{cashEntries.length}</span>}
-              </button>
-            </div>
+            {showRoomTab && showDeliveryTab && (
+              <div className="team-tabs" role="tablist" aria-label="Recepção">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={receptionTab === 'pedidos'}
+                  className={receptionTab === 'pedidos' ? 'is-active' : ''}
+                  onClick={() => setReceptionTab('pedidos')}
+                >
+                  🎧 Pedidos
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={receptionTab === 'caixa'}
+                  className={receptionTab === 'caixa' ? 'is-active' : ''}
+                  onClick={() => setReceptionTab('caixa')}
+                >
+                  💰 {demo.preview.teamTabs.cash}
+                  {cashEntries.length > 0 && <span className="team-tabs__count">{cashEntries.length}</span>}
+                </button>
+              </div>
+            )}
 
-            {receptionTab === 'pedidos' ? (
+            {(!showRoomTab || receptionTab === 'pedidos') && showDeliveryTab ? (
               <>
                 <ReceptionView 
                   deliveries={deliveries} 
@@ -600,8 +604,8 @@ export function EditorPreview({
         )}
       </div>
 
-      {showRoomTab && (
-        <div className="phone__tabs" role="tablist" aria-label="Visões do aplicativo">
+      <div className="phone__tabs" role="tablist" aria-label="Visões do aplicativo">
+        {showDeliveryTab && (
           <button
             type="button"
             role="tab"
@@ -611,6 +615,9 @@ export function EditorPreview({
           >
             🛵 {demo.preview.tabMenu}
           </button>
+        )}
+        
+        {showRoomTab && (
           <button
             type="button"
             role="tab"
@@ -620,31 +627,36 @@ export function EditorPreview({
           >
             🪑 {demo.preview.tabRoom}
           </button>
+        )}
+        
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'recepcao'}
+          className={view === 'recepcao' ? 'is-active' : ''}
+          onClick={() => {
+            setView('recepcao');
+            if (showRoomTab && !showDeliveryTab) setReceptionTab('caixa');
+            else if (!showRoomTab && showDeliveryTab) setReceptionTab('pedidos');
+          }}
+        >
+          {showRoomTab && !showDeliveryTab ? '💰 Caixa' : '🎧 Recepção'}
+          {showDeliveryTab && deliveries.filter(d => d.status === 'novo').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
+        </button>
+
+        {showDeliveryTab && (
           <button
             type="button"
             role="tab"
-            aria-selected={view === 'recepcao'}
-            className={view === 'recepcao' ? 'is-active' : ''}
-            onClick={() => setView('recepcao')}
+            aria-selected={view === 'entrega'}
+            className={view === 'entrega' ? 'is-active' : ''}
+            onClick={() => setView('entrega')}
           >
-            🎧 Recepção
-            {deliveries.filter(d => d.status === 'novo').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
+            🛵 {demo.preview.tabDelivery}
+            {deliveries.filter(d => d.status === 'aceito' || d.status === 'a_caminho').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
           </button>
-
-          {showDeliveryTab && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'entrega'}
-              className={view === 'entrega' ? 'is-active' : ''}
-              onClick={() => setView('entrega')}
-            >
-              🛵 {demo.preview.tabDelivery}
-              {deliveries.filter(d => d.status === 'aceito' || d.status === 'a_caminho').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
