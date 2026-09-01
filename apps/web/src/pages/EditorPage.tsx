@@ -274,6 +274,7 @@ export function EditorPage() {
     setProdDesc('');
     setProdPrice('');
       setProdPricingType('unit');
+      setProdPricingType('unit');
     setProdFeatured(false);
     setProdImage(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -432,7 +433,7 @@ export function EditorPage() {
   const isDark = editorTheme === 'escuro';
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", backgroundColor: "var(--ep-bg)", color: "var(--ep-text)", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden", backgroundColor: "var(--ep-bg)", color: "var(--ep-text)", fontFamily: "Inter, system-ui, sans-serif" }}>
       
       {/* HEADER BAR */}
       <header className="editor-topbar" style={{ padding: "16px 32px", backgroundColor: "var(--ep-sidebar)", borderBottom: "1px solid var(--ep-border)", boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
@@ -460,7 +461,7 @@ export function EditorPage() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }} className="editor-workspace">
         
         {/* SIDEBAR */}
-        <aside style={{ width: '420px', backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flexShrink: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
+        <aside style={{ width: '420px', backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0, flexShrink: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
           
           {/* Cardápio e Categorias */}
           <div style={{ padding: "32px 24px", borderBottom: "1px solid var(--ep-border)" }}>
@@ -477,7 +478,7 @@ export function EditorPage() {
                 <div
                   onClick={() => catFileInputRef.current?.click()}
                   title="Foto da categoria"
-                  style={{ width: '42px', height: '42px', borderRadius: '8px', border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed var(--ep-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: 'pointer', backgroundColor: "var(--ep-panel)", flexShrink: 0 }}
+                  style={{ width: '42px', height: '42px', borderRadius: '8px', border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed var(--ep-border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer', backgroundColor: "var(--ep-panel)", flexShrink: 0 }}
                 >
                   {catImage ? <img src={catImage} alt="Foto da categoria" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera size={20} color="#94a3b8" />}
                 </div>
@@ -740,7 +741,7 @@ export function EditorPage() {
         {/* PREVIEW CONTAINER */}
         <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'center', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
           
-          <div style={{ width: '100%', maxWidth: viewMode === 'fullscreen' ? '100%' : '1200px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: '100%', maxWidth: viewMode === 'fullscreen' ? '100%' : '1200px', display: 'flex', flexDirection: 'column', margin: '0 auto' }}>
             
             {viewMode !== 'fullscreen' && (
               <p style={{ textAlign: 'center', fontSize: '0.9rem', color: 'var(--ep-label)', marginBottom: '16px', fontWeight: 600 }}>
