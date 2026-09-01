@@ -43,6 +43,7 @@ import {
 import { authLimiter, writeLimiter } from '../middlewares/rateLimiter.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { upload } from '../middlewares/upload.js';
+import { adminRoutes } from './adminRoutes.js';
 
 export const router = Router();
 
@@ -99,7 +100,6 @@ router.patch('/apps/:id/tables/:tableId', requireAuth, writeLimiter, updateTable
 router.delete('/apps/:id/tables/:tableId', requireAuth, removeTable);
 router.post('/apps/:id/plan', requireAuth, writeLimiter, requestPlan);
 
-
 router.post('/apps/:id/roles', requireAuth, writeLimiter, addRole);
 router.patch('/apps/:id/roles/:roleId', requireAuth, writeLimiter, updateRole);
 router.delete('/apps/:id/roles/:roleId', requireAuth, writeLimiter, removeRole);
@@ -118,3 +118,6 @@ router.post('/apps/:id/cash/close', requireAuth, writeLimiter, closeCashRegister
 router.post('/orders', writeLimiter, createOrder);
 router.get('/orders', requireAuth, getOrders);
 router.patch('/orders/:id/status', requireAuth, writeLimiter, updateOrderStatus);
+
+// Admin
+router.use('/admin', adminRoutes);
