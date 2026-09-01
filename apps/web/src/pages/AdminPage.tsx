@@ -51,7 +51,7 @@ export function AdminPage() {
           setAllUsers(data.users || []);
         }
       } catch (err) {
-        console.error('Erro ao buscar usuários:', err);
+        console.error('Erro ao buscar usu├írios:', err);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -138,132 +138,45 @@ export function AdminPage() {
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
-        <style>
-            .admin-header-container {
-              max-width: 1200px;
-              margin: 0 auto;
-              padding: 16px 24px;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
+        <style dangerouslySetInnerHTML={{ __html: `
+            /* Tailwind Shims para Responsividade Mobile-First */
+            @media (max-width: 767px) {
+              .flex-col { flex-direction: column !important; }
+              .items-start { align-items: flex-start !important; }
+              .gap-4 { gap: 16px !important; }
+              .text-center { text-align: center !important; }
+              .text-left { text-align: left !important; }
+              
+              .w-\\[95\\%\\] { width: 95% !important; }
+              .max-w-md { max-width: 28rem !important; }
+              .max-h-\\[90vh\\] { max-height: 90vh !important; }
+              .overflow-y-auto { overflow-y: auto !important; }
+              .overflow-x-hidden { overflow-x: hidden !important; }
+              
+              .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+              
+              .p-4 { padding: 1rem !important; }
+              .mb-4 { margin-bottom: 1rem !important; }
             }
-            .btn-voltar {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              background-color: #FFF;
-              color: #111;
-              text-decoration: none;
-              padding: 10px 20px;
-              border-radius: 9999px;
-              font-weight: 600;
-              font-size: 0.95rem;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-              transition: all 0.2s ease;
-              white-space: nowrap;
+
+            @media (min-width: 768px) {
+              .md\\:flex-row { flex-direction: row !important; }
+              .md\\:items-center { align-items: center !important; }
+              .md\\:justify-between { justify-content: space-between !important; }
+              .md\\:max-w-2xl { max-width: 42rem !important; }
+              .md\\:max-w-3xl { max-width: 48rem !important; }
+              .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+              .md\\:p-6 { padding: 1.5rem !important; }
+              .md\\:p-8 { padding: 2rem !important; }
             }
-            .admin-control-bar {
-              display: flex;
-              gap: 16px;
-              margin-bottom: 32px;
-              flex-wrap: wrap;
-            }
-            .admin-control-bar-input {
-              flex: 1;
-              min-width: 300px;
-            }
-            .admin-control-bar-select {
-              min-width: 200px;
-            }
-            .admin-user-card {
-              display: flex;
-              gap: 16px;
-              align-items: center;
-              background-color: #fff;
-              border-radius: 16px;
-              padding: 20px;
-              box-shadow: 0 4px 14px rgba(0,0,0,0.02);
-              border: 1px solid rgba(0,0,0,0.05);
-              cursor: pointer;
-              position: relative;
-              transition: transform 0.2s ease, box-shadow 0.2s ease;
-            }
-            .admin-user-card:hover {
-              transform: translateY(-4px);
-              box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-            }
-            .admin-user-card-content {
-              display: flex;
-              gap: 16px;
-              align-items: center;
-              flex: 1;
-              overflow: hidden;
-            }
-            .admin-modal-content {
-              background-color: #fff;
-              border-radius: 24px;
-              width: 95%;
-              max-width: 800px; /* equivalent to max-w-3xl */
-              max-height: 90vh;
-              overflow-x: hidden;
-              overflow-y: auto;
-              box-shadow: 0 24px 48px -12px rgba(0,0,0,0.18);
-              display: flex;
-              flex-direction: column;
-            }
-            .admin-modal-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 24px;
-            }
-            .admin-modal-card {
-              background-color: #FAFAFA;
-              padding: 24px;
-              border-radius: 16px;
-              width: 100%;
-              overflow: hidden;
-              box-sizing: border-box;
-            }
-            .admin-modal-body {
-              padding: 32px;
-            }
-            
-            @media (max-width: 768px) {
-              .admin-header-container {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 16px;
-                text-align: left;
-              }
-              .admin-control-bar {
-                flex-direction: column;
-              }
-              .admin-control-bar-input, .admin-control-bar-select {
-                width: 100%;
-                min-width: 0;
-              }
-              .admin-user-card-content {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-              }
-              .admin-modal-content {
-                max-width: 28rem; /* max-w-md */
-              }
-              .admin-modal-body {
-                padding: 16px;
-              }
-              .admin-modal-grid {
-                grid-template-columns: 1fr;
-                display: flex;
-                flex-direction: column;
-              }
-              .admin-modal-card {
-                padding: 16px;
-              }
-            }
-          `}
-        </style>
+
+            .whitespace-nowrap { white-space: nowrap !important; }
+            .w-full { width: 100% !important; }
+            .overflow-hidden { overflow: hidden !important; }
+            .box-border { box-sizing: border-box !important; }
+            .grid { display: grid !important; }
+            .flex { display: flex !important; }
+        ` }} />
         <header style={{ 
           backgroundColor: 'rgba(255, 255, 255, 0.8)', 
           backdropFilter: 'blur(12px)',
@@ -272,17 +185,30 @@ export function AdminPage() {
           top: 0,
           zIndex: 50
         }}>
-          <div className="admin-header-container">
+          <div className="flex flex-col gap-4 items-start md:flex-row md:items-center md:justify-between w-full" style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.05)' }}>
                 <Shield size={24} style={{ color: '#F95D2A' }} />
               </div>
               <div>
                 <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
-                <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
+                <span style={{ fontSize: '0.9rem', color: '#666' }}>Gest├úo de clientes e assinaturas</span>
               </div>
             </div>
-            <Link to="/painel" className="btn-voltar">
+            <Link to="/painel" className="whitespace-nowrap" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              backgroundColor: '#FFF',
+              color: '#111',
+              textDecoration: 'none',
+              padding: '10px 20px',
+              borderRadius: '9999px',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease'
+            }}>
               <ArrowLeft size={18} /> Voltar para o Painel
             </Link>
           </div>
@@ -370,18 +296,18 @@ export function AdminPage() {
             >
               <option value="">Plano: Todos</option>
               <option value="Delivery">Delivery</option>
-              <option value="Salão-Caixa">Salão-Caixa</option>
+              <option value="Sal├úo-Caixa">Sal├úo-Caixa</option>
               <option value="Completo">Completo</option>
               <option value="Sem plano">Sem plano</option>
             </select>
           </div>
 
           <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usu├írios Cadastrados</h2>
             <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
           </div>
 
-          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
+          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usu├írios...</div>
         </main>
       </div>
     );
@@ -404,7 +330,7 @@ export function AdminPage() {
             </div>
             <div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
-              <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
+              <span style={{ fontSize: '0.9rem', color: '#666' }}>Gest├úo de clientes e assinaturas</span>
             </div>
           </div>
           <Link to="/painel" style={{ 
@@ -428,8 +354,8 @@ export function AdminPage() {
 
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
         {/* Control Bar */}
-        <div className="admin-control-bar">
-          <div className="admin-control-bar-input" style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
             <Search size={20} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
             <input 
               type="text" 
@@ -454,10 +380,10 @@ export function AdminPage() {
           </div>
           
           <select 
-            className="admin-control-bar-select"
             value={isSubscribed} 
             onChange={(e) => setIsSubscribed(e.target.value)}
             style={{ 
+              minWidth: '200px',
               padding: '14px 20px',
               borderRadius: '9999px',
               border: 'none',
@@ -483,10 +409,10 @@ export function AdminPage() {
           </select>
 
           <select 
-            className="admin-control-bar-select"
             value={plan} 
             onChange={(e) => setPlan(e.target.value)}
             style={{ 
+              minWidth: '200px',
               padding: '14px 20px',
               borderRadius: '9999px',
               border: 'none',
@@ -508,24 +434,24 @@ export function AdminPage() {
           >
             <option value="">Plano: Todos</option>
             <option value="Delivery">Delivery</option>
-            <option value="Salão-Caixa">Salão-Caixa</option>
+            <option value="Sal├úo-Caixa">Sal├úo-Caixa</option>
             <option value="Completo">Completo</option>
             <option value="Sem plano">Sem plano</option>
           </select>
         </div>
 
         <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usu├írios Cadastrados</h2>
           <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
         </div>
 
         {/* User List */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
+          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usu├írios...</div>
         ) : paginatedUsers.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 40px', backgroundColor: '#FFF', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
             <Search size={48} style={{ color: '#DDD', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Nenhum usuário encontrado</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Nenhum usu├írio encontrado</h3>
             <p style={{ color: '#666', margin: 0 }}>Tente ajustar os filtros de busca para encontrar o que procura.</p>
           </div>
         ) : (
@@ -534,12 +460,17 @@ export function AdminPage() {
               return (
               <div 
                 key={u.id} 
-                className="admin-user-card"
                 onClick={() => setSelectedUser(u)}
                 style={{ 
+                  backgroundColor: '#FFF',
+                  padding: '24px', 
+                  borderRadius: '24px',
+                  display: 'flex', 
+                  gap: '16px', 
                   cursor: 'pointer', 
-                  position: 'relative',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  position: 'relative'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-4px)';
@@ -550,17 +481,15 @@ export function AdminPage() {
                   e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)';
                 }}
               >
-                <div className="admin-user-card-content">
-                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.displayName || u.username || 'Sem Nome'}</h3>
+                    {u.isAdmin && <span style={{ padding: '4px 8px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.65rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase' }}>Admin</span>}
                   </div>
-                  <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.displayName || u.username || 'Sem Nome'}</h3>
-                      {u.isAdmin && <span style={{ padding: '4px 8px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.65rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase' }}>Admin</span>}
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</p>
-                  </div>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</p>
                 </div>
                 {/* Status Indicator */}
                 <div style={{ position: 'absolute', top: '24px', right: '24px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.status === 'ativo' ? '#10B981' : '#EF4444', boxShadow: `0 0 0 3px ${u.status === 'ativo' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}></div>
@@ -589,7 +518,7 @@ export function AdminPage() {
             >
               Anterior
             </button>
-            <span style={{ color: '#666', fontWeight: 600 }}>Página {page} de {totalPages}</span>
+            <span style={{ color: '#666', fontWeight: 600 }}>P├ígina {page} de {totalPages}</span>
             <button 
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
@@ -605,7 +534,7 @@ export function AdminPage() {
                 cursor: page === totalPages ? 'not-allowed' : 'pointer' 
               }}
             >
-              Próxima
+              Pr├│xima
             </button>
           </div>
         )}
@@ -627,11 +556,21 @@ export function AdminPage() {
           justifyContent: 'center', 
           padding: '24px' 
         }} onClick={() => setSelectedUser(null)}>
-          <div className="admin-modal-content" onClick={e => e.stopPropagation()}>
+          <div className="w-[95%] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden md:max-w-2xl" style={{ 
+            width: '100%', 
+            maxWidth: '640px', 
+            backgroundColor: '#FFF',
+            borderRadius: '24px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh'
+          }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '32px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                 <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
+                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usu├írio" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
                 </div>
                 <div>
                   <h2 style={{ margin: '0 0 8px 0', fontSize: '1.75rem', fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -651,42 +590,42 @@ export function AdminPage() {
               </div>
             </div>
             
-            <div className="admin-modal-body" style={{ overflowY: 'auto' }}>
-              <div className="admin-modal-grid" style={{ marginBottom: '32px' }}>
-                <div className="admin-modal-card">
+            <div style={{ padding: '32px', overflowY: 'auto' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '24px', marginBottom: '32px' }}>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: selectedUser.status === 'ativo' ? '#10B981' : '#EF4444' }}></div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111', textTransform: 'capitalize' }}>{selectedUser.status || 'Desconhecido'}</div>
                   </div>
                 </div>
-                <div className="admin-modal-card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permiss├úo</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Propriet├írio/Lojista'}</div>
                 </div>
-                <div className="admin-modal-card">
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'Não informado'}</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'N├úo informado'}</div>
                 </div>
-                <div className="admin-modal-card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> ├Ültimo Login</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
                     {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
                   </div>
                 </div>
-                <div className="admin-modal-card">
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Calendar size={18} /> Cadastrado em</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
                     {new Date(selectedUser.createdAt || Date.now()).toLocaleDateString('pt-BR')}
                   </div>
                 </div>
-                <div className="admin-modal-card">
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Database size={18} /> ID no Banco</div>
                   <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id}</div>
                 </div>
               </div>
 
-              <div className="admin-modal-card" style={{ backgroundColor: '#FFF', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
+              <div style={{ backgroundColor: '#FFF', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
                 <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CreditCard size={20} style={{ color: '#F95D2A' }} /> Gerenciar Assinatura
                 </h3>
@@ -711,7 +650,7 @@ export function AdminPage() {
                     >
                       <option value="">Sem plano</option>
                       <option value="Delivery">Delivery</option>
-                      <option value="Salão-Caixa">Salão-Caixa</option>
+                      <option value="Sal├úo-Caixa">Sal├úo-Caixa</option>
                       <option value="Completo">Completo</option>
                     </select>
                   </div>
@@ -719,7 +658,7 @@ export function AdminPage() {
                   {formPlan && formPlan !== 'Sem plano' && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Início</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de In├¡cio</label>
                         <input 
                           type="date" 
                           value={formStartDate} 
@@ -779,7 +718,7 @@ export function AdminPage() {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {savingPlan ? 'Salvando...' : <><Save size={18} /> Salvar Alterações</>}
+                    {savingPlan ? 'Salvando...' : <><Save size={18} /> Salvar Altera├º├Áes</>}
                   </button>
                 </div>
               </div>
