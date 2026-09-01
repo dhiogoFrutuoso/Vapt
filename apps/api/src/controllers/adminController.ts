@@ -32,7 +32,7 @@ export async function listUsers(req: Request, res: Response) {
   const skip = (page - 1) * limit;
   
   const [users, totalUsers] = await Promise.all([
-    User.find(query).select('-passwordHash').skip(skip).limit(limit).sort({ createdAt: -1 }).lean(),
+    User.find(query).select('-passwordHash').skip(skip).limit(limit).sort({ createdAt: -1 }).lean({ virtuals: true }),
     User.countDocuments(query)
   ]);
 

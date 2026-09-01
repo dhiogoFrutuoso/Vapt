@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
-import { Shield, Search, UserIcon, X, Calendar, Database, LinkIcon, Activity, ArrowLeft } from 'lucide-react';
+import { Shield, Search, UserIcon, X, Calendar, Database, LinkIcon, Activity, ArrowLeft, Phone, Key, CreditCard, Clock } from 'lucide-react';
 
 export function AdminPage() {
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -201,9 +201,11 @@ export function AdminPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
-            {users.map(u => (
+            {users.map(u => {
+              const imageUrl = u.photoUrl || (u as any).photo;
+              return (
               <div 
-                key={u.id || u.email} 
+                key={u.id || (u as any)._id || u.email} 
                 onClick={() => setSelectedUser(u)}
                 style={{ 
                   backgroundColor: '#FFF',
@@ -226,7 +228,7 @@ export function AdminPage() {
                 }}
               >
                 <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
+                  {imageUrl ? <img src={imageUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -238,7 +240,7 @@ export function AdminPage() {
                 {/* Status Indicator */}
                 <div style={{ position: 'absolute', top: '24px', right: '24px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.status === 'ativo' ? '#10B981' : '#EF4444', boxShadow: `0 0 0 3px ${u.status === 'ativo' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}></div>
               </div>
-            ))}
+            )})}
           </div>
         )}
 
@@ -311,7 +313,7 @@ export function AdminPage() {
             <div style={{ padding: '32px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                 <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
+                  {(selectedUser.photoUrl || (selectedUser as any).photo) ? <img src={selectedUser.photoUrl || (selectedUser as any).photo} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
                 </div>
                 <div>
                   <h2 style={{ margin: '0 0 8px 0', fontSize: '1.75rem', fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -326,12 +328,30 @@ export function AdminPage() {
               </button>
             </div>
             
-            <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+            <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', maxHeight: '50vh', overflowY: 'auto' }}>
               <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: selectedUser.status === 'ativo' ? '#10B981' : '#EF4444' }}></div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111', textTransform: 'capitalize' }}>{selectedUser.status || 'Desconhecido'}</div>
+                </div>
+              </div>
+              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
+              </div>
+              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{(selectedUser as any).phone || 'Não informado'}</div>
+              </div>
+              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><CreditCard size={18} /> Plano Atual</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{(selectedUser as any).plan || 'Nenhum plano'}</div>
+              </div>
+              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
+                  {(selectedUser as any).lastLoginAt ? new Date((selectedUser as any).lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
                 </div>
               </div>
               <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
@@ -342,11 +362,11 @@ export function AdminPage() {
               </div>
               <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Database size={18} /> ID no Banco</div>
-                <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id}</div>
+                <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id || (selectedUser as any)._id}</div>
               </div>
               <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><LinkIcon size={18} /> Nome de Usuário</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>@{selectedUser.username || 'N/A'}</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>@{selectedUser.username || 'Não informado'}</div>
               </div>
             </div>
             
