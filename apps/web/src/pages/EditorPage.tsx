@@ -460,12 +460,12 @@ export function EditorPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden", backgroundColor: "var(--ep-bg)", color: "var(--ep-text)", fontFamily: "Inter, system-ui, sans-serif" }}>
       
       {/* HEADER BAR */}
-      <header className="editor-topbar" style={{ padding: "16px 32px", backgroundColor: "var(--ep-sidebar)", borderBottom: "1px solid var(--ep-border)", boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <header className="editor-topbar" style={{ padding: "16px 32px", backgroundColor: "var(--ep-sidebar)", borderBottom: "1px solid var(--ep-border)", boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 , flexWrap: 'wrap', gap: '16px'}}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <Link to="/painel" style={{ color: "var(--ep-text)", textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><ArrowLeft size={20} /> Voltar</Link>
           <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, background: isDark ? 'linear-gradient(to right, #60a5fa, #a78bfa)' : 'linear-gradient(to right, #2563eb, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{app.name}</h1>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setEditorTheme(isDark ? 'claro' : 'escuro')} className="ep-btn ep-btn-secondary" style={{ width: 'auto', padding: '8px 12px', border: "1px solid var(--ep-border)" }}>
             {isDark ? (<><Sun size={18} style={{ marginRight: 6 }}/> Claro</>) : (<><Moon size={18} style={{ marginRight: 6 }}/> Escuro</>)}
           </button>
@@ -504,7 +504,7 @@ export function EditorPage() {
                   title="Foto da categoria"
                   style={{ width: '42px', height: '42px', borderRadius: '8px', border: isDark ? '1px dashed rgba(255,255,255,0.2)' : '1px dashed var(--ep-border)', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexDirection: 'column', overflow: 'hidden', cursor: 'pointer', backgroundColor: "var(--ep-panel)", flexShrink: 0 }}
                 >
-                  {catImage ? <img src={catImage} alt="Foto da categoria" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera size={20} color="#94a3b8" />}
+                  {catImage ? <img src={catImage} alt="Foto da categoria" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera size={20} color="#94a3b8" style={{ margin: 0, padding: 0, display: "block" }} />}
                 </div>
                 <input type="file" accept="image/*" hidden ref={catFileInputRef} onChange={async (e) => {
                   const f = e.target.files?.[0];
