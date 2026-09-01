@@ -17,7 +17,6 @@ export function Footer() {
           <p>{footer.description}</p>
           <div className="footer__contact">
             <a href={`mailto:${site.email}`}>{site.email}</a>
-            <span>{footer.addressLines.join(' · ')}</span>
           </div>
         </div>
 
@@ -37,9 +36,8 @@ export function Footer() {
 
       <div className="container footer__legal">
         <span>
-          © {year} {site.companyName} · CNPJ {site.cnpj}
+          © {year} {site.name}. Todos os direitos reservados.
         </span>
-        <span className="footer__note">{footer.legal}</span>
       </div>
     </footer>
   );

@@ -67,7 +67,7 @@ Todos os valores já vêm preenchidos com **exemplos** — troque pelos reais qu
 **Sobre a conexão com o Mongo:** `config/mongoUri.ts` monta a string final e aceita três formatos —
 URI completa com credenciais, URI limpa + `MONGODB_USERNAME`/`MONGODB_PASSWORD`, ou a URI colada do Atlas
 ainda com os placeholders `<db_username>:<db_password>`. Ele também **acrescenta o nome do banco**
-(`MONGODB_DB`, padrão `fastweb`) e as opções `retryWrites=true&w=majority`, que o Atlas não entrega ao copiar
+(`MONGODB_DB`, padrão `vapt`) e as opções `retryWrites=true&w=majority`, que o Atlas não entrega ao copiar
 a string do painel — sem isso o Mongoose grava tudo no banco `test`. Senha com caractere especial é
 codificada automaticamente, e o log de boot mostra a URI com a senha mascarada.
 

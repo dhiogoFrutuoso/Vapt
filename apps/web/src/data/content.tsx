@@ -12,8 +12,6 @@ export const site = {
   domain: 'vaptapp.com.br',
   whatsapp: import.meta.env.VITE_WHATSAPP ?? '5511999999999',
   email: import.meta.env.VITE_SUPPORT_EMAIL ?? 'contato@vaptapp.com.br',
-  companyName: import.meta.env.VITE_COMPANY_NAME ?? 'Vapt Tecnologia LTDA',
-  cnpj: import.meta.env.VITE_COMPANY_CNPJ ?? '12.345.678/0001-90',
   androidUrl:
     import.meta.env.VITE_ANDROID_APP_URL ??
     'https://play.google.com/store/apps/details?id=com.vaptapp.parceiro',
@@ -626,8 +624,6 @@ export const footer = {
       ],
     },
   ],
-  addressLines: ['Av. Exemplo, 1234 — Sala 56', 'Pinheiros, São Paulo/SP — 05000-000'],
-  legal: 'Dados fictícios para demonstração. Substituir pelas informações reais antes de publicar.',
 };
 
 /* ------------------------------------------------------------------ */

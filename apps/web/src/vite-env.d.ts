@@ -4,8 +4,6 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_WHATSAPP?: string;
   readonly VITE_SUPPORT_EMAIL?: string;
-  readonly VITE_COMPANY_NAME?: string;
-  readonly VITE_COMPANY_CNPJ?: string;
   readonly VITE_ANDROID_APP_URL?: string;
   readonly VITE_IOS_APP_URL?: string;
   readonly VITE_GA_ID?: string;
