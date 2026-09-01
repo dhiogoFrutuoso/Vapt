@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
-import { Shield, Search, UserIcon, X, Calendar, Database, LinkIcon, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save } from 'lucide-react';
+import { Shield, Search, UserIcon, X, Calendar, Database, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save } from 'lucide-react';
 
 const normalizeString = (str: string | undefined | null) => {
   if (!str) return '';
