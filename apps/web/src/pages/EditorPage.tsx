@@ -22,6 +22,30 @@ export function EditorPage() {
   const [editorTheme, setEditorTheme] = useState<'claro' | 'escuro'>('escuro');
   const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor');
   const [viewMode, setViewMode] = useState<'mobile' | 'default' | 'fullscreen'>('default');
+  const [sidebarWidth, setSidebarWidth] = useState(320);
+  const isResizing = useRef(false);
+
+  const handleMouseDown = () => {
+    isResizing.current = true;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isResizing.current) return;
+    let newWidth = e.clientX;
+    if (newWidth < 250) newWidth = 250;
+    if (newWidth > 600) newWidth = 600;
+    setSidebarWidth(newWidth);
+  };
+
+  const handleMouseUp = () => {
+    isResizing.current = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.userSelect = '';
+  };
 
   const [appName, setAppName] = useState('');
   const [tagline, setTagline] = useState('');
@@ -461,7 +485,7 @@ export function EditorPage() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }} className="editor-workspace">
         
         {/* SIDEBAR */}
-        <aside style={{ width: '320px', backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flexShrink: 0, minHeight: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
+        <aside style={{ width: `${sidebarWidth}px`, backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flexShrink: 0, minHeight: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
           
           {/* Cardápio e Categorias */}
           <div style={{ padding: "32px 24px", borderBottom: "1px solid var(--ep-border)" }}>
@@ -737,7 +761,11 @@ export function EditorPage() {
           </div>
 
         </aside>
-
+        <div 
+          onMouseDown={handleMouseDown}
+          className="editor-resizer"
+          style={{ width: '4px', cursor: 'col-resize', backgroundColor: 'var(--ep-border)', zIndex: 10, flexShrink: 0, transition: 'background-color 0.2s' }}
+        />
         {/* PREVIEW CONTAINER */}
         <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'center', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
           
@@ -807,6 +835,10 @@ export function EditorPage() {
       </div>
 
       <style>{`
+.editor-resizer:hover, .editor-resizer:active {
+  background-color: var(--ep-primary) !important;
+}
+
 @media (max-width: 768px) {
   .editor-view-controls { display: none !important; }
   .editor-main { padding: 0 !important; background-image: none !important; background-color: transparent !important; }
