@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, type Plan, type AppProjectFull } from '../lib/api';
@@ -21,7 +22,7 @@ export function PlanSelectionPage() {
         setPlans(plansData);
       } catch (err) {
         console.error(err);
-        alert('Erro ao carregar dados.');
+        toast.error('Erro ao carregar dados.');
         navigate('/painel');
       } finally {
         setLoading(false);
@@ -38,7 +39,7 @@ export function PlanSelectionPage() {
       window.location.href = res.whatsappUrl;
     } catch (err) {
       console.error(err);
-      alert('Erro ao selecionar o plano.');
+      toast.error('Erro ao selecionar o plano.');
     }
   }
 

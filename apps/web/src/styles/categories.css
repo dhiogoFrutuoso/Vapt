@@ -5,25 +5,25 @@
    ================================================================== */
 
 .cat-section {
-  margin-bottom: 26px;
+  margin-bottom: 18px;
 }
 
 .cat-hint {
-  font-size: 0.74rem;
+  font-size: 0.516rem;
   color: var(--ink-400);
-  margin: -4px 0 12px;
+  margin: -4px 0 8px;
 }
 
 /* --------------------------- Grade de cards ------------------------ */
 .cat-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
 }
 
 .cat-grid--compact {
-  gap: 8px;
+  gap: 6px;
 }
 
 .cat-card {
@@ -40,7 +40,7 @@
   padding: 0;
   isolation: isolate;
   width: 100%;
-  min-height: 80px;
+  min-height: 56px;
 }
 
 .cat-card:hover {
@@ -53,7 +53,7 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 90px;
+  width: 74px;
   align-self: stretch;
   background: linear-gradient(160deg, var(--surface-2), #ece7e1);
   overflow: hidden;
@@ -62,7 +62,7 @@
 }
 
 .cat-grid--compact .cat-card__media {
-  width: 70px;
+  width: 57px;
 }
 
 .cat-card__media img {
@@ -75,7 +75,7 @@
 }
 
 .cat-card__placeholder {
-  font-size: 1.9rem;
+  font-size: 1.324rem;
   opacity: 0.55;
 }
 
@@ -84,11 +84,11 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 3px 9px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: rgba(18, 16, 14, 0.72);
   color: #fff;
-  font-size: 0.64rem;
+  font-size: 0.446rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   backdrop-filter: blur(4px);
@@ -99,25 +99,25 @@
   flex-direction: column;
   justify-content: center;
   flex-grow: 1;
-  gap: 3px;
-  padding: 0 16px;
+  gap: 2px;
+  padding: 0 11px;
   background: #fff;
 }
 
 .cat-card__name {
   /* Cor fixa: nunca herdar do tema, senão some no card branco. */
   color: var(--ink-900);
-  font-size: 0.92rem;
+  font-size: 0.641rem;
   font-weight: 800;
   line-height: 1.25;
 }
 
 .cat-grid--compact .cat-card__name {
-  font-size: 0.8rem;
+  font-size: 0.558rem;
 }
 
 .cat-card__go {
-  font-size: 0.7rem;
+  font-size: 0.488rem;
   font-weight: 700;
   color: var(--brand);
 }
@@ -125,7 +125,7 @@
 /* ---------------------- Categoria aberta (nível 2) ----------------- */
 .cat-view {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 /* Botão de voltar: precisa PARECER botão — antes era um texto invisível. */
@@ -133,13 +133,13 @@
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 16px 9px 12px;
+  gap: 6px;
+  padding: 7px 11px 7px 8px;
   border-radius: 999px;
   border: 1.5px solid var(--line);
   background: #fff;
   color: var(--ink-900);
-  font-size: 0.8rem;
+  font-size: 0.558rem;
   font-weight: 800;
   box-shadow: var(--shadow-sm);
   transition: border-color 0.15s ease, transform 0.15s ease;
@@ -151,46 +151,46 @@
 }
 
 .cat-back span {
-  font-size: 0.95rem;
+  font-size: 0.662rem;
   line-height: 1;
 }
 
 .cat-back--sheet {
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 
 .cat-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 8px;
   border-radius: 14px;
   background: var(--surface-2);
   border: 1px solid var(--line);
 }
 
 .cat-header--sheet {
-  padding: 9px 10px;
-  margin-bottom: 10px;
+  padding: 7px 7px;
+  margin-bottom: 7px;
 }
 
 .cat-header__media {
-  width: 52px;
-  height: 52px;
+  width: 43px;
+  height: 36px;
   border-radius: 12px;
   overflow: hidden;
   background: #fff;
   display: grid;
   place-items: center;
-  font-size: 1.5rem;
+  font-size: 1.045rem;
   flex-shrink: 0;
   border: 1px solid var(--line);
 }
 
 .cat-header--sheet .cat-header__media {
-  width: 38px;
-  height: 38px;
-  font-size: 1.1rem;
+  width: 31px;
+  height: 26px;
+  font-size: 0.767rem;
 }
 
 .cat-header__media img {
@@ -206,25 +206,25 @@
 }
 
 .cat-header__text strong {
-  font-size: 1.05rem;
+  font-size: 0.731rem;
   font-weight: 800;
   color: var(--ink-900);
 }
 
 .cat-header--sheet .cat-header__text strong {
-  font-size: 0.88rem;
+  font-size: 0.613rem;
 }
 
 .cat-header__text small {
-  font-size: 0.74rem;
+  font-size: 0.516rem;
   color: var(--ink-400);
   font-weight: 700;
 }
 
 .cat-empty {
-  padding: 22px 14px;
+  padding: 16px 10px;
   text-align: center;
-  font-size: 0.84rem;
+  font-size: 0.585rem;
   color: var(--ink-400);
   background: var(--surface-2);
   border: 1px dashed var(--line);
@@ -233,23 +233,24 @@
 
 /* ------------------- Cardápio dentro da comanda -------------------- */
 .phone__picker-scroll {
-  max-height: 280px;
+  max-height: 195px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-right: 2px;
 }
 
 .phone__picker-group {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .phone__picker-grouptitle {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.502rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--ink-400);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .phone__picker--flat {
@@ -262,22 +263,22 @@
 .deliv-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 4px;
   padding: 4px;
   border-radius: 12px;
   background: var(--surface-2);
   border: 1px solid var(--line);
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 
 .deliv-tabs button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9px 8px;
+  gap: 5px;
+  padding: 7px 6px;
   border-radius: 9px;
-  font-size: 0.78rem;
+  font-size: 0.544rem;
   font-weight: 800;
   color: var(--ink-500);
   transition: background 0.15s ease, color 0.15s ease;
@@ -290,12 +291,12 @@
 }
 
 .deliv-tabs__count {
-  min-width: 20px;
-  padding: 1px 6px;
+  min-width: 16px;
+  padding: 1px 4px;
   border-radius: 999px;
   background: var(--line);
   color: var(--ink-700);
-  font-size: 0.66rem;
+  font-size: 0.46rem;
   font-weight: 800;
 }
 
@@ -308,25 +309,25 @@
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .deliv-search__icon {
   position: absolute;
   left: 12px;
-  font-size: 0.85rem;
+  font-size: 0.592rem;
   opacity: 0.6;
   pointer-events: none;
 }
 
 .deliv-search input {
   width: 100%;
-  padding: 11px 34px 11px 34px;
+  padding: 7px 24px 7px 24px;
   border-radius: 11px;
   border: 1.5px solid var(--line);
   background: #fff;
   color: var(--ink-900);
-  font-size: 0.82rem;
+  font-size: 0.572rem;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -347,14 +348,14 @@
 .deliv-search__clear {
   position: absolute;
   right: 10px;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 14px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--line);
   color: var(--ink-700);
-  font-size: 0.66rem;
+  font-size: 0.46rem;
   font-weight: 800;
 }
 

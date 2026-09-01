@@ -214,6 +214,7 @@ export type Product = {
   name: string;
   description: string;
   price: number;
+  pricingType?: 'unit' | 'weight';
   image: string | null;
   category: string;
   isFeatured?: boolean;
@@ -361,9 +362,9 @@ export const api = {
   removeCategory: (id: string, categoryId: string) =>
     request<null>(`/apps/${id}/categories/${categoryId}`, { method: 'DELETE' }),
 
-  addProduct: (id: string, input: { name: string; description?: string; price: number; category?: string; isFeatured?: boolean; imageBase64?: string }) =>
+  addProduct: (id: string, input: { name: string; description?: string; price: number; pricingType?: 'unit' | 'weight'; category?: string; isFeatured?: boolean; imageBase64?: string }) =>
     request<Product>(`/apps/${id}/products`, { method: 'POST', body: JSON.stringify(input) }),
-  updateProduct: (id: string, productId: string, input: { name?: string; description?: string; price?: number; category?: string; isFeatured?: boolean; imageBase64?: string | null }) =>
+  updateProduct: (id: string, productId: string, input: { name?: string; description?: string; price?: number; pricingType?: 'unit' | 'weight'; category?: string; isFeatured?: boolean; imageBase64?: string | null }) =>
     request<Product>(`/apps/${id}/products/${productId}`, { method: 'PATCH', body: JSON.stringify(input) }),
   removeProduct: (id: string, productId: string) =>
     request<null>(`/apps/${id}/products/${productId}`, { method: 'DELETE' }),

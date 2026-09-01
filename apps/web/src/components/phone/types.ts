@@ -45,6 +45,7 @@ export type PreviewProduct = {
   name: string;
   description?: string;
   price: number;
+  pricingType?: 'unit' | 'weight';
   originalPrice?: number;
   imageUrl?: string | null;
   iconName?: string;
@@ -56,6 +57,8 @@ export type PreviewProduct = {
 export type OrderItem = {
   name: string;
   price: number;
+  quantity?: number;
+  pricingType?: 'unit' | 'weight';
 };
 
 /* ----------------------------- Salão ----------------------------- */

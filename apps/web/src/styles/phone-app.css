@@ -15,8 +15,8 @@
   position: absolute;
   top: 6px;
   right: 8px;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 5px;
   border-radius: 50%;
   background: var(--brand-500);
 }
@@ -25,31 +25,31 @@
 .phone__role {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 12px;
-  padding: 8px 10px;
+  gap: 5px;
+  margin-bottom: 8px;
+  padding: 6px 7px;
   border-radius: 10px;
   background: var(--ink-900);
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.66rem;
+  font-size: 0.46rem;
   font-weight: 700;
   line-height: 1.35;
 }
 
 .phone__role span {
-  font-size: 0.95rem;
+  font-size: 0.662rem;
   flex-shrink: 0;
 }
 
 /* --------------------------- Cardápio ----------------------------- */
 .phone__item {
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .phone__item-main {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: space-between;
   width: 100%;
 }
@@ -60,18 +60,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px;
+  gap: 4px;
+  padding: 7px;
   border-radius: 11px;
   background: var(--brand);
   color: var(--on-brand);
-  font-size: 0.78rem;
+  font-size: 0.544rem;
   font-weight: 800;
   transition: filter 0.15s ease, transform 0.12s ease;
 }
 
 .phone__add-btn span {
-  font-size: 0.95rem;
+  font-size: 0.662rem;
   line-height: 1;
 }
 
@@ -88,7 +88,7 @@
   display: grid;
   grid-template-columns: 38px 1fr 38px;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 4px;
   border-radius: 11px;
   background: var(--brand-50);
@@ -96,11 +96,11 @@
 }
 
 .phone__stepper button {
-  height: 32px;
+  height: 22px;
   border-radius: 8px;
   background: #fff;
   color: var(--brand-700);
-  font-size: 1.1rem;
+  font-size: 0.767rem;
   font-weight: 800;
   line-height: 1;
   border: 1.5px solid var(--brand-300);
@@ -112,13 +112,13 @@
 
 .phone__stepper > span {
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 0.502rem;
   font-weight: 700;
   color: var(--brand-700);
 }
 
 .phone__stepper strong {
-  font-size: 0.9rem;
+  font-size: 0.627rem;
 }
 
 /* ------------------------ Barra da sacola ------------------------- */
@@ -135,10 +135,11 @@
 
 .phone__cartbar-items {
   display: grid;
-  gap: 5px;
-  max-height: 120px;
+  gap: 4px;
+  max-height: 84px;
   overflow-y: auto;
-  padding: 12px 16px 4px;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 11px 4px;
   animation: cartOpen 0.22s ease;
 }
 
@@ -152,8 +153,8 @@
 .phone__cartbar-items li {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  font-size: 0.72rem;
+  gap: 7px;
+  font-size: 0.502rem;
   font-weight: 600;
   opacity: 0.92;
 }
@@ -162,8 +163,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 16px;
+  gap: 7px;
+  padding: 7px 11px;
   color: inherit;
   text-align: left;
 }
@@ -176,25 +177,25 @@
 }
 
 .phone__cartbar-info strong {
-  font-size: 0.82rem;
+  font-size: 0.572rem;
   font-weight: 800;
 }
 
 .phone__cartbar-info small {
-  font-size: 0.64rem;
+  font-size: 0.446rem;
   opacity: 0.85;
   font-weight: 600;
 }
 
 .phone__cartbar-total {
-  font-size: 0.9rem;
+  font-size: 0.627rem;
   font-weight: 800;
 }
 
 /* Setinha: aponta para cima (abre) e gira para baixo (fecha). */
 .phone__chevron {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 16px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.22);
   position: relative;
@@ -207,8 +208,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 5px;
   border-left: 2px solid currentColor;
   border-top: 2px solid currentColor;
   transform: translate(-50%, -30%) rotate(45deg);
@@ -220,10 +221,10 @@
 
 .phone__cartbar-cta {
   width: 100%;
-  padding: 12px;
+  padding: 8px;
   background: rgba(0, 0, 0, 0.22);
   color: inherit;
-  font-size: 0.84rem;
+  font-size: 0.585rem;
   font-weight: 800;
   letter-spacing: 0.01em;
 }
@@ -238,47 +239,47 @@
 }
 
 .phone__sheet-label {
-  font-size: 0.7rem;
+  font-size: 0.488rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-400);
-  margin: 14px 0 7px;
+  margin: 10px 0 5px;
 }
 
 .phone__sheet-empty {
-  padding: 18px 4px;
+  padding: 12px 4px;
   text-align: center;
-  font-size: 0.76rem;
+  font-size: 0.53rem;
   color: var(--ink-300);
 }
 
 .phone__sheet-error {
-  margin-top: 10px;
-  padding: 8px 10px;
+  margin-top: 7px;
+  padding: 6px 7px;
   border-radius: 9px;
   background: var(--red-50);
   color: var(--red-500);
-  font-size: 0.72rem;
+  font-size: 0.502rem;
   font-weight: 700;
 }
 
 .phone__sheet-right {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .phone__sheet-right button {
   color: var(--ink-300);
-  font-size: 0.7rem;
+  font-size: 0.488rem;
   font-weight: 800;
 }
 
 .phone__sheet-btn.is-block {
   grid-column: 1 / -1;
   width: 100%;
-  margin-top: 12px;
+  margin-top: 8px;
   display: block;
   text-align: center;
 }
@@ -286,19 +287,19 @@
 .phone__field {
   display: grid;
   gap: 4px;
-  margin-top: 10px;
+  margin-top: 7px;
 }
 
 .phone__field > label,
 .phone__field > span {
-  font-size: 0.72rem;
+  font-size: 0.502rem;
   font-weight: 700;
   color: var(--ink-500);
   cursor: pointer;
 }
 
 .phone__field-hint {
-  font-size: 0.64rem;
+  font-size: 0.446rem;
   color: var(--ink-400);
   line-height: 1.4;
 }
@@ -306,10 +307,10 @@
 .phone__field input,
 .phone__field textarea {
   width: 100%;
-  padding: 11px;
+  padding: 7px;
   border: 1.5px solid var(--line);
   border-radius: 10px;
-  font-size: 0.84rem;
+  font-size: 0.585rem;
   /* Cor e fundo explícitos: o texto digitado nunca herda a cor da marca. */
   color: var(--ink-900);
   background: #fff;
@@ -334,18 +335,18 @@
 .phone__pay {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  gap: 4px;
 }
 
 .phone__pay button {
   display: grid;
   gap: 2px;
   place-items: center;
-  padding: 9px 4px;
+  padding: 7px 4px;
   border-radius: 10px;
   border: 1.5px solid var(--line);
   background: #fff;
-  font-size: 0.64rem;
+  font-size: 0.446rem;
   font-weight: 700;
   color: var(--ink-500);
   line-height: 1.2;
@@ -353,7 +354,7 @@
 }
 
 .phone__pay button span {
-  font-size: 1rem;
+  font-size: 0.697rem;
 }
 
 .phone__pay button.is-active {
@@ -368,10 +369,10 @@
   width: 100%;
   text-align: center;
   color: var(--brand);
-  font-size: 0.82rem;
+  font-size: 0.572rem;
   font-weight: 700;
   text-decoration: none;
-  padding: 16px 0 8px;
+  padding: 11px 0 6px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -390,22 +391,22 @@
 .split-pay {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 7px;
 }
 
 .split-pay__row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: stretch;
 }
 
 .split-pay__select {
   flex: 0 0 100px;
-  padding: 0 10px;
+  padding: 0 7px;
   border-radius: 8px;
   border: 1.5px solid var(--line);
-  font-size: 0.85rem;
+  font-size: 0.592rem;
   font-weight: 600;
   color: var(--ink-900);
   background-color: #fff;
@@ -429,28 +430,28 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--ink-500);
-  font-size: 0.95rem;
+  font-size: 0.662rem;
   font-weight: 600;
   pointer-events: none;
   z-index: 2;
 }
 
 .split-pay__input-wrapper input {
-  padding-left: 36px !important;
+  padding-left: 25px !important;
   height: 100%;
   margin: 0 !important;
 }
 
 .split-pay__remove {
   flex: 0 0 auto;
-  width: 44px;
+  width: 36px;
   display: grid;
   place-items: center;
   background: var(--red-50);
   border: 1.5px solid transparent;
   border-radius: 8px;
   color: var(--red-500);
-  font-size: 1.2rem;
+  font-size: 0.836rem;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.1s ease, border-color 0.2s ease;
 }
@@ -468,8 +469,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 6px;
-  padding-top: 14px;
+  margin-top: 4px;
+  padding-top: 10px;
   border-top: 1.5px dashed var(--line);
 }
 
@@ -477,12 +478,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 16px;
+  padding: 7px 11px;
   border-radius: 8px;
   border: 1.5px dashed var(--brand);
   background: var(--brand-50);
   color: var(--brand-700);
-  font-size: 0.8rem;
+  font-size: 0.558rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -494,7 +495,7 @@
 }
 
 .split-pay__cancel-btn {
-  font-size: 0.8rem;
+  font-size: 0.558rem;
   font-weight: 600;
   color: var(--ink-500);
   background: none;
@@ -503,8 +504,8 @@
   text-decoration: underline;
   text-decoration-color: transparent;
   transition: color 0.2s ease, text-decoration-color 0.2s ease;
-  padding: 8px;
-  margin-right: -8px;
+  padding: 6px;
+  margin-right: -6px;
 }
 
 .split-pay__cancel-btn:hover {
@@ -514,12 +515,12 @@
 
 .phone__gps-btn {
   width: 100%;
-  padding: 11px;
+  padding: 7px;
   border-radius: 11px;
   border: 1.5px dashed var(--brand);
   background: var(--brand-50);
   color: var(--brand-700);
-  font-size: 0.78rem;
+  font-size: 0.544rem;
   font-weight: 800;
 }
 
@@ -530,19 +531,19 @@
 .phone__gps {
   display: grid;
   gap: 2px;
-  padding: 11px 13px;
+  padding: 7px 9px;
   border-radius: 11px;
   background: var(--green-50);
   border: 1.5px solid rgba(22, 163, 74, 0.28);
 }
 
 .phone__gps strong {
-  font-size: 0.78rem;
+  font-size: 0.544rem;
   color: #14532d;
 }
 
 .phone__gps span {
-  font-size: 0.7rem;
+  font-size: 0.488rem;
   color: #166534;
 }
 
@@ -550,9 +551,9 @@
 .phone__manual-toggle {
   display: block;
   width: 100%;
-  margin-top: 9px;
+  margin-top: 7px;
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 0.502rem;
   font-weight: 700;
   color: var(--ink-500);
   text-decoration: underline;
@@ -565,8 +566,8 @@
 }
 
 .phone__manual {
-  margin-top: 6px;
-  padding: 12px;
+  margin-top: 4px;
+  padding: 8px;
   border-radius: 12px;
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -575,7 +576,7 @@
 .phone__manual-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .phone__manual-row--street {
@@ -583,12 +584,12 @@
 }
 
 .phone__reference-hint {
-  margin-top: 8px;
-  padding: 9px 10px;
+  margin-top: 6px;
+  padding: 7px 7px;
   border-radius: 9px;
   background: var(--amber-50);
   color: var(--amber-600);
-  font-size: 0.68rem;
+  font-size: 0.474rem;
   font-weight: 600;
   line-height: 1.45;
 }
@@ -596,9 +597,10 @@
 /* ------------------ Lista do cardápio na comanda ------------------- */
 .phone__picker {
   display: grid;
-  gap: 6px;
-  max-height: 260px;
+  gap: 4px;
+  max-height: 181px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 4px;
 }
 
@@ -606,9 +608,9 @@
   width: 100%;
   display: grid;
   grid-template-columns: 34px 1fr auto;
-  gap: 9px;
+  gap: 7px;
   align-items: center;
-  padding: 8px 9px;
+  padding: 6px 7px;
   border-radius: 11px;
   border: 1.5px solid var(--line);
   background: #fff;
@@ -622,13 +624,13 @@
 }
 
 .phone__picker-emoji {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 24px;
   border-radius: 9px;
   background: var(--surface-2);
   display: grid;
   place-items: center;
-  font-size: 1.1rem;
+  font-size: 0.767rem;
   overflow: hidden;
 }
 
@@ -645,12 +647,12 @@
 }
 
 .phone__picker-text strong {
-  font-size: 0.76rem;
+  font-size: 0.53rem;
   color: var(--ink-900);
 }
 
 .phone__picker-text small {
-  font-size: 0.64rem;
+  font-size: 0.446rem;
   color: var(--ink-400);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -661,14 +663,14 @@
   display: grid;
   justify-items: end;
   gap: 1px;
-  font-size: 0.74rem;
+  font-size: 0.516rem;
   font-weight: 800;
   color: var(--brand);
 }
 
 .phone__picker-price em {
   font-style: normal;
-  font-size: 0.6rem;
+  font-size: 0.418rem;
   font-weight: 700;
   color: var(--ink-400);
 }
@@ -676,17 +678,17 @@
 /* ----------------------- Fila do entregador ------------------------ */
 .phone__deliveries {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .phone__delivery {
   background: #fff;
   border: 1.5px solid var(--line);
   border-radius: 14px;
-  padding: 12px;
+  padding: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .phone__delivery.is-novo {
@@ -701,20 +703,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .phone__delivery header strong {
-  font-size: 0.86rem;
+  font-size: 0.599rem;
   color: var(--ink-900);
 }
 
 .phone__delivery-badge {
-  font-size: 0.62rem;
+  font-size: 0.432rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 9px;
+  padding: 2px 7px;
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--ink-500);
@@ -741,15 +743,15 @@
 }
 
 .phone__delivery-client {
-  font-size: 0.7rem;
+  font-size: 0.488rem;
   color: var(--ink-400);
   font-weight: 600;
 }
 
 .phone__delivery-items {
   display: grid;
-  gap: 3px;
-  padding: 8px 0;
+  gap: 2px;
+  padding: 6px 0;
   border-top: 1px dashed var(--line);
   border-bottom: 1px dashed var(--line);
 }
@@ -757,8 +759,8 @@
 .phone__delivery-items li {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 0.7rem;
+  gap: 6px;
+  font-size: 0.488rem;
   color: var(--ink-700);
 }
 
@@ -766,16 +768,16 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
 }
 
 .phone__delivery-pay strong {
-  font-size: 1rem;
+  font-size: 0.697rem;
   color: var(--ink-900);
 }
 
 .phone__delivery-pay span {
-  font-size: 0.68rem;
+  font-size: 0.474rem;
   font-weight: 700;
   color: var(--green-500);
   text-align: right;
@@ -784,13 +786,13 @@
 .phone__delivery-address {
   display: grid;
   gap: 2px;
-  padding: 9px 10px;
+  padding: 7px 7px;
   border-radius: 10px;
   background: var(--surface-2);
 }
 
 .phone__delivery-mode {
-  font-size: 0.6rem;
+  font-size: 0.418rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -798,21 +800,21 @@
 }
 
 .phone__delivery-address strong {
-  font-size: 0.74rem;
+  font-size: 0.516rem;
   color: var(--ink-900);
 }
 
 .phone__delivery-address span {
-  font-size: 0.68rem;
+  font-size: 0.474rem;
   color: var(--ink-500);
 }
 
 .phone__delivery-reference {
-  padding: 8px 10px;
+  padding: 6px 7px;
   border-radius: 10px;
   background: var(--amber-50);
   color: var(--amber-600);
-  font-size: 0.68rem;
+  font-size: 0.474rem;
   line-height: 1.45;
 }
 
@@ -823,14 +825,14 @@
 .phone__delivery-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 7px;
+  gap: 5px;
 }
 
 .phone__delivery-actions .phone__sheet-btn {
   display: grid;
   place-items: center;
-  font-size: 0.7rem;
-  padding: 10px 6px;
+  font-size: 0.488rem;
+  padding: 7px 4px;
   text-align: center;
   line-height: 1.2;
 }
@@ -848,12 +850,12 @@
 .phone__delivery-phone {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: 4px;
+  padding: 5px 7px;
   border-radius: 9px;
   background: rgba(37, 211, 102, 0.12);
   color: #0f7a3d;
-  font-size: 0.68rem;
+  font-size: 0.474rem;
   font-weight: 800;
 }
 
@@ -872,7 +874,7 @@
 }
 
 .map-picker-header {
-  padding: 16px;
+  padding: 11px;
   background: #fff;
   border-bottom: 1.5px solid var(--line);
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
@@ -881,14 +883,14 @@
 
 .map-picker-header h3 {
   margin: 0 0 4px 0;
-  font-size: 1.1rem;
+  font-size: 0.767rem;
   font-weight: 800;
   color: var(--ink-900);
 }
 
 .map-picker-header p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.592rem;
   color: var(--ink-500);
   line-height: 1.4;
 }
@@ -901,14 +903,20 @@
 }
 
 .map-picker-footer {
-  padding: 16px;
+  padding: 11px;
   background: #fff;
   border-top: 1.5px solid var(--line);
   display: flex;
-  gap: 12px;
+  gap: 8px;
   z-index: 2;
 }
 
 .map-picker-footer button {
   flex: 1;
 }
+
+/* Redução de densidade */
+.phone__item { padding: 7px 8px; }
+.phone__chip { padding: 4px 6px; font-size: 10px; }
+.cat-header { padding: 6px; gap: 8px; }
+.cat-header__media { width: 33px; height: 33px; }

@@ -249,7 +249,7 @@ export function PhonePreview({
               promotions={promotions}
               cart={cart}
               interactive={interactive}
-              onAddToCart={(product) => setCart((list) => [...list, { name: product.name, price: product.price }])}
+              onAddToCart={(product, qty = 1) => setCart((list) => [...list, { name: product.name, price: product.price * qty, quantity: qty, pricingType: product.pricingType }])}
               onRemoveFromCart={(name) =>
                 setCart((list) => {
                   const index = list.findIndex((item) => item.name === name);

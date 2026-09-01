@@ -25,6 +25,7 @@ const productSchema = new Schema(
     name: { type: String, required: [true, 'O produto precisa de um nome.'], trim: true, maxlength: 80 },
     description: { type: String, trim: true, maxlength: 240, default: '' },
     price: { type: Number, required: [true, 'O produto precisa de um preco.'], min: 0, max: 99_999 },
+    pricingType: { type: String, enum: ['unit', 'weight'], default: 'unit' },
     /** Imagem WEBP em base64, na colecao Image. */
     image: { type: Schema.Types.ObjectId, ref: 'Image', default: null },
     category: { type: String, trim: true, maxlength: 40, default: 'Destaques' },

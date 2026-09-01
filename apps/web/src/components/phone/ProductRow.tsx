@@ -7,7 +7,7 @@ type Props = {
   product: PreviewProduct;
   quantity: number;
   interactive: boolean;
-  onAdd: (product: PreviewProduct) => void;
+  onAdd: (product: PreviewProduct, qty?: number) => void;
   onRemove: (productName: string) => void;
 };
 
@@ -48,7 +48,15 @@ export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: 
       </div>
 
       {interactive &&
-        (quantity === 0 ? (
+        (product.pricingType === 'weight' ? (
+          <div className="phone__stepper" style={{ gap: '4px' }}>
+            <input type="number" step="0.001" min="0.001" placeholder="Kg" id={`kg-${product.name}`} style={{ width: '60px', textAlign: 'center', border: '1px solid #ccc', borderRadius: '4px' }} />
+            <button type="button" onClick={() => {
+              let el = document.getElementById(`kg-${product.name}`) as HTMLInputElement;
+              if(el && el.value) onAdd(product, parseFloat(el.value));
+            }} style={{ background: 'var(--ep-primary, #FF6B2C)', color: '#fff', padding: '4px 8px', borderRadius: '4px' }}>Add</button>
+          </div>
+        ) : quantity === 0 ? (
           <button type="button" className="phone__add-btn" onClick={() => onAdd(product)}>
             <span aria-hidden="true">+</span> {copy.addToCart}
           </button>

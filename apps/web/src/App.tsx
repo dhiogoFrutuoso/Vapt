@@ -8,6 +8,8 @@ import { PlanSelectionPage } from './pages/PlanSelectionPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { GuestRoute } from './components/GuestRoute';
 
+import { Toaster } from 'react-hot-toast';
+
 /**
  * Mapa de rotas.
  *
@@ -20,15 +22,13 @@ import { GuestRoute } from './components/GuestRoute';
  */
 export default function App() {
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <GuestRoute>
-            <LandingPage />
-          </GuestRoute>
-        }
-      />
+    <>
+      <Toaster position="bottom-right" />
+      <Routes>
+        <Route
+          path="/"
+          element={<LandingPage />}
+        />
       <Route
         path="/login"
         element={
@@ -71,5 +71,6 @@ export default function App() {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

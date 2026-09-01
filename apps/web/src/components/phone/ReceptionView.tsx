@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState } from 'react';
 import { brl } from '../../lib/format';
 import { useConfirm } from '../ConfirmModal';
@@ -24,7 +25,7 @@ function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrd
     const feeRaw = fee || '0';
     const feeNum = parseFloat(feeRaw.replace(',', '.'));
     if (isNaN(feeNum) || feeNum < 0) {
-      alert('Insira um valor válido para a taxa.');
+      toast.error('Insira um valor válido para a taxa.');
       return;
     }
     onAccept(d.id, feeNum);

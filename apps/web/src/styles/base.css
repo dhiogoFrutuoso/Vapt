@@ -137,20 +137,20 @@ h4 {
 /* --------------------------- Tipografia --------------------------- */
 .eyebrow {
   display: inline-block;
-  font-size: 0.78rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--brand-600);
   background: var(--brand-50);
   border: 1px solid var(--brand-100);
-  padding: 6px 14px;
+  padding: 5px 11px;
   border-radius: 999px;
-  margin-bottom: 18px;
+  margin-bottom: 15px;
 }
 
 .section-heading {
-  max-width: 760px;
+  max-width: 623px;
   margin-bottom: clamp(40px, 5vw, 64px);
 }
 
@@ -164,7 +164,7 @@ h4 {
 }
 
 .section-heading p {
-  margin-top: 16px;
+  margin-top: 13px;
   font-size: clamp(1rem, 1.4vw, 1.12rem);
   color: var(--ink-500);
 }
@@ -187,19 +187,19 @@ h4 {
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 16px 7px 12px;
+  gap: 7px;
+  padding: 6px 13px 6px 10px;
   border-radius: 999px;
   background: var(--brand-50);
   border: 1px solid var(--brand-100);
   color: var(--brand-700);
-  font-size: 0.85rem;
+  font-size: 0.697rem;
   font-weight: 700;
 }
 
 .pill__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--brand-500);
   box-shadow: 0 0 0 4px rgba(255, 107, 44, 0.18);
@@ -210,11 +210,11 @@ h4 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px 22px;
+  gap: 8px;
+  padding: 10px 18px;
   border-radius: 999px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.779rem;
   border: 1.5px solid transparent;
   transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease;
   white-space: nowrap;
@@ -235,8 +235,8 @@ h4 {
 }
 
 .btn--lg {
-  padding: 16px 30px;
-  font-size: 1.02rem;
+  padding: 13px 25px;
+  font-size: 0.836rem;
 }
 
 .btn--block {
@@ -310,7 +310,7 @@ h4 {
   border: none;
   color: var(--ink-500);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.738rem;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -318,35 +318,35 @@ h4 {
 .link-button--center {
   display: block;
   text-align: center;
-  margin-top: 14px;
+  margin-top: 11px;
 }
 
 .store-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
+  gap: 7px;
+  padding: 7px 13px;
   border-radius: 12px;
   border: 1.5px solid var(--line);
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: 0.722rem;
   background: var(--surface);
 }
 
 /* --------------------------- Formulários -------------------------- */
 .form {
   display: grid;
-  gap: 18px;
+  gap: 15px;
 }
 
 .field {
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .field label,
 .field__label {
-  font-size: 0.86rem;
+  font-size: 0.705rem;
   font-weight: 700;
   color: var(--ink-700);
 }
@@ -355,12 +355,12 @@ h4 {
 .field textarea,
 .field select {
   width: 100%;
-  padding: 13px 15px;
+  padding: 11px 12px;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  font-size: 0.96rem;
+  font-size: 0.787rem;
 }
 
 .field textarea {
@@ -376,14 +376,14 @@ h4 {
 }
 
 .field__hint {
-  font-size: 0.8rem;
+  font-size: 0.656rem;
   color: var(--ink-400);
 }
 
 .field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 13px;
 }
 
 .input-prefix {
@@ -396,7 +396,7 @@ h4 {
 }
 
 .input-prefix span {
-  padding: 0 12px;
+  padding: 0 10px;
   font-weight: 700;
   color: var(--ink-400);
   background: var(--surface-2);
@@ -415,9 +415,9 @@ h4 {
 }
 
 .alert {
-  padding: 12px 14px;
+  padding: 10px 11px;
   border-radius: var(--radius-sm);
-  font-size: 0.88rem;
+  font-size: 0.722rem;
   font-weight: 600;
 }
 
@@ -475,38 +475,38 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
 }
 
 .nav__logo {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .nav__logo-mark {
-  width: 38px;
-  height: 38px;
+  width: 31px;
+  height: 31px;
   border-radius: 11px;
   display: grid;
   place-items: center;
   background: linear-gradient(180deg, var(--brand-500), var(--brand-600));
   color: #fff;
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 0.943rem;
   box-shadow: 0 6px 16px rgba(234, 86, 15, 0.3);
 }
 
 .nav__logo-text {
   display: grid;
   font-weight: 800;
-  font-size: 1.08rem;
+  font-size: 0.886rem;
   color: var(--ink-900);
   line-height: 1.1;
 }
 
 .nav__logo-text small {
-  font-size: 0.68rem;
+  font-size: 0.558rem;
   font-weight: 600;
   color: var(--ink-400);
   letter-spacing: 0.02em;
@@ -515,10 +515,10 @@ h4 {
 .nav__links {
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: 21px;
   margin-left: auto;
-  margin-right: 8px;
-  font-size: 0.93rem;
+  margin-right: 7px;
+  font-size: 0.763rem;
   font-weight: 600;
   color: var(--ink-700);
 }
@@ -529,24 +529,24 @@ h4 {
 
 .nav__mobile-actions {
   display: none;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 7px;
+  margin-top: 10px;
 }
 
 .nav__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .nav__burger {
   display: none;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   border-radius: 12px;
   border: 1.5px solid var(--line);
   background: #fff;
-  padding: 11px 10px;
+  padding: 9px 8px;
   flex-direction: column;
   justify-content: space-between;
 }
@@ -562,7 +562,7 @@ h4 {
 .phone {
   position: relative;
   width: 100%;
-  max-width: 320px;
+  max-width: 262px;
   margin-inline: auto;
 }
 
@@ -574,19 +574,19 @@ h4 {
   z-index: 3;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   background: var(--ink-900);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.59rem;
   font-weight: 700;
-  padding: 6px 13px;
+  padding: 5px 11px;
   border-radius: 999px;
   white-space: nowrap;
 }
 
 .phone__live-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #4ade80;
   animation: pulse 1.6s infinite;
@@ -606,7 +606,7 @@ h4 {
   position: relative;
   border-radius: 42px;
   background: #0b0b0d;
-  padding: 11px;
+  padding: 9px;
   box-shadow: var(--shadow-lg);
 }
 
@@ -615,8 +615,8 @@ h4 {
   top: 16px;
   left: 50%;
   transform: translateX(-50%);
-  width: 92px;
-  height: 20px;
+  width: 75px;
+  height: 16px;
   border-radius: 999px;
   background: #0b0b0d;
   z-index: 2;
@@ -629,40 +629,40 @@ h4 {
   background: #fff;
   display: flex;
   flex-direction: column;
-  height: 578px;
+  height: 474px;
 }
 
 .phone__header {
   flex-shrink: 0;
   background: var(--brand);
   color: var(--on-brand);
-  padding: 12px 16px 16px;
+  padding: 10px 13px 13px;
   transition: background 0.3s ease;
 }
 
 .phone__status {
   display: flex;
   justify-content: space-between;
-  font-size: 0.66rem;
+  font-size: 0.541rem;
   opacity: 0.85;
   font-weight: 700;
-  margin-bottom: 16px;
+  margin-bottom: 13px;
 }
 
 .phone__brandbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .phone__logo {
-  width: 48px;
-  height: 48px;
+  width: 39px;
+  height: 39px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.9);
   display: grid;
   place-items: center;
-  font-size: 1.5rem;
+  font-size: 1.23rem;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -680,7 +680,7 @@ h4 {
 }
 
 .phone__brandtext strong {
-  font-size: 1.02rem;
+  font-size: 0.836rem;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -688,7 +688,7 @@ h4 {
 }
 
 .phone__brandtext span {
-  font-size: 0.74rem;
+  font-size: 0.607rem;
   opacity: 0.85;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -697,15 +697,15 @@ h4 {
 
 .phone__chips {
   display: flex;
-  gap: 6px;
-  margin-top: 14px;
+  gap: 5px;
+  margin-top: 11px;
   flex-wrap: wrap;
 }
 
 .phone__chip {
-  font-size: 0.66rem;
+  font-size: 0.541rem;
   font-weight: 700;
-  padding: 5px 10px;
+  padding: 4px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.22);
 }
@@ -718,7 +718,8 @@ h4 {
 .phone__body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 16px 120px 16px;
+  -webkit-overflow-scrolling: touch;
+  padding: 13px 13px 98px 13px;
   background: var(--surface-2);
 }
 
@@ -726,47 +727,47 @@ h4 {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 0.82rem;
+  font-size: 0.672rem;
   font-weight: 800;
   color: var(--ink-900);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .phone__section-count {
-  font-size: 0.7rem;
+  font-size: 0.574rem;
   font-weight: 600;
   color: var(--ink-400);
 }
 
 .phone__empty {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   place-items: center;
   text-align: center;
-  padding: 40px 16px;
+  padding: 33px 13px;
   border: 1.5px dashed var(--line);
   border-radius: var(--radius);
   background: #fff;
   color: var(--ink-400);
-  font-size: 0.78rem;
+  font-size: 0.64rem;
 }
 
 .phone__empty span {
-  font-size: 1.6rem;
+  font-size: 1.312rem;
 }
 
 .phone__list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .phone__item {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: space-between;
   background: #fff;
   border-radius: 14px;
-  padding: 11px;
+  padding: 9px;
   box-shadow: var(--shadow-sm);
   animation: itemIn 0.35s ease;
 }
@@ -783,16 +784,16 @@ h4 {
 }
 
 .phone__item-text strong {
-  font-size: 0.85rem;
+  font-size: 0.697rem;
   display: block;
   color: var(--ink-900);
 }
 
 .phone__item-text p {
-  font-size: 0.7rem;
+  font-size: 0.574rem;
   color: var(--ink-400);
   line-height: 1.35;
-  margin: 3px 0 6px;
+  margin: 2px 0 5px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -801,20 +802,20 @@ h4 {
 }
 
 .phone__price {
-  font-size: 0.85rem;
+  font-size: 0.697rem;
   font-weight: 800;
   color: var(--brand);
 }
 
 .phone__thumb {
   position: relative;
-  width: 74px;
-  height: 74px;
+  width: 61px;
+  height: 61px;
   border-radius: 12px;
   background: var(--surface-2);
   display: grid;
   place-items: center;
-  font-size: 1.8rem;
+  font-size: 1.476rem;
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -829,13 +830,13 @@ h4 {
   position: absolute;
   right: -4px;
   bottom: -4px;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--brand);
   color: var(--on-brand);
   font-weight: 800;
-  font-size: 0.9rem;
+  font-size: 0.738rem;
   display: grid;
   place-items: center;
   border: 2px solid #fff;
@@ -845,17 +846,17 @@ h4 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding: 11px 15px;
   background: var(--brand);
   color: var(--on-brand);
-  font-size: 0.85rem;
+  font-size: 0.697rem;
   font-weight: 800;
 }
 
 .phone__code {
-  padding: 8px;
+  padding: 7px;
   text-align: center;
-  font-size: 0.7rem;
+  font-size: 0.574rem;
   background: var(--ink-900);
   color: rgba(255, 255, 255, 0.7);
 }
@@ -873,12 +874,12 @@ h4 {
   z-index: 60;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: var(--whats);
   color: #fff;
   font-weight: 700;
-  font-size: 0.9rem;
-  padding: 13px 20px 13px 16px;
+  font-size: 0.738rem;
+  padding: 11px 16px 11px 13px;
   border-radius: 999px;
   box-shadow: 0 12px 30px rgba(37, 211, 102, 0.4);
   transition: transform 0.2s ease;
@@ -888,12 +889,12 @@ h4 {
   transform: translateY(-2px);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 590px) {
   .wa-float span {
     display: none;
   }
   .wa-float {
-    padding: 15px;
+    padding: 12px;
   }
 }
 
@@ -923,7 +924,7 @@ h4 {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 13px;
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -938,7 +939,7 @@ h4 {
   position: relative;
   background: #fff;
   width: 100%;
-  max-width: 400px;
+  max-width: 328px;
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   overflow: hidden;
@@ -955,7 +956,7 @@ h4 {
   border: none;
   color: var(--ink-400);
   cursor: pointer;
-  padding: 8px;
+  padding: 7px;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -968,7 +969,7 @@ h4 {
 }
 
 .confirm-modal__header {
-  padding: 24px 24px 16px;
+  padding: 20px 20px 13px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -976,39 +977,39 @@ h4 {
 }
 
 .confirm-modal__icon {
-  width: 48px;
-  height: 48px;
+  width: 39px;
+  height: 39px;
   background: #fef2f2;
   color: #ef4444;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 13px;
 }
 
 .confirm-modal__header h3 {
-  font-size: 1.25rem;
+  font-size: 1.025rem;
   font-weight: 700;
   color: var(--ink-900);
   margin: 0;
 }
 
 .confirm-modal__body {
-  padding: 0 24px 24px;
+  padding: 0 20px 20px;
   text-align: center;
   color: var(--ink-500);
-  font-size: 1rem;
+  font-size: 0.82rem;
   line-height: 1.5;
 }
 
 .confirm-modal__footer {
-  padding: 16px 24px;
+  padding: 13px 20px;
   background: var(--stone-50);
   border-top: 1px solid var(--stone-200);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 @keyframes fadeIn {
@@ -1020,3 +1021,7 @@ h4 {
   from { opacity: 0; transform: translateY(10px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* Redução de densidade Dashboard */
+.dash__card { padding: 12px; }
+.dash__grid { gap: 12px; }

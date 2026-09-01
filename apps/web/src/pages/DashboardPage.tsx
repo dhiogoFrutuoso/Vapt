@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { auth, site } from '../data/content';
@@ -86,7 +87,7 @@ export function DashboardPage() {
       navigate(`/painel/app/${newApp.id}`);
     } catch (err) {
       console.error(err);
-      alert('Erro ao criar aplicativo.');
+      toast.error('Erro ao criar aplicativo.');
       setCreating(false);
     }
   }
@@ -104,7 +105,7 @@ export function DashboardPage() {
           setApps(current => current.filter(app => app.id !== id));
         } catch (err) {
           console.error(err);
-          alert('Erro ao excluir aplicativo.');
+          toast.error('Erro ao excluir aplicativo.');
         } finally {
           setDeletingId(null);
         }
@@ -130,7 +131,7 @@ export function DashboardPage() {
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao carregar configurações do aplicativo.');
+      toast.error('Erro ao carregar configurações do aplicativo.');
       setSettingsAppId(null);
     } finally {
       setLoadingSettings(false);
@@ -168,10 +169,10 @@ export function DashboardPage() {
         logoUrl: formLogoBase64 || a.logoUrl // Approximation since base64 will become objectId later on reload
       } : a));
       
-      alert('Configurações salvas!');
+      toast.success('Configurações salvas!');
     } catch(err) {
       console.error(err);
-      alert('Erro ao salvar');
+      toast.error('Erro ao salvar');
     } finally {
       setSavingSettings(false);
     }
@@ -184,7 +185,7 @@ export function DashboardPage() {
       setFormLogoBase64(dataUrl);
       setFormLogoUrl(dataUrl); // preview
     } catch (err) {
-      alert('Erro ao processar imagem.');
+      toast.error('Erro ao processar imagem.');
     }
   }
 
@@ -199,7 +200,7 @@ export function DashboardPage() {
       setNewRolePermissions([]);
       if (!newEmpRoleId) setNewEmpRoleId(role._id);
     } catch(err) {
-      alert('Erro ao criar função');
+      toast.error('Erro ao criar função');
     } finally {
       setIsAddingRole(false);
     }
@@ -217,7 +218,7 @@ export function DashboardPage() {
           await api.removeRole(fullApp._id, roleId);
           setFullApp({ ...fullApp, roles: fullApp.roles.filter((r: any) => r._id !== roleId) });
         } catch(err) {
-          alert('Erro ao remover função');
+          toast.error('Erro ao remover função');
         }
       }
     });
@@ -232,7 +233,7 @@ export function DashboardPage() {
       setFullApp({ ...fullApp, employees: [...(fullApp.employees || []), emp] });
       setNewEmpName('');
     } catch(err) {
-      alert('Erro ao adicionar funcionário');
+      toast.error('Erro ao adicionar funcionário');
     } finally {
       setIsAddingEmp(false);
     }
@@ -250,7 +251,7 @@ export function DashboardPage() {
           await api.removeEmployee(fullApp._id, empId);
           setFullApp({ ...fullApp, employees: fullApp.employees.filter((e: any) => e._id !== empId) });
         } catch(err) {
-          alert('Erro ao remover funcionário');
+          toast.error('Erro ao remover funcionário');
         }
       }
     });
@@ -479,7 +480,7 @@ export function DashboardPage() {
                 </div>
 
                 {/* Tab Content */}
-                <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ padding: '1.5rem', overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
                   
                   {settingsTab === 'geral' && (
                     <form onSubmit={handleSaveGeneral}>

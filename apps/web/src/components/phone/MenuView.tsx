@@ -11,7 +11,7 @@ type Props = {
   promotions?: PreviewPromotion[];
   cart: OrderItem[];
   interactive: boolean;
-  onAddToCart: (product: PreviewProduct) => void;
+  onAddToCart: (product: PreviewProduct, qty?: number) => void;
   onRemoveFromCart: (productName: string) => void;
   onOpenCheckout: () => void;
   isCheckoutOpen?: boolean;

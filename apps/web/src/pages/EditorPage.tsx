@@ -1,3 +1,4 @@
+import toast from 'react-hot-toast';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, getImageUrl, type AppProjectFull } from '../lib/api';
@@ -31,6 +32,7 @@ export function EditorPage() {
   const [prodName, setProdName] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
+  const [prodPricingType, setProdPricingType] = useState<'unit' | 'weight'>('unit');
   const [prodCategory, setProdCategory] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodImage, setProdImage] = useState<string | null>(null);
@@ -78,7 +80,7 @@ export function EditorPage() {
         })));
       } catch (err) {
         console.error(err);
-        alert('Erro ao carregar aplicativo.');
+        toast.error('Erro ao carregar aplicativo.');
         navigate('/painel');
       } finally {
         setLoading(false);
@@ -96,7 +98,7 @@ export function EditorPage() {
       const updated = await api.updateApp(app._id, { dining: { isWaiterCommissionEnabled: checked, waiterCommissionPercentage: app.dining?.waiterCommissionPercentage ?? 10 } });
       setApp(updated);
     } catch (err) {
-      alert('Erro ao salvar configuração do garçom');
+      toast.error('Erro ao salvar configuração do garçom');
     }
   }
 
@@ -108,7 +110,7 @@ export function EditorPage() {
       const updated = await api.updateApp(app._id, { dining: { waiterCommissionPercentage: value } });
       setApp(updated);
     } catch (err) {
-      alert('Erro ao salvar porcentagem do garçom');
+      toast.error('Erro ao salvar porcentagem do garçom');
     }
   }
 
@@ -189,7 +191,7 @@ export function EditorPage() {
           if (prodCategory === catName) setProdCategory(newCats[0]?.name || '');
           if (editingCatId === categoryId) cancelCategoryEdit();
         } catch (err) {
-          alert('Erro ao remover');
+          toast.error('Erro ao remover');
         }
       }
     });
@@ -206,7 +208,7 @@ export function EditorPage() {
       setApp(updated);
     } catch (err) {
       setApp({ ...app, delivery: anterior });
-      alert('Não foi possível salvar essa configuração.');
+      toast.error('Não foi possível salvar essa configuração.');
     }
   }
 
@@ -216,7 +218,7 @@ export function EditorPage() {
       const dataUrl = await fileToResizedDataUrl(file, 720);
       setProdImage(dataUrl);
     } catch (err) {
-      alert('Erro ao processar imagem.');
+      toast.error('Erro ao processar imagem.');
     }
   }
 
@@ -231,6 +233,7 @@ export function EditorPage() {
           name: prodName,
           description: prodDesc,
           price: priceVal,
+          pricingType: prodPricingType,
           category: prodCategory,
           isFeatured: prodFeatured,
           imageBase64: prodImage && prodImage.startsWith('data:') ? prodImage.split(',')[1] : undefined
@@ -249,7 +252,7 @@ export function EditorPage() {
       }
       resetProdForm();
     } catch (err) {
-      alert('Erro ao salvar produto.');
+      toast.error('Erro ao salvar produto.');
     } finally {
       setIsSavingProd(false);
     }
@@ -270,6 +273,7 @@ export function EditorPage() {
     setProdName('');
     setProdDesc('');
     setProdPrice('');
+      setProdPricingType('unit');
     setProdFeatured(false);
     setProdImage(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -288,7 +292,7 @@ export function EditorPage() {
           setApp({ ...app, products: app.products.filter((p: any) => p._id !== productId) });
           if (editingProductId === productId) resetProdForm();
         } catch (err) {
-          alert('Erro ao excluir produto.');
+          toast.error('Erro ao excluir produto.');
         }
       }
     });
@@ -325,7 +329,7 @@ export function EditorPage() {
       }
       resetTableForm();
     } catch (err) {
-      alert('Erro ao salvar mesa.');
+      toast.error('Erro ao salvar mesa.');
     } finally {
       setIsSavingTable(false);
     }
@@ -358,7 +362,7 @@ export function EditorPage() {
           setLiveTables(liveTables.filter((t: any) => t.id !== tableId));
           if (editingTableId === tableId) resetTableForm();
         } catch (err) {
-          alert('Erro ao excluir mesa');
+          toast.error('Erro ao excluir mesa');
         }
       }
     });
@@ -387,7 +391,7 @@ export function EditorPage() {
           await api.removePromotion(app._id, promoId);
           setApp({ ...app, promotions: app.promotions.filter((p: any) => p._id !== promoId) });
         } catch (err) {
-          alert('Erro ao excluir promoção');
+          toast.error('Erro ao excluir promoção');
         }
       }
     });
@@ -399,7 +403,7 @@ export function EditorPage() {
       const updated = await api.updatePromotion(app._id, promoId, { active: !currentStatus });
       setApp({ ...app, promotions: app.promotions.map((p: any) => p._id === promoId ? updated : p) });
     } catch (err) {
-      alert('Erro ao alterar status da promoção');
+      toast.error('Erro ao alterar status da promoção');
     }
   }
 
@@ -456,7 +460,7 @@ export function EditorPage() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }} className="editor-workspace">
         
         {/* SIDEBAR */}
-        <aside style={{ width: '420px', backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flexShrink: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
+        <aside style={{ width: '420px', backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flexShrink: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
           
           {/* Cardápio e Categorias */}
           <div style={{ padding: "32px 24px", borderBottom: "1px solid var(--ep-border)" }}>
@@ -734,7 +738,7 @@ export function EditorPage() {
         </aside>
 
         {/* PREVIEW CONTAINER */}
-        <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'center', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
+        <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'center', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
           
           <div style={{ width: '100%', maxWidth: viewMode === 'fullscreen' ? '100%' : '1200px', display: 'flex', flexDirection: 'column' }}>
             
@@ -790,7 +794,7 @@ export function EditorPage() {
                       if (res.deactivatedPromotions > 0) {
                         const updatedApp = await api.getApp(app._id);
                         setApp(updatedApp);
-                        alert(`${res.deactivatedPromotions} promoções foram desativadas com o fechamento do caixa.`);
+                        toast.success(`${res.deactivatedPromotions} promoções foram desativadas com o fechamento do caixa.`);
                       }
                     } catch (e) {
                       console.error('Erro ao fechar o caixa na API:', e);
