@@ -16,59 +16,151 @@ const createAppSchema = z.object({
   targetUserId: z.string().optional(),
 });
 
-export const createApp = asyncHandler(async (req: Request, res: Response) => {
-  const { name, businessType, appPlanType, targetUserId } = createAppSchema.parse(req.body);
-  let ownerId = req.user!.id;
-  
-  if (req.user!.isAdmin && targetUserId) {
-    ownerId = targetUserId;
-  }
+export const createApp = async (req: Request, res: Response) => {
+          try {
+            const { name, businessType, appPlanType, targetUserId } = createAppSchema.parse(req.body);
+                  let ownerId = req.user!.id;
+                  
+                  if (req.user!.isAdmin && targetUserId) {
+                    ownerId = targetUserId;
+                  }
 
-  const slug = await uniqueSlug(name, async (s) => {
-    const exists = await AppProject.exists({ slug: s });
-    return exists !== null;
-  });
+                  const slug = await uniqueSlug(name, async (s) => {
+                    const exists = await AppProject.exists({ slug: s });
+                    return exists !== null;
+                  });
 
-  const app = new AppProject({
-    owner: ownerId,
-    name,
-    slug,
-    businessType,
-    appPlanType,
-  });
+                  const app = new AppProject({
+                    owner: ownerId,
+                    name,
+                    slug,
+                    businessType,
+                    appPlanType,
+                  });
 
-  await app.save();
+                  await app.save();
 
-  res.status(201).json({ ok: true, data: (app as any).toSummary() });
-});
+                  res.status(201).json({ ok: true, data: (app as any).toSummary() });
 
-export const listApps = asyncHandler(async (req: Request, res: Response) => {
-  const targetUserId = req.query.targetUserId as string | undefined;
-  const ownerId = (req.user!.isAdmin && targetUserId) ? targetUserId : req.user!.id;
-  
-  const apps = await AppProject.find({ owner: ownerId }).sort({ updatedAt: -1 });
-  res.json({ ok: true, data: apps.map((a) => (a as any).toSummary()) });
-});
+          } catch (error: any) {
+            console.error('[API Error - createApp]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-export const deleteApp = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOneAndDelete({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
-  res.json({ ok: true, data: { deleted: true } });
-});
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-export const getApp = asyncHandler(async (req: Request, res: Response) => {
-  const app = (await AppProject.findOne({ _id: req.params.id, owner: req.user!.id }).lean()) as any;
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  // Filtra promoções vencidas para não enviar promoções expiradas no passado
-  const now = new Date();
-  app.promotions = (app.promotions || []).filter((p: any) => {
-    if (p.validUntil && new Date(p.validUntil) < now) return false;
-    return true;
-  });
+export const listApps = async (req: Request, res: Response) => {
+          try {
+            const targetUserId = req.query.targetUserId as string | undefined;
+                  const ownerId = (req.user!.isAdmin && targetUserId) ? targetUserId : req.user!.id;
+                  
+                  const apps = await AppProject.find({ owner: ownerId }).sort({ updatedAt: -1 });
+                  res.json({ ok: true, data: apps.map((a) => (a as any).toSummary()) });
 
-  res.json({ ok: true, data: app });
-});
+          } catch (error: any) {
+            console.error('[API Error - listApps]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const deleteApp = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOneAndDelete({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+                  res.json({ ok: true, data: { deleted: true } });
+
+          } catch (error: any) {
+            console.error('[API Error - deleteApp]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const getApp = async (req: Request, res: Response) => {
+          try {
+            const app = (await AppProject.findOne({ _id: req.params.id, owner: req.user!.id }).lean()) as any;
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  // Filtra promoções vencidas para não enviar promoções expiradas no passado
+                  const now = new Date();
+                  app.promotions = (app.promotions || []).filter((p: any) => {
+                    if (p.validUntil && new Date(p.validUntil) < now) return false;
+                    return true;
+                  });
+
+                  res.json({ ok: true, data: app });
+
+          } catch (error: any) {
+            console.error('[API Error - getApp]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 const updateAppSchema = z.object({
   name: z.string().max(80).optional(),
@@ -102,47 +194,70 @@ const updateAppSchema = z.object({
   categories: z.array(z.string().max(40)).optional(),
 });
 
-export const updateApp = asyncHandler(async (req: Request, res: Response) => {
-  const updates = updateAppSchema.parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+export const updateApp = async (req: Request, res: Response) => {
+          try {
+            const updates = updateAppSchema.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  if (updates.name) app.name = updates.name;
-  if (updates.businessType) app.businessType = updates.businessType;
-  
-  if (updates.brand) {
-    const brandData = { ...updates.brand } as any;
-    if (brandData.logoBase64) {
-      const processed = await toWebpBase64(brandData.logoBase64);
-      const imageDoc = await Image.create({
-        owner: req.user!.id,
-        kind: 'logo',
-        mimeType: processed.mimeType,
-        data: processed.base64,
-        width: processed.width,
-        height: processed.height,
-        bytes: processed.bytes,
-      });
-      brandData.logo = imageDoc._id;
-      delete brandData.logoBase64;
-    }
-    app.brand = { ...app.brand, ...brandData } as any;
-  }
-  
-  if (updates.delivery) {
-    app.delivery = { ...app.delivery, ...updates.delivery } as any;
-  }
-  
-  if (updates.dining) {
-    app.dining = { ...app.dining, ...updates.dining } as any;
-  }
-  
-  
+                  if (updates.name) app.name = updates.name;
+                  if (updates.businessType) app.businessType = updates.businessType;
+                  
+                  if (updates.brand) {
+                    const brandData = { ...updates.brand } as any;
+                    if (brandData.logoBase64) {
+                      const processed = await toWebpBase64(brandData.logoBase64);
+                      const imageDoc = await Image.create({
+                        owner: req.user!.id,
+                        kind: 'logo',
+                        mimeType: processed.mimeType,
+                        data: processed.base64,
+                        width: processed.width,
+                        height: processed.height,
+                        bytes: processed.bytes,
+                      });
+                      brandData.logo = imageDoc._id;
+                      delete brandData.logoBase64;
+                    }
+                    app.brand = { ...app.brand, ...brandData } as any;
+                  }
+                  
+                  if (updates.delivery) {
+                    app.delivery = { ...app.delivery, ...updates.delivery } as any;
+                  }
+                  
+                  if (updates.dining) {
+                    app.dining = { ...app.dining, ...updates.dining } as any;
+                  }
+                  
+                  
 
-  await app.save();
-  res.json({ ok: true, data: app });
-});
+                  await app.save();
+                  res.json({ ok: true, data: app });
+
+          } catch (error: any) {
+            console.error('[API Error - updateApp]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 const addProductSchema = z.object({
   name: z.string().min(1, 'O produto precisa de um nome.').max(80),
@@ -155,108 +270,177 @@ const addProductSchema = z.object({
   imageBase64: z.string().optional(),
 });
 
-export const addProduct = asyncHandler(async (req: Request, res: Response) => {
-  const data = addProductSchema.parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+export const addProduct = async (req: Request, res: Response) => {
+          try {
+            const data = addProductSchema.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  let imageId = null;
-  if (data.imageBase64) {
-    const processed = await toWebpBase64(data.imageBase64);
-    const imageDoc = await Image.create({
-      owner: req.user!.id,
-      kind: 'produto',
-      mimeType: processed.mimeType,
-      data: processed.base64,
-      width: processed.width,
-      height: processed.height,
-      bytes: processed.bytes,
-    });
-    imageId = imageDoc._id;
-  }
+                  let imageId = null;
+                  if (data.imageBase64) {
+                    const processed = await toWebpBase64(data.imageBase64);
+                    const imageDoc = await Image.create({
+                      owner: req.user!.id,
+                      kind: 'produto',
+                      mimeType: processed.mimeType,
+                      data: processed.base64,
+                      width: processed.width,
+                      height: processed.height,
+                      bytes: processed.bytes,
+                    });
+                    imageId = imageDoc._id;
+                  }
 
-  const newProduct = {
-    name: data.name,
-    description: data.description,
-    price: data.price,
-    category: data.category,
-    isFeatured: data.isFeatured,
-    available: data.available,
-    order: data.order,
-    image: imageId,
-  };
+                  const newProduct = {
+                    name: data.name,
+                    description: data.description,
+                    price: data.price,
+                    category: data.category,
+                    isFeatured: data.isFeatured,
+                    available: data.available,
+                    order: data.order,
+                    image: imageId,
+                  };
 
-  app.products.push(newProduct as any);
-  await app.save();
+                  app.products.push(newProduct as any);
+                  await app.save();
 
-  res.status(201).json({ ok: true, data: app.products[app.products.length - 1] });
-});
+                  res.status(201).json({ ok: true, data: app.products[app.products.length - 1] });
 
-export const updateProduct = asyncHandler(async (req: Request, res: Response) => {
-  const data = addProductSchema.partial().parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+          } catch (error: any) {
+            console.error('[API Error - addProduct]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  const productIndex = app.products.findIndex((p: any) => String(p._id) === req.params.productId);
-  if (productIndex === -1) throw HttpError.notFound('Produto não encontrado.');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  const product = app.products[productIndex];
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  if (data.imageBase64 !== undefined) {
-    if (data.imageBase64 === null || data.imageBase64 === '') {
-      if (product.image) {
-        await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
-        product.image = undefined;
-      }
-    } else {
-      const processed = await toWebpBase64(data.imageBase64);
-      const imageDoc = await Image.create({
-        owner: req.user!.id,
-        kind: 'produto',
-        mimeType: processed.mimeType,
-        data: processed.base64,
-        width: processed.width,
-        height: processed.height,
-        bytes: processed.bytes,
-      });
-      if (product.image) {
-        await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
-      }
-      product.image = imageDoc._id;
-    }
-  }
+export const updateProduct = async (req: Request, res: Response) => {
+          try {
+            const data = addProductSchema.partial().parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  if (data.name !== undefined) product.name = data.name;
-  if (data.description !== undefined) product.description = data.description;
-  if (data.price !== undefined) product.price = data.price;
-  if (data.category !== undefined) product.category = data.category;
-  if (data.isFeatured !== undefined) product.isFeatured = data.isFeatured;
-  if (data.available !== undefined) product.available = data.available;
-  if (data.order !== undefined) product.order = data.order;
+                  const productIndex = app.products.findIndex((p: any) => String(p._id) === req.params.productId);
+                  if (productIndex === -1) throw HttpError.notFound('Produto não encontrado.');
 
-  await app.save();
-  res.json({ ok: true, data: product });
-});
+                  const product = app.products[productIndex];
 
-export const removeProduct = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+                  if (data.imageBase64 !== undefined) {
+                    if (data.imageBase64 === null || data.imageBase64 === '') {
+                      if (product.image) {
+                        await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
+                        product.image = undefined;
+                      }
+                    } else {
+                      const processed = await toWebpBase64(data.imageBase64);
+                      const imageDoc = await Image.create({
+                        owner: req.user!.id,
+                        kind: 'produto',
+                        mimeType: processed.mimeType,
+                        data: processed.base64,
+                        width: processed.width,
+                        height: processed.height,
+                        bytes: processed.bytes,
+                      });
+                      if (product.image) {
+                        await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
+                      }
+                      product.image = imageDoc._id;
+                    }
+                  }
 
-  const productIndex = app.products.findIndex((p: any) => String(p._id) === req.params.productId);
-  if (productIndex === -1) throw HttpError.notFound('Produto não encontrado.');
+                  if (data.name !== undefined) product.name = data.name;
+                  if (data.description !== undefined) product.description = data.description;
+                  if (data.price !== undefined) product.price = data.price;
+                  if (data.category !== undefined) product.category = data.category;
+                  if (data.isFeatured !== undefined) product.isFeatured = data.isFeatured;
+                  if (data.available !== undefined) product.available = data.available;
+                  if (data.order !== undefined) product.order = data.order;
 
-  const product = app.products[productIndex];
-  if (product.image) {
-    await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
-  }
+                  await app.save();
+                  res.json({ ok: true, data: product });
 
-  app.products.splice(productIndex, 1);
-  await app.save();
+          } catch (error: any) {
+            console.error('[API Error - updateProduct]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  res.json({ ok: true, data: { removed: req.params.categoryId } });
-});
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const removeProduct = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  const productIndex = app.products.findIndex((p: any) => String(p._id) === req.params.productId);
+                  if (productIndex === -1) throw HttpError.notFound('Produto não encontrado.');
+
+                  const product = app.products[productIndex];
+                  if (product.image) {
+                    await Image.deleteOne({ _id: product.image, owner: req.user!.id }).catch(() => {});
+                  }
+
+                  app.products.splice(productIndex, 1);
+                  await app.save();
+
+                  res.json({ ok: true, data: { removed: req.params.categoryId } });
+
+          } catch (error: any) {
+            console.error('[API Error - removeProduct]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 const addTableSchema = z.object({
   label: z.string().min(1).max(10),
@@ -269,139 +453,278 @@ const categorySchemaApi = z.object({
   imageBase64: z.string().optional(),
 });
 
-export const addCategory = asyncHandler(async (req: Request, res: Response) => {
-  const data = categorySchemaApi.parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+export const addCategory = async (req: Request, res: Response) => {
+          try {
+            const data = categorySchemaApi.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  let imageId = null;
-  if (data.imageBase64) {
-    const processed = await toWebpBase64(data.imageBase64, { maxSize: 400 });
-    const imageDoc = await Image.create({
-      owner: req.user!.id,
-      kind: 'categoria',
-      mimeType: processed.mimeType,
-      data: processed.base64,
-      width: processed.width,
-      height: processed.height,
-      bytes: processed.bytes,
-    });
-    imageId = imageDoc._id;
-  }
+                  let imageId = null;
+                  if (data.imageBase64) {
+                    const processed = await toWebpBase64(data.imageBase64, { maxSize: 400 });
+                    const imageDoc = await Image.create({
+                      owner: req.user!.id,
+                      kind: 'categoria',
+                      mimeType: processed.mimeType,
+                      data: processed.base64,
+                      width: processed.width,
+                      height: processed.height,
+                      bytes: processed.bytes,
+                    });
+                    imageId = imageDoc._id;
+                  }
 
-  app.categories.push({ name: data.name, image: imageId } as any);
-  await app.save();
+                  app.categories.push({ name: data.name, image: imageId } as any);
+                  await app.save();
 
-  res.status(201).json({ ok: true, data: app.categories[app.categories.length - 1] });
-});
+                  res.status(201).json({ ok: true, data: app.categories[app.categories.length - 1] });
 
-export const updateCategory = asyncHandler(async (req: Request, res: Response) => {
-  const parsedData = categorySchemaApi.partial().parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+          } catch (error: any) {
+            console.error('[API Error - addCategory]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  const category = app.categories.id(req.params.categoryId);
-  if (!category) throw HttpError.notFound('Categoria não encontrada.');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  if (parsedData.name !== undefined) category.name = parsedData.name;
-  
-  if (parsedData.imageBase64 !== undefined) {
-    if (parsedData.imageBase64 === null) {
-      category.image = null;
-    } else {
-      const processed = await toWebpBase64(parsedData.imageBase64, { maxSize: 400 });
-      const imageDoc = await Image.create({
-        owner: req.user!.id,
-        kind: 'categoria',
-        mimeType: processed.mimeType,
-        data: processed.base64,
-        width: processed.width,
-        height: processed.height,
-        bytes: processed.bytes,
-      });
-      category.image = imageDoc._id;
-    }
-  }
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  await app.save();
-  res.json({ ok: true, data: category });
-});
+export const updateCategory = async (req: Request, res: Response) => {
+          try {
+            const parsedData = categorySchemaApi.partial().parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-export const removeCategory = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+                  const category = app.categories.id(req.params.categoryId);
+                  if (!category) throw HttpError.notFound('Categoria não encontrada.');
 
-  const catIndex = app.categories.findIndex((c: any) => String(c._id) === req.params.categoryId);
-  if (catIndex === -1) throw HttpError.notFound('Categoria não encontrada.');
+                  if (parsedData.name !== undefined) category.name = parsedData.name;
+                  
+                  if (parsedData.imageBase64 !== undefined) {
+                    if (parsedData.imageBase64 === null) {
+                      category.image = null;
+                    } else {
+                      const processed = await toWebpBase64(parsedData.imageBase64, { maxSize: 400 });
+                      const imageDoc = await Image.create({
+                        owner: req.user!.id,
+                        kind: 'categoria',
+                        mimeType: processed.mimeType,
+                        data: processed.base64,
+                        width: processed.width,
+                        height: processed.height,
+                        bytes: processed.bytes,
+                      });
+                      category.image = imageDoc._id;
+                    }
+                  }
 
-  app.categories.splice(catIndex, 1);
-  await app.save();
+                  await app.save();
+                  res.json({ ok: true, data: category });
 
-  res.json({ ok: true, data: { removed: req.params.productId } });
-});
+          } catch (error: any) {
+            console.error('[API Error - updateCategory]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-export const addTable = asyncHandler(async (req: Request, res: Response) => {
-  const data = addTableSchema.parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  app.tables.push(data as any);
-  await app.save();
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  res.status(201).json({ ok: true, data: app.tables[app.tables.length - 1] });
-});
+export const removeCategory = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-export const updateTable = asyncHandler(async (req: Request, res: Response) => {
-  const data = addTableSchema.partial().parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+                  const catIndex = app.categories.findIndex((c: any) => String(c._id) === req.params.categoryId);
+                  if (catIndex === -1) throw HttpError.notFound('Categoria não encontrada.');
 
-  const table = app.tables.id(req.params.tableId);
-  if (!table) throw HttpError.notFound('Mesa não encontrada.');
+                  app.categories.splice(catIndex, 1);
+                  await app.save();
 
-  if (data.label !== undefined) table.label = data.label;
-  if (data.seats !== undefined) table.seats = data.seats;
-  if (data.area !== undefined) table.area = data.area;
+                  res.json({ ok: true, data: { removed: req.params.productId } });
 
-  await app.save();
-  res.json({ ok: true, data: table });
-});
+          } catch (error: any) {
+            console.error('[API Error - removeCategory]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-export const removeTable = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  const tableIndex = app.tables.findIndex((t: any) => String(t._id) === req.params.tableId);
-  if (tableIndex === -1) throw HttpError.notFound('Mesa não encontrada.');
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  app.tables.splice(tableIndex, 1);
-  await app.save();
+export const addTable = async (req: Request, res: Response) => {
+          try {
+            const data = addTableSchema.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  res.json({ ok: true, data: { removed: req.params.tableId } });
-});
+                  app.tables.push(data as any);
+                  await app.save();
+
+                  res.status(201).json({ ok: true, data: app.tables[app.tables.length - 1] });
+
+          } catch (error: any) {
+            console.error('[API Error - addTable]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const updateTable = async (req: Request, res: Response) => {
+          try {
+            const data = addTableSchema.partial().parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  const table = app.tables.id(req.params.tableId);
+                  if (!table) throw HttpError.notFound('Mesa não encontrada.');
+
+                  if (data.label !== undefined) table.label = data.label;
+                  if (data.seats !== undefined) table.seats = data.seats;
+                  if (data.area !== undefined) table.area = data.area;
+
+                  await app.save();
+                  res.json({ ok: true, data: table });
+
+          } catch (error: any) {
+            console.error('[API Error - updateTable]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const removeTable = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  const tableIndex = app.tables.findIndex((t: any) => String(t._id) === req.params.tableId);
+                  if (tableIndex === -1) throw HttpError.notFound('Mesa não encontrada.');
+
+                  app.tables.splice(tableIndex, 1);
+                  await app.save();
+
+                  res.json({ ok: true, data: { removed: req.params.tableId } });
+
+          } catch (error: any) {
+            console.error('[API Error - removeTable]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 const planSchema = z.object({
   planName: z.string().min(1, 'Plano não informado.'),
 });
 
-export const requestPlan = asyncHandler(async (req: Request, res: Response) => {
-  const { planName } = planSchema.parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+export const requestPlan = async (req: Request, res: Response) => {
+          try {
+            const { planName } = planSchema.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  const user = await User.findById(req.user!.id);
-  if (!user) throw HttpError.notFound('Usuário não encontrado.');
+                  const user = await User.findById(req.user!.id);
+                  if (!user) throw HttpError.notFound('Usuário não encontrado.');
 
-  app.selectedPlan = planName;
-  app.status = 'aguardando_contato';
-  app.planRequestedAt = new Date();
-  
-  await app.save();
+                  app.selectedPlan = planName;
+                  app.status = 'aguardando_contato';
+                  app.planRequestedAt = new Date();
+                  
+                  await app.save();
 
-  const address = user.address;
-  const addressString = `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ''}, ${address.district}, ${address.city} - ${address.state}`;
+                  const address = user.address;
+                  const addressString = `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ''}, ${address.district}, ${address.city} - ${address.state}`;
 
-  const message = `Olá, quero ativar o VaptApp!
+                  const message = `Olá, quero ativar o VaptApp!
   
 Meu nome: ${user.displayName || user.username}
 E-mail: ${user.email}
@@ -410,51 +733,142 @@ Endereço: ${addressString}
 Aplicativo: ${app.name}
 Plano escolhido: ${planName}`;
 
-  const whatsappUrl = `https://wa.me/${env.adminWhatsapp}?text=${encodeURIComponent(message)}`;
+                  const whatsappUrl = `https://wa.me/${env.adminWhatsapp}?text=${encodeURIComponent(message)}`;
 
-  res.json({ ok: true, data: { whatsappUrl } });
-});
+                  res.json({ ok: true, data: { whatsappUrl } });
+
+          } catch (error: any) {
+            console.error('[API Error - requestPlan]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 
 /* ------------------------- Roles ------------------------- */
 
-export const addRole = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+export const addRole = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
 
-  const newRole = { name: req.body.name, permissions: req.body.permissions || [] };
-  app.roles.push(newRole as any);
-  await app.save();
-  
-  const created = app.roles[app.roles.length - 1];
-  res.json({ ok: true, data: created });
-});
+                  const newRole = { name: req.body.name, permissions: req.body.permissions || [] };
+                  app.roles.push(newRole as any);
+                  await app.save();
+                  
+                  const created = app.roles[app.roles.length - 1];
+                  res.json({ ok: true, data: created });
 
-export const updateRole = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+          } catch (error: any) {
+            console.error('[API Error - addRole]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  const role = app.roles.id(req.params.roleId);
-  if (!role) throw HttpError.notFound('Funcao nao encontrada');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  if (req.body.name !== undefined) role.name = req.body.name;
-  if (req.body.permissions !== undefined) role.permissions = req.body.permissions;
-  
-  await app.save();
-  res.json({ ok: true, data: role });
-});
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-export const removeRole = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+export const updateRole = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
 
-  const role = app.roles.id(req.params.roleId);
-  if (role) {
-    role.deleteOne();
-    await app.save();
-  }
-  res.json({ ok: true, data: { deleted: true } });
-});
+                  const role = app.roles.id(req.params.roleId);
+                  if (!role) throw HttpError.notFound('Funcao nao encontrada');
+
+                  if (req.body.name !== undefined) role.name = req.body.name;
+                  if (req.body.permissions !== undefined) role.permissions = req.body.permissions;
+                  
+                  await app.save();
+                  res.json({ ok: true, data: role });
+
+          } catch (error: any) {
+            console.error('[API Error - updateRole]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const removeRole = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
+
+                  const role = app.roles.id(req.params.roleId);
+                  if (role) {
+                    role.deleteOne();
+                    await app.save();
+                  }
+                  res.json({ ok: true, data: { deleted: true } });
+
+          } catch (error: any) {
+            console.error('[API Error - removeRole]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ----------------------- Employees ----------------------- */
 
@@ -467,38 +881,84 @@ function generateAccessCode() {
   return code;
 }
 
-export const addEmployee = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+export const addEmployee = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
 
-  const roleExists = app.roles.id(req.body.roleId);
-  if (!roleExists) throw HttpError.badRequest('Funcao invalida');
+                  const roleExists = app.roles.id(req.body.roleId);
+                  if (!roleExists) throw HttpError.badRequest('Funcao invalida');
 
-  const accessCode = generateAccessCode();
-  const newEmployee = { name: req.body.name, roleId: req.body.roleId, accessCode };
-  app.employees.push(newEmployee as any);
-  await app.save();
-  
-  const created = app.employees[app.employees.length - 1];
-  res.json({ ok: true, data: created });
-});
+                  const accessCode = generateAccessCode();
+                  const newEmployee = { name: req.body.name, roleId: req.body.roleId, accessCode };
+                  app.employees.push(newEmployee as any);
+                  await app.save();
+                  
+                  const created = app.employees[app.employees.length - 1];
+                  res.json({ ok: true, data: created });
 
-export const updateEmployee = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+          } catch (error: any) {
+            console.error('[API Error - addEmployee]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  const emp = app.employees.id(req.params.empId);
-  if (!emp) throw HttpError.notFound('Funcionario nao encontrado');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  if (req.body.name !== undefined) emp.name = req.body.name;
-  if (req.body.roleId !== undefined) {
-    if (!app.roles.id(req.body.roleId)) throw HttpError.badRequest('Funcao invalida');
-    emp.roleId = req.body.roleId;
-  }
-  
-  await app.save();
-  res.json({ ok: true, data: emp });
-});
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const updateEmployee = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
+
+                  const emp = app.employees.id(req.params.empId);
+                  if (!emp) throw HttpError.notFound('Funcionario nao encontrado');
+
+                  if (req.body.name !== undefined) emp.name = req.body.name;
+                  if (req.body.roleId !== undefined) {
+                    if (!app.roles.id(req.body.roleId)) throw HttpError.badRequest('Funcao invalida');
+                    emp.roleId = req.body.roleId;
+                  }
+                  
+                  await app.save();
+                  res.json({ ok: true, data: emp });
+
+          } catch (error: any) {
+            console.error('[API Error - updateEmployee]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ------------------------ Promoções e Combos ------------------------ */
 
@@ -514,96 +974,211 @@ const addPromotionSchema = z.object({
   active: z.boolean().default(true),
 });
 
-export const addPromotion = asyncHandler(async (req: Request, res: Response) => {
-  const data = addPromotionSchema.parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+export const addPromotion = async (req: Request, res: Response) => {
+          try {
+            const data = addPromotionSchema.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
 
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  const newPromo = {
-    type: data.type,
-    name: data.name,
-    description: data.description,
-    promotionalPrice: data.promotionalPrice,
-    targetProductId: data.targetProductId || null,
-    comboItems: data.comboItems,
-    validUntil: data.validUntil ? new Date(data.validUntil) : null,
-    expiresOnRegisterClose: data.expiresOnRegisterClose,
-    active: data.active,
-  };
+                  const newPromo = {
+                    type: data.type,
+                    name: data.name,
+                    description: data.description,
+                    promotionalPrice: data.promotionalPrice,
+                    targetProductId: data.targetProductId || null,
+                    comboItems: data.comboItems,
+                    validUntil: data.validUntil ? new Date(data.validUntil) : null,
+                    expiresOnRegisterClose: data.expiresOnRegisterClose,
+                    active: data.active,
+                  };
 
-  app.promotions.push(newPromo as any);
-  await app.save();
+                  app.promotions.push(newPromo as any);
+                  await app.save();
 
-  res.status(201).json({ ok: true, data: app.promotions[app.promotions.length - 1] });
-});
+                  res.status(201).json({ ok: true, data: app.promotions[app.promotions.length - 1] });
 
-export const updatePromotion = asyncHandler(async (req: Request, res: Response) => {
-  const data = addPromotionSchema.partial().parse(req.body);
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+          } catch (error: any) {
+            console.error('[API Error - addPromotion]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-  const promoIndex = app.promotions.findIndex((p: any) => String(p._id) === req.params.promoId);
-  if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  const promo = app.promotions[promoIndex] as any;
+export const updatePromotion = async (req: Request, res: Response) => {
+          try {
+            const data = addPromotionSchema.partial().parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
 
-  if (data.type !== undefined) promo.type = data.type;
-  if (data.name !== undefined) promo.name = data.name;
-  if (data.description !== undefined) promo.description = data.description;
-  if (data.promotionalPrice !== undefined) promo.promotionalPrice = data.promotionalPrice;
-  if (data.targetProductId !== undefined) promo.targetProductId = data.targetProductId || null;
-  if (data.comboItems !== undefined) promo.comboItems = data.comboItems;
-  if (data.validUntil !== undefined) promo.validUntil = data.validUntil ? new Date(data.validUntil) : null;
-  if (data.expiresOnRegisterClose !== undefined) promo.expiresOnRegisterClose = data.expiresOnRegisterClose;
-  if (data.active !== undefined) promo.active = data.active;
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  await app.save();
-  res.json({ ok: true, data: promo });
-});
+                  const promoIndex = app.promotions.findIndex((p: any) => String(p._id) === req.params.promoId);
+                  if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
 
-export const removePromotion = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  const promo = app.promotions[promoIndex] as any;
 
-  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+                  if (data.type !== undefined) promo.type = data.type;
+                  if (data.name !== undefined) promo.name = data.name;
+                  if (data.description !== undefined) promo.description = data.description;
+                  if (data.promotionalPrice !== undefined) promo.promotionalPrice = data.promotionalPrice;
+                  if (data.targetProductId !== undefined) promo.targetProductId = data.targetProductId || null;
+                  if (data.comboItems !== undefined) promo.comboItems = data.comboItems;
+                  if (data.validUntil !== undefined) promo.validUntil = data.validUntil ? new Date(data.validUntil) : null;
+                  if (data.expiresOnRegisterClose !== undefined) promo.expiresOnRegisterClose = data.expiresOnRegisterClose;
+                  if (data.active !== undefined) promo.active = data.active;
 
-  const promoIndex = app.promotions.findIndex((p: any) => String(p._id) === req.params.promoId);
-  if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
+                  await app.save();
+                  res.json({ ok: true, data: promo });
 
-  app.promotions.splice(promoIndex, 1);
-  await app.save();
+          } catch (error: any) {
+            console.error('[API Error - updatePromotion]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
 
-  res.json({ ok: true, deleted: true });
-});
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
 
-export const removeEmployee = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
-  const emp = app.employees.id(req.params.empId);
-  if (emp) {
-    emp.deleteOne();
-    await app.save();
-  }
-  res.json({ ok: true, data: { deleted: true } });
-});
+export const removePromotion = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
 
-export const closeCashRegister = asyncHandler(async (req: Request, res: Response) => {
-  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
-  if (!app) throw HttpError.notFound('App nao encontrado');
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
-  let updatedCount = 0;
-  for (const promo of app.promotions) {
-    if (promo.expiresOnRegisterClose && promo.active) {
-      promo.active = false;
-      updatedCount++;
-    }
-  }
+                  const promoIndex = app.promotions.findIndex((p: any) => String(p._id) === req.params.promoId);
+                  if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
 
-  if (updatedCount > 0) {
-    await app.save();
-  }
+                  app.promotions.splice(promoIndex, 1);
+                  await app.save();
 
-  res.json({ ok: true, data: { deactivatedPromotions: updatedCount } });
-});
+                  res.json({ ok: true, deleted: true });
+
+          } catch (error: any) {
+            console.error('[API Error - removePromotion]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const removeEmployee = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
+
+                  const emp = app.employees.id(req.params.empId);
+                  if (emp) {
+                    emp.deleteOne();
+                    await app.save();
+                  }
+                  res.json({ ok: true, data: { deleted: true } });
+
+          } catch (error: any) {
+            console.error('[API Error - removeEmployee]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const closeCashRegister = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('App nao encontrado');
+
+                  let updatedCount = 0;
+                  for (const promo of app.promotions) {
+                    if (promo.expiresOnRegisterClose && promo.active) {
+                      promo.active = false;
+                      updatedCount++;
+                    }
+                  }
+
+                  if (updatedCount > 0) {
+                    await app.save();
+                  }
+
+                  res.json({ ok: true, data: { deactivatedPromotions: updatedCount } });
+
+          } catch (error: any) {
+            console.error('[API Error - closeCashRegister]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };

@@ -13,20 +13,43 @@ const schema = z.object({
   bestTime: z.enum(['manha', 'tarde', 'noite', 'qualquer']).optional(),
 });
 
-export const createSupportRequest = asyncHandler(async (req: Request, res: Response) => {
-  const body = schema.parse(req.body);
-  const request = await SupportRequest.create(body);
+export const createSupportRequest = async (req: Request, res: Response) => {
+          try {
+            const body = schema.parse(req.body);
+                  const request = await SupportRequest.create(body);
 
-  const text = encodeURIComponent(
-    `Ola! Sou ${body.name}${body.restaurantName ? ` do ${body.restaurantName}` : ''} e quero ajuda para montar meu VaptApp.`
-  );
+                  const text = encodeURIComponent(
+                    `Ola! Sou ${body.name}${body.restaurantName ? ` do ${body.restaurantName}` : ''} e quero ajuda para montar meu VaptApp.`
+                  );
 
-  res.status(201).json({
-    ok: true,
-    data: {
-      id: request.id,
-      whatsappUrl: `https://wa.me/${env.company.whatsapp}?text=${text}`,
-    },
-    message: 'Recebemos! Uma pessoa de verdade te chama no WhatsApp em ate 10 minutos no horario comercial.',
-  });
-});
+                  res.status(201).json({
+                    ok: true,
+                    data: {
+                      id: request.id,
+                      whatsappUrl: `https://wa.me/${env.company.whatsapp}?text=${text}`,
+                    },
+                    message: 'Recebemos! Uma pessoa de verdade te chama no WhatsApp em ate 10 minutos no horario comercial.',
+                  });
+
+          } catch (error: any) {
+            console.error('[API Error - createSupportRequest]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };

@@ -106,125 +106,217 @@ function publicUser(user: {
 /* POST /api/auth/register                                             */
 /* ------------------------------------------------------------------ */
 
-export const register = asyncHandler(async (req: Request, res: Response) => {
-  const body = registerSchema.parse(req.body);
-  if (!req.file) throw HttpError.badRequest('Envie uma foto de perfil.');
+export const register = async (req: Request, res: Response) => {
+          try {
+            const body = registerSchema.parse(req.body);
+                  if (!req.file) throw HttpError.badRequest('Envie uma foto de perfil.');
 
-  // Checagem amigavel antes de gravar: erro por campo, nao um 11000 cru.
-  const [emailTaken, usernameTaken] = await Promise.all([
-    User.exists({ email: body.email }),
-    body.username ? User.exists({ username: body.username }) : Promise.resolve(false),
-  ]);
+                  // Checagem amigavel antes de gravar: erro por campo, nao um 11000 cru.
+                  const [emailTaken, usernameTaken] = await Promise.all([
+                    User.exists({ email: body.email }),
+                    body.username ? User.exists({ username: body.username }) : Promise.resolve(false),
+                  ]);
 
-  if (emailTaken) {
-    throw HttpError.conflict('Ja existe uma conta com esse e-mail. Tente entrar.');
-  }
-  if (usernameTaken) {
-    throw HttpError.conflict('Esse nome de usuario ja esta em uso. Escolha outro.');
-  }
+                  if (emailTaken) {
+                    throw HttpError.conflict('Ja existe uma conta com esse e-mail. Tente entrar.');
+                  }
+                  if (usernameTaken) {
+                    throw HttpError.conflict('Esse nome de usuario ja esta em uso. Escolha outro.');
+                  }
 
-  // Converte a foto para WEBP ANTES de qualquer escrita no banco:
-  // se a imagem for invalida, nada e criado pela metade.
-  const base64Input = req.file.buffer.toString('base64');
-  const processed = await toAvatarWebp(base64Input);
-  const passwordHash = await hashPassword(body.password);
+                  // Converte a foto para WEBP ANTES de qualquer escrita no banco:
+                  // se a imagem for invalida, nada e criado pela metade.
+                  const base64Input = req.file.buffer.toString('base64');
+                  const processed = await toAvatarWebp(base64Input);
+                  const passwordHash = await hashPassword(body.password);
 
-  const userId = new mongoose.Types.ObjectId();
+                  const userId = new mongoose.Types.ObjectId();
 
-  const image = await Image.create({
-    owner: userId,
-    kind: 'avatar',
-    mimeType: processed.mimeType,
-    data: processed.base64,
-    width: processed.width,
-    height: processed.height,
-    bytes: processed.bytes,
-  });
+                  const image = await Image.create({
+                    owner: userId,
+                    kind: 'avatar',
+                    mimeType: processed.mimeType,
+                    data: processed.base64,
+                    width: processed.width,
+                    height: processed.height,
+                    bytes: processed.bytes,
+                  });
 
-  let user;
-  try {
-    user = await User.create({
-      _id: userId,
-      email: body.email,
-      username: body.username,
-      displayName: body.displayName || body.username || body.email.split('@')[0],
-      phone: body.phone,
-      passwordHash,
-      address: body.address,
-      photo: image._id,
-    });
-  } catch (error) {
-    // Nao deixa imagem orfa se a criacao do usuario falhar.
-    await Image.deleteOne({ _id: image._id });
-    throw error;
-  }
+                  let user;
+                  try {
+                    user = await User.create({
+                      _id: userId,
+                      email: body.email,
+                      username: body.username,
+                      displayName: body.displayName || body.username || body.email.split('@')[0],
+                      phone: body.phone,
+                      passwordHash,
+                      address: body.address,
+                      photo: image._id,
+                    });
+                  } catch (error) {
+                    // Nao deixa imagem orfa se a criacao do usuario falhar.
+                    await Image.deleteOne({ _id: image._id });
+                    throw error;
+                  }
 
-  const token = signAccessToken({ sub: String(user._id), role: 'owner' });
-  res.cookie(env.auth.cookieName, token, cookieOptions());
+                  const token = signAccessToken({ sub: String(user._id), role: 'owner' });
+                  res.cookie(env.auth.cookieName, token, cookieOptions());
 
-  res.status(201).json({
-    ok: true,
-    data: { user: publicUser(user.toObject()) },
-    message: `Conta criada. Bem-vindo ao VaptApp, ${user.displayName || user.username}!`,
-  });
-});
+                  res.status(201).json({
+                    ok: true,
+                    data: { user: publicUser(user.toObject()) },
+                    message: `Conta criada. Bem-vindo ao VaptApp, ${user.displayName || user.username}!`,
+                  });
+
+          } catch (error: any) {
+            console.error('[API Error - register]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ------------------------------------------------------------------ */
 /* POST /api/auth/login                                                */
 /* ------------------------------------------------------------------ */
 
-export const login = asyncHandler(async (req: Request, res: Response) => {
-  const body = loginSchema.parse(req.body);
-  const identifier = body.identifier.toLowerCase();
+export const login = async (req: Request, res: Response) => {
+          try {
+            const body = loginSchema.parse(req.body);
+                  const identifier = body.identifier.toLowerCase();
 
-  const user = await User.findOne({
-    $or: [{ email: identifier }, { username: identifier }],
-  }).select('+passwordHash');
+                  const user = await User.findOne({
+                    $or: [{ email: identifier }, { username: identifier }],
+                  }).select('+passwordHash');
 
-  // Mesma mensagem para usuario inexistente e senha errada:
-  // nao entregamos de graca quais e-mails existem na base.
-  const genericError = new HttpError(401, 'E-mail, usuario ou senha incorretos.');
-  if (!user) throw genericError;
+                  // Mesma mensagem para usuario inexistente e senha errada:
+                  // nao entregamos de graca quais e-mails existem na base.
+                  const genericError = new HttpError(401, 'E-mail, usuario ou senha incorretos.');
+                  if (!user) throw genericError;
 
-  const matches = await user.comparePassword(body.password);
-  if (!matches) throw genericError;
+                  const matches = await user.comparePassword(body.password);
+                  if (!matches) throw genericError;
 
-  if (user.status !== 'ativo') {
-    throw new HttpError(403, 'Sua conta esta suspensa. Fale com o suporte.');
-  }
+                  if (user.status !== 'ativo') {
+                    throw new HttpError(403, 'Sua conta esta suspensa. Fale com o suporte.');
+                  }
 
-  user.lastLoginAt = new Date();
-  await user.save();
+                  user.lastLoginAt = new Date();
+                  await user.save();
 
-  const token = signAccessToken({ sub: String(user._id), role: user.role as 'owner' | 'admin' });
-  res.cookie(env.auth.cookieName, token, cookieOptions());
+                  const token = signAccessToken({ sub: String(user._id), role: user.role as 'owner' | 'admin' });
+                  res.cookie(env.auth.cookieName, token, cookieOptions());
 
-  res.json({
-    ok: true,
-    data: { user: publicUser(user.toObject()) },
-    message: `Bem-vindo de volta, ${user.displayName || user.username}!`,
-  });
-});
+                  res.json({
+                    ok: true,
+                    data: { user: publicUser(user.toObject()) },
+                    message: `Bem-vindo de volta, ${user.displayName || user.username}!`,
+                  });
+
+          } catch (error: any) {
+            console.error('[API Error - login]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ------------------------------------------------------------------ */
 /* POST /api/auth/logout                                               */
 /* ------------------------------------------------------------------ */
 
-export const logout = asyncHandler(async (_req: Request, res: Response) => {
-  res.clearCookie(env.auth.cookieName, { ...cookieOptions(), maxAge: undefined });
-  res.json({ ok: true, data: null, message: 'Sessao encerrada.' });
-});
+export const logout = async (req: Request, res: Response) => {
+          try {
+            res.clearCookie(env.auth.cookieName, { ...cookieOptions(), maxAge: undefined });
+                  res.json({ ok: true, data: null, message: 'Sessao encerrada.' });
+
+          } catch (error: any) {
+            console.error('[API Error - logout]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ------------------------------------------------------------------ */
 /* GET /api/auth/me                                                    */
 /* ------------------------------------------------------------------ */
 
-export const me = asyncHandler(async (req: Request, res: Response) => {
-  const user = await User.findById(req.user?.id).lean();
-  if (!user) throw new HttpError(401, 'Sessao invalida.');
+export const me = async (req: Request, res: Response) => {
+          try {
+            const user = await User.findById(req.user?.id).lean();
+                  if (!user) throw new HttpError(401, 'Sessao invalida.');
 
-  res.json({ ok: true, data: { user: publicUser(user) } });
-});
+                  res.json({ ok: true, data: { user: publicUser(user) } });
+
+          } catch (error: any) {
+            console.error('[API Error - me]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ------------------------------------------------------------------ */
 /* PATCH /api/auth/me                                                  */
@@ -237,54 +329,100 @@ const updateSchema = z.object({
   photo: z.string().trim().min(1).optional(),
 });
 
-export const updateMe = asyncHandler(async (req: Request, res: Response) => {
-  const body = updateSchema.parse(req.body);
+export const updateMe = async (req: Request, res: Response) => {
+          try {
+            const body = updateSchema.parse(req.body);
 
-  const user = await User.findById(req.user?.id);
-  if (!user) throw new HttpError(401, 'Sessao invalida.');
+                  const user = await User.findById(req.user?.id);
+                  if (!user) throw new HttpError(401, 'Sessao invalida.');
 
-  if (body.displayName !== undefined) user.displayName = body.displayName;
-  if (body.phone !== undefined) user.phone = body.phone;
-  if (body.address) user.set('address', body.address);
+                  if (body.displayName !== undefined) user.displayName = body.displayName;
+                  if (body.phone !== undefined) user.phone = body.phone;
+                  if (body.address) user.set('address', body.address);
 
-  if (body.photo) {
-    const processed = await toAvatarWebp(body.photo);
-    const image = await Image.create({
-      owner: user._id,
-      kind: 'avatar',
-      mimeType: processed.mimeType,
-      data: processed.base64,
-      width: processed.width,
-      height: processed.height,
-      bytes: processed.bytes,
-    });
+                  if (body.photo) {
+                    const processed = await toAvatarWebp(body.photo);
+                    const image = await Image.create({
+                      owner: user._id,
+                      kind: 'avatar',
+                      mimeType: processed.mimeType,
+                      data: processed.base64,
+                      width: processed.width,
+                      height: processed.height,
+                      bytes: processed.bytes,
+                    });
 
-    const previousPhoto = user.photo;
-    user.photo = image._id;
-    if (previousPhoto) await Image.deleteOne({ _id: previousPhoto });
-  }
+                    const previousPhoto = user.photo;
+                    user.photo = image._id;
+                    if (previousPhoto) await Image.deleteOne({ _id: previousPhoto });
+                  }
 
-  await user.save();
+                  await user.save();
 
-  res.json({ ok: true, data: { user: publicUser(user.toObject()) }, message: 'Perfil atualizado.' });
-});
+                  res.json({ ok: true, data: { user: publicUser(user.toObject()) }, message: 'Perfil atualizado.' });
+
+          } catch (error: any) {
+            console.error('[API Error - updateMe]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /* ------------------------------------------------------------------ */
 /* GET /api/auth/check-username?value=...                              */
 /* ------------------------------------------------------------------ */
 
-export const checkUsername = asyncHandler(async (req: Request, res: Response) => {
-  const value = String(req.query.value ?? '')
-    .trim()
-    .toLowerCase();
+export const checkUsername = async (req: Request, res: Response) => {
+          try {
+            const value = String(req.query.value ?? '')
+                    .trim()
+                    .toLowerCase();
 
-  if (!/^[a-z0-9._-]{1,40}$/.test(value)) {
-    return res.json({
-      ok: true,
-      data: { available: false, reason: 'Use até 40 caracteres: letras, números, ponto, hífen ou underline.' },
-    });
-  }
+                  if (!/^[a-z0-9._-]{1,40}$/.test(value)) {
+                    return res.json({
+                      ok: true,
+                      data: { available: false, reason: 'Use até 40 caracteres: letras, números, ponto, hífen ou underline.' },
+                    });
+                  }
 
-  const taken = await User.exists({ username: value });
-  return res.json({ ok: true, data: { available: !taken, reason: taken ? 'Ja esta em uso.' : null } });
-});
+                  const taken = await User.exists({ username: value });
+                  return res.json({ ok: true, data: { available: !taken, reason: taken ? 'Ja esta em uso.' : null } });
+
+          } catch (error: any) {
+            console.error('[API Error - checkUsername]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };

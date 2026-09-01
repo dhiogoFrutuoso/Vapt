@@ -24,35 +24,58 @@ const leadSchema = z.object({
   utmCampaign: z.string().trim().max(120).optional(),
 });
 
-export const createLead = asyncHandler(async (req: Request, res: Response) => {
-  const body = leadSchema.parse(req.body);
+export const createLead = async (req: Request, res: Response) => {
+          try {
+            const body = leadSchema.parse(req.body);
 
-  if (!body.email && !body.whatsapp) {
-    return res.status(400).json({ ok: false, error: 'Informe ao menos um e-mail ou WhatsApp para contato.' });
-  }
+                  if (!body.email && !body.whatsapp) {
+                    return res.status(400).json({ ok: false, error: 'Informe ao menos um e-mail ou WhatsApp para contato.' });
+                  }
 
-  const lead = await Lead.create({
-    name: body.name,
-    email: body.email,
-    whatsapp: body.whatsapp,
-    restaurantName: body.restaurantName,
-    city: body.city,
-    segment: body.segment ?? 'restaurante',
-    interestedPlan: body.interestedPlan ?? null,
-    source: body.source ?? 'landing',
-    demoStoreCode: body.demoStoreCode ?? null,
-    notes: body.notes,
-    meta: {
-      utmSource: body.utmSource ?? null,
-      utmMedium: body.utmMedium ?? null,
-      utmCampaign: body.utmCampaign ?? null,
-      userAgent: req.get('user-agent') ?? null,
-    },
-  });
+                  const lead = await Lead.create({
+                    name: body.name,
+                    email: body.email,
+                    whatsapp: body.whatsapp,
+                    restaurantName: body.restaurantName,
+                    city: body.city,
+                    segment: body.segment ?? 'restaurante',
+                    interestedPlan: body.interestedPlan ?? null,
+                    source: body.source ?? 'landing',
+                    demoStoreCode: body.demoStoreCode ?? null,
+                    notes: body.notes,
+                    meta: {
+                      utmSource: body.utmSource ?? null,
+                      utmMedium: body.utmMedium ?? null,
+                      utmCampaign: body.utmCampaign ?? null,
+                      userAgent: req.get('user-agent') ?? null,
+                    },
+                  });
 
-  return res.status(201).json({
-    ok: true,
-    data: { id: lead.id, createdAt: lead.createdAt },
-    message: 'Recebemos seus dados. Um consultor de verdade vai te chamar no WhatsApp.',
-  });
-});
+                  return res.status(201).json({
+                    ok: true,
+                    data: { id: lead.id, createdAt: lead.createdAt },
+                    message: 'Recebemos seus dados. Um consultor de verdade vai te chamar no WhatsApp.',
+                  });
+
+          } catch (error: any) {
+            console.error('[API Error - createLead]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };

@@ -78,95 +78,187 @@ async function persistProduct(product: ProductInput, storeHint: string) {
 }
 
 /** POST /api/demo/stores - cria a loja de demonstracao e devolve o codigo do restaurante. */
-export const createDemoStore = asyncHandler(async (req: Request, res: Response) => {
-  const body = storeSchema.parse(req.body);
+export const createDemoStore = async (req: Request, res: Response) => {
+          try {
+            const body = storeSchema.parse(req.body);
 
-  const slug = await uniqueSlug(body.restaurantName, async (candidate) => {
-    const found = await DemoStore.exists({ slug: candidate });
-    return Boolean(found);
-  });
+                  const slug = await uniqueSlug(body.restaurantName, async (candidate) => {
+                    const found = await DemoStore.exists({ slug: candidate });
+                    return Boolean(found);
+                  });
 
-  let code = generateRestaurantCode();
-  for (let attempt = 0; attempt < 5 && (await DemoStore.exists({ code })); attempt += 1) {
-    code = generateRestaurantCode();
-  }
+                  let code = generateRestaurantCode();
+                  for (let attempt = 0; attempt < 5 && (await DemoStore.exists({ code })); attempt += 1) {
+                    code = generateRestaurantCode();
+                  }
 
-  // Imagens viram arquivo ANTES de tocar no banco.
-  const logo = await storeImage(body.logoUrl, 'logos', body.restaurantName);
-  const products = await Promise.all(body.products.map((product) => persistProduct(product, slug)));
+                  // Imagens viram arquivo ANTES de tocar no banco.
+                  const logo = await storeImage(body.logoUrl, 'logos', body.restaurantName);
+                  const products = await Promise.all(body.products.map((product) => persistProduct(product, slug)));
 
-  const store = await DemoStore.create({
-    ...body,
-    slug,
-    code,
-    logoUrl: logo?.url ?? null,
-    logoPublicId: logo?.publicId ?? null,
-    products,
-  });
+                  const store = await DemoStore.create({
+                    ...body,
+                    slug,
+                    code,
+                    logoUrl: logo?.url ?? null,
+                    logoPublicId: logo?.publicId ?? null,
+                    products,
+                  });
 
-  // Se o visitante deixou e-mail, ja vira lead ligado a demo.
-  if (body.ownerEmail) {
-    const lead = await Lead.create({
-      email: body.ownerEmail,
-      restaurantName: body.restaurantName,
-      source: 'demo-interativa',
-      demoStoreCode: code,
-      status: 'testando',
-    });
-    store.leadId = lead._id;
-    await store.save();
-  }
+                  // Se o visitante deixou e-mail, ja vira lead ligado a demo.
+                  if (body.ownerEmail) {
+                    const lead = await Lead.create({
+                      email: body.ownerEmail,
+                      restaurantName: body.restaurantName,
+                      source: 'demo-interativa',
+                      demoStoreCode: code,
+                      status: 'testando',
+                    });
+                    store.leadId = lead._id;
+                    await store.save();
+                  }
 
-  res.status(201).json({
-    ok: true,
-    data: {
-      code: store.code,
-      slug: store.slug,
-      previewUrl: `/loja/${store.slug}`,
-      expiresAt: store.expiresAt,
-      store,
-    },
-    message: `Pronto! O codigo do seu restaurante e ${store.code}. Sua equipe usa ele para entrar no app.`,
-  });
-});
+                  res.status(201).json({
+                    ok: true,
+                    data: {
+                      code: store.code,
+                      slug: store.slug,
+                      previewUrl: `/loja/${store.slug}`,
+                      expiresAt: store.expiresAt,
+                      store,
+                    },
+                    message: `Pronto! O codigo do seu restaurante e ${store.code}. Sua equipe usa ele para entrar no app.`,
+                  });
+
+          } catch (error: any) {
+            console.error('[API Error - createDemoStore]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /** GET /api/demo/stores/:code - o app parceiro busca a loja pelo codigo digitado. */
-export const getDemoStore = asyncHandler(async (req: Request, res: Response) => {
-  const code = String(req.params.code ?? '').toUpperCase().trim();
-  const store = await DemoStore.findOne({ code }).lean();
-  if (!store) throw HttpError.notFound('Nao encontramos nenhum restaurante com esse codigo.');
-  res.json({ ok: true, data: store });
-});
+export const getDemoStore = async (req: Request, res: Response) => {
+          try {
+            const code = String(req.params.code ?? '').toUpperCase().trim();
+                  const store = await DemoStore.findOne({ code }).lean();
+                  if (!store) throw HttpError.notFound('Nao encontramos nenhum restaurante com esse codigo.');
+                  res.json({ ok: true, data: store });
+
+          } catch (error: any) {
+            console.error('[API Error - getDemoStore]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /** POST /api/demo/stores/:code/products - adiciona item ao cardapio da demo. */
-export const addDemoProduct = asyncHandler(async (req: Request, res: Response) => {
-  const code = String(req.params.code ?? '').toUpperCase().trim();
-  const product = productSchema.parse(req.body);
+export const addDemoProduct = async (req: Request, res: Response) => {
+          try {
+            const code = String(req.params.code ?? '').toUpperCase().trim();
+                  const product = productSchema.parse(req.body);
 
-  const store = await DemoStore.findOne({ code });
-  if (!store) throw HttpError.notFound('Loja de demonstracao nao encontrada.');
-  if (store.products.length >= 20) {
-    throw HttpError.badRequest('A demonstracao aceita ate 20 itens. Crie sua conta para liberar o cardapio completo.');
-  }
+                  const store = await DemoStore.findOne({ code });
+                  if (!store) throw HttpError.notFound('Loja de demonstracao nao encontrada.');
+                  if (store.products.length >= 20) {
+                    throw HttpError.badRequest('A demonstracao aceita ate 20 itens. Crie sua conta para liberar o cardapio completo.');
+                  }
 
-  store.products.push(await persistProduct(product, store.slug));
-  await store.save();
+                  store.products.push(await persistProduct(product, store.slug));
+                  await store.save();
 
-  res.status(201).json({ ok: true, data: store.products.at(-1) });
-});
+                  res.status(201).json({ ok: true, data: store.products.at(-1) });
+
+          } catch (error: any) {
+            console.error('[API Error - addDemoProduct]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /** DELETE /api/demo/stores/:code/products/:productId */
-export const removeDemoProduct = asyncHandler(async (req: Request, res: Response) => {
-  const code = String(req.params.code ?? '').toUpperCase().trim();
-  const store = await DemoStore.findOne({ code });
-  if (!store) throw HttpError.notFound('Loja de demonstracao nao encontrada.');
+export const removeDemoProduct = async (req: Request, res: Response) => {
+          try {
+            const code = String(req.params.code ?? '').toUpperCase().trim();
+                  const store = await DemoStore.findOne({ code });
+                  if (!store) throw HttpError.notFound('Loja de demonstracao nao encontrada.');
 
-  // Tira o arquivo do storage junto com o registro, para nao deixar lixo pago para tras.
-  const product = store.products.id(req.params.productId);
-  if (product?.imagePublicId) await destroyImage(product.imagePublicId);
+                  // Tira o arquivo do storage junto com o registro, para nao deixar lixo pago para tras.
+                  const product = store.products.id(req.params.productId);
+                  if (product?.imagePublicId) await destroyImage(product.imagePublicId);
 
-  store.products.pull({ _id: req.params.productId });
-  await store.save();
+                  store.products.pull({ _id: req.params.productId });
+                  await store.save();
 
-  res.json({ ok: true, data: { removed: req.params.productId } });
-});
+                  res.json({ ok: true, data: { removed: req.params.productId } });
+
+          } catch (error: any) {
+            console.error('[API Error - removeDemoProduct]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };

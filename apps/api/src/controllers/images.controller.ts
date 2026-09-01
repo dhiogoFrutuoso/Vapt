@@ -15,59 +15,105 @@ import { env } from '../config/env.js';
  * Sao imagens publicas por natureza (foto de perfil, logo, foto de produto):
  * quem tem o id ve. Nao guarde nada sensivel aqui.
  */
-export const serveImage = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const serveImage = async (req: Request, res: Response) => {
+          try {
+            const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw HttpError.badRequest('Identificador de imagem invalido.');
-  }
+                  if (!mongoose.Types.ObjectId.isValid(id)) {
+                    throw HttpError.badRequest('Identificador de imagem invalido.');
+                  }
 
-  const image = await Image.findById(id).lean();
-  if (!image) throw HttpError.notFound('Imagem nao encontrada.');
+                  const image = await Image.findById(id).lean();
+                  if (!image) throw HttpError.notFound('Imagem nao encontrada.');
 
-  const buffer = Buffer.from(image.data, 'base64');
-  const etag = `"${String(image._id)}-${buffer.byteLength}"`;
+                  const buffer = Buffer.from(image.data, 'base64');
+                  const etag = `"${String(image._id)}-${buffer.byteLength}"`;
 
-  // O conteudo de um id nunca muda (troca de foto cria outro documento),
-  // entao pode ser cacheado agressivamente.
-  res.setHeader('Content-Type', image.mimeType);
-  res.setHeader('Content-Length', String(buffer.byteLength));
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  res.setHeader('ETag', etag);
+                  // O conteudo de um id nunca muda (troca de foto cria outro documento),
+                  // entao pode ser cacheado agressivamente.
+                  res.setHeader('Content-Type', image.mimeType);
+                  res.setHeader('Content-Length', String(buffer.byteLength));
+                  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+                  res.setHeader('ETag', etag);
 
-  if (req.headers['if-none-match'] === etag) {
-    res.status(304).end();
-    return;
-  }
+                  if (req.headers['if-none-match'] === etag) {
+                    res.status(304).end();
+                    return;
+                  }
 
-  res.send(buffer);
-});
+                  res.send(buffer);
+
+          } catch (error: any) {
+            console.error('[API Error - serveImage]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
 
 /**
  * GET /api/images/:id/meta
  * Metadados sem o binario — util para depurar e para telas de gerenciamento.
  */
-export const imageMeta = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+export const imageMeta = async (req: Request, res: Response) => {
+          try {
+            const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw HttpError.badRequest('Identificador de imagem invalido.');
-  }
+                  if (!mongoose.Types.ObjectId.isValid(id)) {
+                    throw HttpError.badRequest('Identificador de imagem invalido.');
+                  }
 
-  const image = await Image.findById(id).select('-data').lean();
-  if (!image) throw HttpError.notFound('Imagem nao encontrada.');
+                  const image = await Image.findById(id).select('-data').lean();
+                  if (!image) throw HttpError.notFound('Imagem nao encontrada.');
 
-  res.json({
-    ok: true,
-    data: {
-      id: String(image._id),
-      kind: image.kind,
-      mimeType: image.mimeType,
-      width: image.width,
-      height: image.height,
-      bytes: image.bytes,
-      url: `${env.publicUrl}/api/images/${String(image._id)}`,
-      createdAt: image.createdAt,
-    },
-  });
-});
+                  res.json({
+                    ok: true,
+                    data: {
+                      id: String(image._id),
+                      kind: image.kind,
+                      mimeType: image.mimeType,
+                      width: image.width,
+                      height: image.height,
+                      bytes: image.bytes,
+                      url: `${env.publicUrl}/api/images/${String(image._id)}`,
+                      createdAt: image.createdAt,
+                    },
+                  });
+
+          } catch (error: any) {
+            console.error('[API Error - imageMeta]:', error);
+            
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+            
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.code === 11000) {
+              return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessão expirada ou inválida." });
+            }
+            
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
