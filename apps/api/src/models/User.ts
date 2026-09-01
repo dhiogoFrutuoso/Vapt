@@ -55,10 +55,10 @@ const userSchema = new Schema(
       type: String,
       unique: true,
       sparse: true,
-      lowercase: true,
       trim: true,
-      maxlength: [40, 'O nome de usuario pode ter no maximo 40 caracteres.'],
-      match: [/^[a-z0-9._-]*$/, 'Use apenas letras, numeros, ponto, hifen e underline.'],
+      minlength: [4, 'O nome de usuario deve ter no minimo 4 caracteres.'],
+      maxlength: [24, 'O nome de usuario pode ter no maximo 24 caracteres.'],
+      match: [/^[a-zA-Z0-9._]+$/, 'Use apenas letras, numeros, ponto e underline.'],
     },
     /** Nome de exibicao (o nome da pessoa ou do restaurante). */
     displayName: { type: String, trim: true, maxlength: 80, default: '' },

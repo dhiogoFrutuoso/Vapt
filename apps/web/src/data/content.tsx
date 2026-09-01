@@ -664,7 +664,7 @@ export const auth = {
     emailPlaceholder: 'voce@seunegocio.com.br',
     usernameLabel: 'Nome de usuário',
     usernamePlaceholder: 'bardocais',
-    usernameHint: 'Letras minúsculas, números, ponto, hífen e underline.',
+    usernameHint: 'Entre 4 e 24 caracteres. Apenas letras, números, ponto e underline.',
     displayNameLabel: 'Nome do negócio',
     displayNamePlaceholder: 'Bar do Cais',
     phoneLabel: 'WhatsApp',

@@ -84,8 +84,8 @@ export function RegisterPage() {
     const errors: Record<string, string> = {};
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = 'E-mail inválido.';
-    if (!/^[a-z0-9._-]{3,24}$/.test(form.username.trim().toLowerCase())) {
-      errors.username = 'De 3 a 24 caracteres: letras minúsculas, números, ponto, hífen ou underline.';
+    if (!/^[a-zA-Z0-9._]{4,24}$/.test(form.username.trim())) {
+      errors.username = 'Entre 4 e 24 caracteres. Apenas letras, números, ponto e underline.';
     }
     if (form.password.length < 8) errors.password = 'A senha precisa de ao menos 8 caracteres.';
     if (form.password !== form.passwordConfirm) errors.passwordConfirm = 'As senhas não são iguais.';
@@ -153,7 +153,7 @@ export function RegisterPage() {
       const formData = new FormData();
       formData.append('email', form.email.trim().toLowerCase());
       formData.append('password', form.password);
-      formData.append('username', form.username.trim().toLowerCase());
+      formData.append('username', form.username.trim());
       formData.append('displayName', form.displayName.trim() || form.username.trim());
       formData.append('phone', form.phone.trim());
 
@@ -244,7 +244,7 @@ export function RegisterPage() {
                   autoComplete="username"
                   value={form.username}
                   placeholder={copy.usernamePlaceholder}
-                  onChange={(event) => update('username', event.target.value.toLowerCase())}
+                  onChange={(event) => update('username', event.target.value)}
                 />
                 {fieldErrors.username ? (
                   <small className="field__error">{fieldErrors.username}</small>
