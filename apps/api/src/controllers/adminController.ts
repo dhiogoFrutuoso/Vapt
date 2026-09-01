@@ -1,5 +1,18 @@
 import type { Request, Response } from 'express';
 import { User } from '../models/User.js';
+import { signAccessToken } from '../utils/jwt.js';
+import { env } from '../config/env.js';
+import type { CookieOptions } from 'express';
+
+function cookieOptions(): CookieOptions {
+  return {
+    httpOnly: true,
+    sameSite: env.isProd ? 'none' : 'lax',
+    secure: env.isProd,
+    maxAge: env.auth.cookieMaxAgeMs,
+    path: '/',
+  };
+}
 import { env } from '../config/env.js';
 
 export async function listUsers(req: Request, res: Response) {
@@ -74,5 +87,35 @@ export async function updateUserPlan(req: Request, res: Response) {
     ok: true,
     data: { user: mappedUser },
     message: 'Plano atualizado com sucesso.'
+  });
+}
+
+export async function impersonateUser(req: Request, res: Response) {
+  const { id } = req.params;
+
+  const user = await User.findById(id);
+  if (!user) {
+    return res.status(404).json({ ok: false, error: 'Usuário não encontrado.' });
+  }
+
+  // Gera o token para o usuário alvo
+  const token = signAccessToken(user.id);
+  const adminToken = req.cookies.token;
+
+  // Substitui o cookie de sessão com o do novo usuário
+  res.cookie('token', token, cookieOptions());
+
+  const userObject = user.toObject();
+  const mappedUser = {
+    ...userObject,
+    id: String(userObject._id),
+    photoUrl: userObject.photo ? `${env.publicUrl}/api/images/${String(userObject.photo)}` : null,
+  };
+
+  // Retorna o token para o frontend trocar e redirecionar
+  res.json({
+    ok: true,
+    data: { token, adminToken, user: mappedUser },
+    message: 'Impersonation gerado com sucesso.'
   });
 }

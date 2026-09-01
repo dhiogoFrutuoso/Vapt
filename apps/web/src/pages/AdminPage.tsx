@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
-import { Shield, Search, UserIcon, X, Calendar, Database, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save } from 'lucide-react';
+import { Shield, Search, UserIcon, X, Calendar, Database, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save, LogIn } from 'lucide-react';
 
 const normalizeString = (str: string | undefined | null) => {
   if (!str) return '';
@@ -116,6 +116,162 @@ export function AdminPage() {
       setSavingPlan(false);
     }
   };
+
+  const handleImpersonate = async () => {
+    if (!selectedUser) return;
+    try {
+      const res = await api.impersonateUser(selectedUser.id);
+      if (res.ok && res.data?.token) {
+        // Save admin token to allow coming back
+        if (res.data.adminToken) {
+          localStorage.setItem('vapt_admin_token', res.data.adminToken);
+        }
+        // Token is already set in the HTTP-only cookie by the backend
+        window.location.href = '/painel'; // Redirect to user dashboard
+      }
+    } catch (err) {
+      alert('Erro ao acessar o painel do lojista.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
+        <header style={{ 
+          backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(0,0,0,0.05)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 50
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.05)' }}>
+                <Shield size={24} style={{ color: '#F95D2A' }} />
+              </div>
+              <div>
+                <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
+                <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
+              </div>
+            </div>
+            <Link to="/painel" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              backgroundColor: '#FFF',
+              color: '#111',
+              textDecoration: 'none',
+              padding: '10px 20px',
+              borderRadius: '9999px',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease'
+            }}>
+              <ArrowLeft size={18} /> Voltar para o Painel
+            </Link>
+          </div>
+        </header>
+
+        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
+          {/* Control Bar */}
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+              <Search size={20} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
+              <input 
+                type="text" 
+                placeholder="Buscar por nome ou e-mail..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '14px 20px 14px 52px',
+                  borderRadius: '9999px',
+                  border: 'none',
+                  backgroundColor: '#FFF',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                  fontSize: '1rem',
+                  color: '#111',
+                  outline: 'none',
+                  transition: 'box-shadow 0.2s ease'
+                }}
+                onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
+                onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
+              />
+            </div>
+            
+            <select 
+              value={isSubscribed} 
+              onChange={(e) => setIsSubscribed(e.target.value)}
+              style={{ 
+                minWidth: '200px',
+                padding: '14px 20px',
+                borderRadius: '9999px',
+                border: 'none',
+                backgroundColor: '#FFF',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                fontSize: '1rem',
+                color: '#111',
+                outline: 'none',
+                cursor: 'pointer',
+                appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 20px top 50%',
+                backgroundSize: '12px auto',
+                transition: 'box-shadow 0.2s ease'
+              }}
+              onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
+              onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
+            >
+              <option value="">Status: Todos</option>
+              <option value="true">Ativos</option>
+              <option value="false">Suspensos</option>
+            </select>
+
+            <select 
+              value={plan} 
+              onChange={(e) => setPlan(e.target.value)}
+              style={{ 
+                minWidth: '200px',
+                padding: '14px 20px',
+                borderRadius: '9999px',
+                border: 'none',
+                backgroundColor: '#FFF',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                fontSize: '1rem',
+                color: '#111',
+                outline: 'none',
+                cursor: 'pointer',
+                appearance: 'none',
+                backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 20px top 50%',
+                backgroundSize: '12px auto',
+                transition: 'box-shadow 0.2s ease'
+              }}
+              onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
+              onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
+            >
+              <option value="">Plano: Todos</option>
+              <option value="Delivery">Delivery</option>
+              <option value="Salão-Caixa">Salão-Caixa</option>
+              <option value="Completo">Completo</option>
+              <option value="Sem plano">Sem plano</option>
+            </select>
+          </div>
+
+          <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
+            <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
+          </div>
+
+          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
@@ -384,9 +540,14 @@ export function AdminPage() {
                   <p style={{ margin: 0, fontSize: '1.1rem', color: '#666' }}>{selectedUser.email}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedUser(null)} style={{ background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#EFEFEF'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F5'}>
-                <X size={20} />
-              </button>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={handleImpersonate} style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '10px 16px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.9rem', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
+                  <LogIn size={16} /> Acessar Painel do Lojista
+                </button>
+                <button onClick={() => setSelectedUser(null)} style={{ background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#EFEFEF'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F5'}>
+                  <X size={20} />
+                </button>
+              </div>
             </div>
             
             <div style={{ padding: '32px', overflowY: 'auto' }}>
@@ -454,44 +615,46 @@ export function AdminPage() {
                     </select>
                   </div>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Início</label>
-                      <input 
-                        type="date" 
-                        value={formStartDate} 
-                        onChange={(e) => setFormStartDate(e.target.value)}
-                        style={{ 
-                          width: '100%',
-                          padding: '14px 16px',
-                          borderRadius: '12px',
-                          border: '1px solid #E5E5E5',
-                          backgroundColor: '#FAFAFA',
-                          fontSize: '1rem',
-                          color: '#111',
-                          outline: 'none'
-                        }}
-                      />
+                  {formPlan && formPlan !== 'Sem plano' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Início</label>
+                        <input 
+                          type="date" 
+                          value={formStartDate} 
+                          onChange={(e) => setFormStartDate(e.target.value)}
+                          style={{ 
+                            width: '100%',
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            border: '1px solid #E5E5E5',
+                            backgroundColor: '#FAFAFA',
+                            fontSize: '1rem',
+                            color: '#111',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Fim (Prazo)</label>
+                        <input 
+                          type="date" 
+                          value={formEndDate} 
+                          onChange={(e) => setFormEndDate(e.target.value)}
+                          style={{ 
+                            width: '100%',
+                            padding: '14px 16px',
+                            borderRadius: '12px',
+                            border: '1px solid #E5E5E5',
+                            backgroundColor: '#FAFAFA',
+                            fontSize: '1rem',
+                            color: '#111',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Fim (Prazo)</label>
-                      <input 
-                        type="date" 
-                        value={formEndDate} 
-                        onChange={(e) => setFormEndDate(e.target.value)}
-                        style={{ 
-                          width: '100%',
-                          padding: '14px 16px',
-                          borderRadius: '12px',
-                          border: '1px solid #E5E5E5',
-                          backgroundColor: '#FAFAFA',
-                          fontSize: '1rem',
-                          color: '#111',
-                          outline: 'none'
-                        }}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

@@ -426,4 +426,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ plan, planStartDate, planEndDate }),
     }),
+
+  impersonateUser: (id: string) =>
+    request<{ token: string, adminToken: string, user: AuthUser }>(`/admin/impersonate/${id}`, { method: 'POST' }),
 };

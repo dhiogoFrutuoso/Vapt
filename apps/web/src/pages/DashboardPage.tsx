@@ -97,7 +97,7 @@ export function DashboardPage() {
       finalAppPlanType = `TESTE_${selectedSubPlan}`;
     } else {
       // Logic for Official App based on user plan
-      if (!user?.plan || user.plan === 'Sem plano') {
+      if (!user?.plan || user.plan.toLowerCase() === 'sem plano') {
         toast.error('Você precisa assinar um plano para criar um Aplicativo Oficial.');
         setCreating(false);
         return;
@@ -482,13 +482,13 @@ export function DashboardPage() {
                   {/* Card: Official App */}
                   <div 
                     onClick={() => {
-                      if (!user?.plan || user.plan === 'Sem plano') {
+                      if (!user?.plan || user.plan.toLowerCase() === 'sem plano') {
                         toast.error('Você não possui um plano ativo.');
                         return;
                       }
                       setSelectedAppType('OFICIAL');
                     }}
-                    style={{ border: selectedAppType === 'OFICIAL' ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', borderRadius: '16px', padding: '1.5rem', cursor: (!user?.plan || user.plan === 'Sem plano') ? 'not-allowed' : 'pointer', transition: 'all 0.2s', backgroundColor: selectedAppType === 'OFICIAL' ? '#fff8f6' : '#FAFAFA', opacity: (!user?.plan || user.plan === 'Sem plano') ? 0.6 : 1 }}
+                    style={{ border: selectedAppType === 'OFICIAL' ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', borderRadius: '16px', padding: '1.5rem', cursor: (!user?.plan || user.plan.toLowerCase() === 'sem plano') ? 'not-allowed' : 'pointer', transition: 'all 0.2s', backgroundColor: selectedAppType === 'OFICIAL' ? '#fff8f6' : '#FAFAFA', opacity: (!user?.plan || user.plan.toLowerCase() === 'sem plano') ? 0.6 : 1 }}
                   >
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <div style={{ backgroundColor: selectedAppType === 'OFICIAL' ? '#F95D2A' : '#e2e8f0', color: selectedAppType === 'OFICIAL' ? '#fff' : '#64748b', padding: '12px', borderRadius: '12px', transition: 'all 0.2s' }}>
@@ -498,7 +498,7 @@ export function DashboardPage() {
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: '#111', fontWeight: '700' }}>Aplicativo Oficial</h3>
                         <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
                           Crie seu app de produção vinculado à sua assinatura. 
-                          {(!user?.plan || user.plan === 'Sem plano') ? ' (Requer Upgrade)' : ` (Liberado: ${user.plan})`}
+                          {(!user?.plan || user.plan.toLowerCase() === 'sem plano') ? ' (Requer Upgrade)' : ` (Liberado: ${user.plan})`}
                         </p>
                       </div>
                     </div>
