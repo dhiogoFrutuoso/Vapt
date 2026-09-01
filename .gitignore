@@ -116,3 +116,5 @@ ENV/
 # imagens gravadas pelo driver local de storage
 apps/api/uploads/
 .claude/
+.agents/
+skills-lock.json
