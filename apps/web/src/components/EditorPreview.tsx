@@ -48,6 +48,7 @@ type Props = {
   courierPaidPerDelivery?: boolean;
   onCloseRegister?: () => Promise<void> | void;
   showRoomTab?: boolean;
+  showDeliveryTab?: boolean;
   liveBadge?: boolean;
   code?: string | null;
   theme?: 'claro' | 'escuro';
@@ -103,6 +104,7 @@ export function EditorPreview({
   deliveryFee = 0,
   courierPaidPerDelivery = false,
   showRoomTab = false,
+  showDeliveryTab = false,
   liveBadge = false,
   code = null,
   promotions = [],
@@ -629,16 +631,18 @@ export function EditorPreview({
             {deliveries.filter(d => d.status === 'novo').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
           </button>
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'entrega'}
-            className={view === 'entrega' ? 'is-active' : ''}
-            onClick={() => setView('entrega')}
-          >
-            🛵 {demo.preview.tabDelivery}
-            {deliveries.filter(d => d.status === 'aceito' || d.status === 'a_caminho').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
-          </button>
+          {showDeliveryTab && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'entrega'}
+              className={view === 'entrega' ? 'is-active' : ''}
+              onClick={() => setView('entrega')}
+            >
+              🛵 {demo.preview.tabDelivery}
+              {deliveries.filter(d => d.status === 'aceito' || d.status === 'a_caminho').length > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
+            </button>
+          )}
         </div>
       )}
     </div>

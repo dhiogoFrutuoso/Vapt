@@ -153,6 +153,11 @@ const appProjectSchema = new Schema(
     },
     /** Plano escolhido na tela de checkout (o fechamento e manual, pelo WhatsApp). */
     selectedPlan: { type: String, trim: true, default: null },
+    appPlanType: { 
+      type: String, 
+      enum: ['TESTE_DELIVERY', 'TESTE_SALAO', 'TESTE_COMPLETO', 'OFICIAL_DELIVERY', 'OFICIAL_SALAO', 'OFICIAL_COMPLETO'],
+      default: 'TESTE_COMPLETO'
+    },
     planRequestedAt: { type: Date, default: null },
     activatedAt: { type: Date, default: null },
   },
@@ -172,6 +177,7 @@ appProjectSchema.methods.toSummary = function toSummary(this: Record<string, unk
     businessType: this.businessType,
     status: this.status,
     selectedPlan: this.selectedPlan,
+    appPlanType: this.appPlanType,
     primaryColor: brand.primaryColor ?? '#FF6B2C',
     logoUrl: brand.logo ? `${env.publicUrl}/api/images/${String(brand.logo)}` : null,
     productCount: Array.isArray(this.products) ? this.products.length : 0,

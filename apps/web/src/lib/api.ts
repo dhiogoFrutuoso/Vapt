@@ -205,6 +205,7 @@ export type AppSummary = {
   businessType: string;
   status: string;
   selectedPlan: string | null;
+  appPlanType: string;
   primaryColor: string;
   logoUrl: string | null;
   productCount: number;
@@ -304,6 +305,7 @@ export type AppProjectFull = {
   employees: Employee[];
   status: string;
   selectedPlan: string | null;
+  appPlanType: string;
   planRequestedAt: string | null;
   activatedAt: string | null;
   createdAt: string;
@@ -352,7 +354,7 @@ export const api = {
   /* Apps */
   getApps: () => request<AppSummary[]>('/apps'),
   getApp: (id: string) => request<AppProjectFull>(`/apps/${id}`),
-  createApp: (input: { name: string; businessType: string }) => 
+  createApp: (input: { name: string; businessType: string; appPlanType: string }) => 
     request<AppSummary>('/apps', { method: 'POST', body: JSON.stringify(input) }),
   deleteApp: (id: string) => 
     request<{ deleted: true }>(`/apps/${id}`, { method: 'DELETE' }),

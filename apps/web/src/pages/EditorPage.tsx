@@ -456,6 +456,12 @@ export function EditorPage() {
 
   const isDark = editorTheme === 'escuro';
 
+  const planType = app.appPlanType || 'TESTE_COMPLETO';
+  const isDeliveryOnly = planType.includes('DELIVERY');
+  const isSalaoOnly = planType.includes('SALAO');
+  const showDelivery = !isSalaoOnly; // Completo ou Delivery
+  const showRoom = !isDeliveryOnly;  // Completo ou Salão
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden", backgroundColor: "var(--ep-bg)", color: "var(--ep-text)", fontFamily: "Inter, system-ui, sans-serif" }}>
       
@@ -662,7 +668,8 @@ export function EditorPage() {
           </div>
 
           {/* Entrega e pagamento do entregador */}
-          <div style={{ padding: "32px 24px", borderBottom: "1px solid var(--ep-border)" }}>
+          {showDelivery && (
+          <div style={{ padding: "32px 24px", borderBottom: showRoom ? "1px solid var(--ep-border)" : "none" }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Entrega</h2>
             <label
               className="ep-card" style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', cursor: 'pointer', marginBottom: 0 }}
@@ -682,8 +689,10 @@ export function EditorPage() {
               </span>
             </label>
           </div>
+          )}
 
           {/* Mesas */}
+          {showRoom && (
           <div style={{ padding: "32px 24px" }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Salão e Mesas</h2>
 
@@ -759,6 +768,7 @@ export function EditorPage() {
               ))}
             </div>
           </div>
+          )}
 
         </aside>
         <div 
@@ -811,7 +821,8 @@ export function EditorPage() {
                 deliveryFee={app.delivery?.fee ?? 0}
                 courierPaidPerDelivery={Boolean(app.delivery?.courierPaidPerDelivery)}
                 initialDeliveries={SAMPLE_DELIVERIES}
-                showRoomTab={true}
+                showRoomTab={showRoom}
+                showDeliveryTab={showDelivery}
                 liveBadge={true}
                 onTablesChange={setLiveTables} // Agora as mesas ganham vida e salvam os itens lançados!
                 onCloseRegister={async () => {

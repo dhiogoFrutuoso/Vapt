@@ -12,10 +12,11 @@ import { env } from '../config/env.js';
 const createAppSchema = z.object({
   name: z.string().min(1, 'Informe o nome do aplicativo.').max(80),
   businessType: z.enum(['restaurante', 'bar', 'lanchonete', 'pizzaria', 'cafeteria', 'mercado']).default('restaurante'),
+  appPlanType: z.enum(['TESTE_DELIVERY', 'TESTE_SALAO', 'TESTE_COMPLETO', 'OFICIAL_DELIVERY', 'OFICIAL_SALAO', 'OFICIAL_COMPLETO']),
 });
 
 export const createApp = asyncHandler(async (req: Request, res: Response) => {
-  const { name, businessType } = createAppSchema.parse(req.body);
+  const { name, businessType, appPlanType } = createAppSchema.parse(req.body);
   const ownerId = req.user!.id;
 
   const slug = await uniqueSlug(name, async (s) => {
@@ -28,6 +29,7 @@ export const createApp = asyncHandler(async (req: Request, res: Response) => {
     name,
     slug,
     businessType,
+    appPlanType,
   });
 
   await app.save();
