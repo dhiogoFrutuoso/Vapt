@@ -749,7 +749,7 @@ export function EditorPage() {
               </p>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: viewMode === 'fullscreen' ? '0' : '12px', padding: viewMode === 'fullscreen' ? '12px 16px' : '0' }}>
+            <div className="editor-view-controls" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: viewMode === 'fullscreen' ? '0' : '12px', padding: viewMode === 'fullscreen' ? '12px 16px' : '0' }}>
               <button onClick={() => setViewMode('mobile')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', border: viewMode === 'mobile' ? '1px solid var(--brand)' : '1px solid var(--ep-border)', background: viewMode === 'mobile' ? 'rgba(255,107,44,0.1)' : 'transparent', color: viewMode === 'mobile' ? 'var(--brand)' : 'var(--ep-label)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
                 <Smartphone size={16} /> Celular
               </button>
@@ -761,9 +761,7 @@ export function EditorPage() {
               </button>
             </div>
             
-            <div style={{ 
-              flex: 1, 
-              minHeight: viewMode === 'fullscreen' ? 'calc(100vh - 45px)' : '600px', 
+            <div className="editor-preview-wrapper" style={{ flex: 1, minHeight: viewMode === 'fullscreen' ? 'calc(100vh - 45px)' : '600px', 
               display: 'flex', 
               border: viewMode === 'fullscreen' ? 'none' : (isDark ? "1px solid rgba(255,255,255,0.05)" : "1px solid var(--ep-border)"), 
               borderRadius: viewMode === 'fullscreen' ? '0' : '16px', 
@@ -809,6 +807,20 @@ export function EditorPage() {
       </div>
 
       <style>{`
+@media (max-width: 768px) {
+  .editor-view-controls { display: none !important; }
+  .editor-main { padding: 0 !important; background-image: none !important; background-color: transparent !important; }
+  .editor-preview-wrapper { 
+    min-height: calc(100vh - 45px) !important; 
+    border: none !important; 
+    border-radius: 0 !important; 
+    box-shadow: none !important; 
+    width: 100% !important; 
+    margin: 0 !important; 
+    max-width: none !important; 
+  }
+}
+
         :root {
           --ep-bg: ${isDark ? '#09090b' : '#f8fafc'};
           --ep-sidebar: ${isDark ? '#18181b' : '#ffffff'};
