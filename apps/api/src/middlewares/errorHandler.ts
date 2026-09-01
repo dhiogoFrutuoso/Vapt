@@ -10,16 +10,20 @@ export function notFoundHandler(_req: Request, res: Response) {
 }
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
-  if (err instanceof ZodError) {
+  const isZodError = err instanceof ZodError || (err instanceof Error && err.name === 'ZodError');
+  if (isZodError) {
+    const zodErr = err as ZodError;
     return res.status(400).json({
       ok: false,
       error: 'Dados invalidos',
-      details: err.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      details: zodErr.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
     });
   }
 
-  if (err instanceof HttpError) {
-    return res.status(err.status).json({ ok: false, error: err.message, details: err.details });
+  const isHttpError = err instanceof HttpError || (err instanceof Error && err.name === 'HttpError');
+  if (isHttpError) {
+    const httpErr = err as HttpError;
+    return res.status(httpErr.status).json({ ok: false, error: httpErr.message, details: httpErr.details });
   }
 
   const anyErr = err as { code?: number; message?: string };
