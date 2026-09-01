@@ -51,7 +51,7 @@ export function AdminPage() {
           setAllUsers(data.users || []);
         }
       } catch (err) {
-        console.error('Erro ao buscar usu├írios:', err);
+        console.error('Erro ao buscar usuários:', err);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -143,6 +143,8 @@ export function AdminPage() {
             @media (max-width: 767px) {
               .flex-col { flex-direction: column !important; }
               .items-start { align-items: flex-start !important; }
+              .items-center { align-items: center !important; }
+              .justify-center { justify-content: center !important; }
               .gap-4 { gap: 16px !important; }
               .text-center { text-align: center !important; }
               .text-left { text-align: left !important; }
@@ -157,17 +159,26 @@ export function AdminPage() {
               
               .p-4 { padding: 1rem !important; }
               .mb-4 { margin-bottom: 1rem !important; }
+              .mt-4 { margin-top: 1rem !important; }
             }
 
             @media (min-width: 768px) {
               .md\\:flex-row { flex-direction: row !important; }
               .md\\:items-center { align-items: center !important; }
+              .md\\:items-start { align-items: flex-start !important; }
               .md\\:justify-between { justify-content: space-between !important; }
+              .md\\:justify-start { justify-content: flex-start !important; }
+              .md\\:justify-end { justify-content: flex-end !important; }
+              .md\\:text-left { text-align: left !important; }
+              
               .md\\:max-w-2xl { max-width: 42rem !important; }
               .md\\:max-w-3xl { max-width: 48rem !important; }
               .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
               .md\\:p-6 { padding: 1.5rem !important; }
               .md\\:p-8 { padding: 2rem !important; }
+              
+              .md\\:w-auto { width: auto !important; }
+              .md\\:mt-0 { margin-top: 0 !important; }
             }
 
             .whitespace-nowrap { white-space: nowrap !important; }
@@ -192,7 +203,7 @@ export function AdminPage() {
               </div>
               <div>
                 <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
-                <span style={{ fontSize: '0.9rem', color: '#666' }}>Gest├úo de clientes e assinaturas</span>
+                <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
               </div>
             </div>
             <Link to="/painel" className="whitespace-nowrap" style={{ 
@@ -296,18 +307,18 @@ export function AdminPage() {
             >
               <option value="">Plano: Todos</option>
               <option value="Delivery">Delivery</option>
-              <option value="Sal├úo-Caixa">Sal├úo-Caixa</option>
+              <option value="Salão-Caixa">Salão-Caixa</option>
               <option value="Completo">Completo</option>
               <option value="Sem plano">Sem plano</option>
             </select>
           </div>
 
           <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usu├írios Cadastrados</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
             <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
           </div>
 
-          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usu├írios...</div>
+          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
         </main>
       </div>
     );
@@ -330,7 +341,7 @@ export function AdminPage() {
             </div>
             <div>
               <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
-              <span style={{ fontSize: '0.9rem', color: '#666' }}>Gest├úo de clientes e assinaturas</span>
+              <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
             </div>
           </div>
           <Link to="/painel" style={{ 
@@ -434,24 +445,24 @@ export function AdminPage() {
           >
             <option value="">Plano: Todos</option>
             <option value="Delivery">Delivery</option>
-            <option value="Sal├úo-Caixa">Sal├úo-Caixa</option>
+            <option value="Salão-Caixa">Salão-Caixa</option>
             <option value="Completo">Completo</option>
             <option value="Sem plano">Sem plano</option>
           </select>
         </div>
 
         <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usu├írios Cadastrados</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
           <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
         </div>
 
         {/* User List */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usu├írios...</div>
+          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
         ) : paginatedUsers.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 40px', backgroundColor: '#FFF', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
             <Search size={48} style={{ color: '#DDD', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Nenhum usu├írio encontrado</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Nenhum usuário encontrado</h3>
             <p style={{ color: '#666', margin: 0 }}>Tente ajustar os filtros de busca para encontrar o que procura.</p>
           </div>
         ) : (
@@ -518,7 +529,7 @@ export function AdminPage() {
             >
               Anterior
             </button>
-            <span style={{ color: '#666', fontWeight: 600 }}>P├ígina {page} de {totalPages}</span>
+            <span style={{ color: '#666', fontWeight: 600 }}>Página {page} de {totalPages}</span>
             <button 
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
@@ -534,7 +545,7 @@ export function AdminPage() {
                 cursor: page === totalPages ? 'not-allowed' : 'pointer' 
               }}
             >
-              Pr├│xima
+              Próxima
             </button>
           </div>
         )}
@@ -567,30 +578,32 @@ export function AdminPage() {
             flexDirection: 'column',
             maxHeight: '90vh'
           }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '32px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+            <div className="flex flex-col items-center md:flex-row md:justify-between md:items-center p-4 md:p-8 w-full box-border" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative', gap: '16px' }}>
+              <button onClick={() => setSelectedUser(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s', zIndex: 10 }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#EFEFEF'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F5'}>
+                <X size={20} />
+              </button>
+              
+              <div className="flex flex-col md:flex-row items-center md:items-start w-full box-border" style={{ gap: '16px' }}>
                 <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usu├írio" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
+                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
                 </div>
-                <div>
-                  <h2 style={{ margin: '0 0 8px 0', fontSize: '1.75rem', fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {selectedUser.displayName || selectedUser.username || 'Sem Nome'}
-                    {selectedUser.isAdmin && <span style={{ padding: '4px 10px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.75rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase' }}>Admin</span>}
+                <div className="text-center md:text-left" style={{ flex: 1, minWidth: 0, width: '100%', paddingRight: '16px' }}>
+                  <h2 className="flex flex-col md:flex-row items-center md:justify-start" style={{ margin: '0 0 8px 0', fontSize: '1.5rem', fontWeight: 800, color: '#111', gap: '8px' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{selectedUser.displayName || selectedUser.username || 'Sem Nome'}</span>
+                    {selectedUser.isAdmin && <span style={{ padding: '4px 10px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.75rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase', flexShrink: 0 }}>Admin</span>}
                   </h2>
-                  <p style={{ margin: 0, fontSize: '1.1rem', color: '#666' }}>{selectedUser.email}</p>
+                  <p style={{ margin: 0, fontSize: '1.1rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{selectedUser.email}</p>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button onClick={handleImpersonate} style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '10px 16px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.9rem', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
-                  <LogIn size={16} /> Acessar Painel do Lojista
-                </button>
-                <button onClick={() => setSelectedUser(null)} style={{ background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#EFEFEF'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F5'}>
-                  <X size={20} />
+              
+              <div className="flex justify-center md:justify-end w-full md:w-auto mt-4 md:mt-0">
+                <button onClick={handleImpersonate} className="whitespace-nowrap" style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '12px 20px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
+                  <LogIn size={18} /> Acessar Painel
                 </button>
               </div>
             </div>
             
-            <div style={{ padding: '32px', overflowY: 'auto' }}>
+            <div className="p-4 md:p-6" style={{ overflowY: 'auto' }}>
               <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '24px', marginBottom: '32px' }}>
                 <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
@@ -600,15 +613,15 @@ export function AdminPage() {
                   </div>
                 </div>
                 <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permiss├úo</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Propriet├írio/Lojista'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
                 </div>
                 <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'N├úo informado'}</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'Não informado'}</div>
                 </div>
                 <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> ├Ültimo Login</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
                     {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
                   </div>
@@ -650,7 +663,7 @@ export function AdminPage() {
                     >
                       <option value="">Sem plano</option>
                       <option value="Delivery">Delivery</option>
-                      <option value="Sal├úo-Caixa">Sal├úo-Caixa</option>
+                      <option value="Salão-Caixa">Salão-Caixa</option>
                       <option value="Completo">Completo</option>
                     </select>
                   </div>
@@ -658,7 +671,7 @@ export function AdminPage() {
                   {formPlan && formPlan !== 'Sem plano' && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                       <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de In├¡cio</label>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Início</label>
                         <input 
                           type="date" 
                           value={formStartDate} 
@@ -718,7 +731,7 @@ export function AdminPage() {
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {savingPlan ? 'Salvando...' : <><Save size={18} /> Salvar Altera├º├Áes</>}
+                    {savingPlan ? 'Salvando...' : <><Save size={18} /> Salvar Alterações</>}
                   </button>
                 </div>
               </div>
