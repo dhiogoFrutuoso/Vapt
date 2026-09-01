@@ -48,9 +48,16 @@ export function Navbar() {
 
           <div className="nav__mobile-actions">
             {user ? (
-              <Link className="btn btn--primary" to="/painel" onClick={() => setOpen(false)}>
+              <>
+                <Link className="btn btn--primary" to="/painel" onClick={() => setOpen(false)}>
                 Ir para o painel
               </Link>
+                {user?.isAdmin && (
+                  <Link className="btn btn--outline" to="/admin" onClick={() => setOpen(false)} style={{ borderColor: '#ef4444', color: '#ef4444', marginTop: '8px' }}>
+                    Painel Admin
+                  </Link>
+                )}
+              </>
             ) : (
               <>
                 <Link className="btn btn--outline" to="/login" onClick={() => setOpen(false)}>
@@ -66,9 +73,16 @@ export function Navbar() {
 
         <div className="nav__actions">
           {!loading && user ? (
-            <Link className="btn btn--primary nav__cta" to="/painel">
+            <>
+              {user?.isAdmin && (
+                <Link className="btn btn--ghost" to="/admin" style={{ color: '#ef4444' }}>
+                  Painel Admin
+                </Link>
+              )}
+              <Link className="btn btn--primary nav__cta" to="/painel">
               Ir para o painel
             </Link>
+            </>
           ) : (
             <>
               <Link className="btn btn--ghost nav__login" to="/login">

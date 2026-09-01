@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
-import { Shield, Search, User as UserIcon, X, Calendar, Database, Link as LinkIcon, Activity } from 'lucide-react';
+import { Shield, Search, User as UserIcon, X, Calendar, Database, Link as LinkIcon, Activity , ArrowLeft} from 'lucide-react';
 
 export function AdminPage() {
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -70,7 +70,7 @@ export function AdminPage() {
             <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Gestão de clientes e assinaturas</span>
           </div>
         </div>
-        <Link to="/painel" style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#f8fafc', borderRadius: '8px', textDecoration: 'none', fontWeight: 600 }}>Voltar ao Painel</Link>
+        <Link to="/painel" style={{ padding: '8px 16px', backgroundColor: '#334155', color: '#f8fafc', borderRadius: '8px', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#475569'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#334155'}><ArrowLeft size={18} /> Voltar para o Painel</Link>
       </header>
 
       <main style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
