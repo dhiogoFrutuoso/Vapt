@@ -3,7 +3,7 @@ import { User } from '../models/User.js';
 
 export async function listUsers(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 30;
+  const limit = parseInt(req.query.limit as string) || 1000;
   const search = (req.query.search as string) || '';
   const isSubscribed = req.query.isSubscribed as string;
   const plan = req.query.plan as string;
