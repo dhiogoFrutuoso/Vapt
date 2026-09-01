@@ -107,6 +107,9 @@ export type AuthUser = {
   status: string;
   photoUrl: string | null;
   address: Address | null;
+  plan?: string | null;
+  planStartDate?: string | null;
+  planEndDate?: string | null;
   createdAt: string | null;
   lastLoginAt: string | null;
 };
@@ -415,4 +418,10 @@ export const api = {
 
     return request<{ users: AuthUser[], totalPages: number, currentPage: number, totalUsers: number }>(`/admin/users?${params.toString()}`);
   },
+
+  updateUserPlan: (id: string, plan: string, planStartDate: string, planEndDate: string) =>
+    request<{ user: AuthUser }>(`/admin/users/${id}/plan`, {
+      method: 'PUT',
+      body: JSON.stringify({ plan, planStartDate, planEndDate }),
+    }),
 };

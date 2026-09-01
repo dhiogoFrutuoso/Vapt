@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { User } from '../models/User.js';
+import { env } from '../config/env.js';
 
 export async function listUsers(req: Request, res: Response) {
   const page = parseInt(req.query.page as string) || 1;
@@ -23,26 +24,55 @@ export async function listUsers(req: Request, res: Response) {
      query.status = { $ne: 'ativo' };
   }
 
-  // Filtragem de plano exata (Delivery, Salão-Caixa, Completo).
-  // Se futuramente a app injetar isso no User (ex: user.plan), já estará suportado.
-  // if (plan === 'Delivery' || plan === 'Salão-Caixa' || plan === 'Completo') {
-  //    query.plan = plan; 
-  // }
-
   const skip = (page - 1) * limit;
   
   const [users, totalUsers] = await Promise.all([
-    User.find(query).select('-passwordHash').skip(skip).limit(limit).sort({ createdAt: -1 }).lean({ virtuals: true }),
+    User.find(query).select('-passwordHash').skip(skip).limit(limit).sort({ createdAt: -1 }).lean(),
     User.countDocuments(query)
   ]);
+
+  const mappedUsers = users.map(user => ({
+    ...user,
+    id: String(user._id),
+    photoUrl: user.photo ? `${env.publicUrl}/api/images/${String(user.photo)}` : null,
+  }));
 
   res.json({
     ok: true,
     data: {
-      users,
+      users: mappedUsers,
       totalPages: Math.ceil(totalUsers / limit),
       currentPage: page,
       totalUsers
     }
+  });
+}
+
+export async function updateUserPlan(req: Request, res: Response) {
+  const { id } = req.params;
+  const { plan, planStartDate, planEndDate } = req.body;
+
+  const user = await User.findById(id);
+  if (!user) {
+    return res.status(404).json({ ok: false, error: 'Usuário não encontrado.' });
+  }
+
+  user.set('plan', plan || null);
+  user.set('planStartDate', planStartDate ? new Date(planStartDate) : null);
+  user.set('planEndDate', planEndDate ? new Date(planEndDate) : null);
+
+  await user.save();
+
+  const userObject = user.toObject();
+  const mappedUser = {
+    ...userObject,
+    id: String(userObject._id),
+    photoUrl: userObject.photo ? `${env.publicUrl}/api/images/${String(userObject.photo)}` : null,
+  };
+
+  res.json({
+    ok: true,
+    data: { user: mappedUser },
+    message: 'Plano atualizado com sucesso.'
   });
 }

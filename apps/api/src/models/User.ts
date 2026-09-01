@@ -73,6 +73,9 @@ const userSchema = new Schema(
     role: { type: String, enum: ['owner', 'admin'], default: 'owner' },
     status: { type: String, enum: ['ativo', 'suspenso'], default: 'ativo' },
     isAdmin: { type: Boolean, default: false },
+    plan: { type: String, default: null },
+    planStartDate: { type: Date, default: null },
+    planEndDate: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },
   },
   {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
-import { Shield, Search, UserIcon, X, Calendar, Database, LinkIcon, Activity, ArrowLeft, Phone, Key, CreditCard, Clock } from 'lucide-react';
+import { Shield, Search, UserIcon, X, Calendar, Database, LinkIcon, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save } from 'lucide-react';
 
 const normalizeString = (str: string | undefined | null) => {
   if (!str) return '';
@@ -22,6 +22,21 @@ export function AdminPage() {
 
   // Modal
   const [selectedUser, setSelectedUser] = useState<AuthUser | null>(null);
+
+  // Modal Form State
+  const [formPlan, setFormPlan] = useState('');
+  const [formStartDate, setFormStartDate] = useState('');
+  const [formEndDate, setFormEndDate] = useState('');
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  // Update form state when user changes
+  useEffect(() => {
+    if (selectedUser) {
+      setFormPlan(selectedUser.plan || '');
+      setFormStartDate(selectedUser.planStartDate ? new Date(selectedUser.planStartDate).toISOString().split('T')[0] : '');
+      setFormEndDate(selectedUser.planEndDate ? new Date(selectedUser.planEndDate).toISOString().split('T')[0] : '');
+    }
+  }, [selectedUser]);
 
   // Fetch only once to load a robust block of users for in-memory processing
   useEffect(() => {
@@ -61,7 +76,7 @@ export function AdminPage() {
         (isSubscribed === 'false' && u.status !== 'ativo');
         
       // Event-Driven Array Filtering for plan
-      const matchPlan = plan === '' || (u as any).plan === plan;
+      const matchPlan = plan === '' || (plan === 'Sem plano' ? (!u.plan) : u.plan === plan);
       
       return matchSearch && matchStatus && matchPlan;
     });
@@ -84,6 +99,23 @@ export function AdminPage() {
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
+
+  const handleSavePlan = async () => {
+    if (!selectedUser) return;
+    setSavingPlan(true);
+    try {
+      const response = await api.updateUserPlan(selectedUser.id, formPlan, formStartDate, formEndDate);
+      // Update local state without refresh
+      setAllUsers(prev => prev.map(u => u.id === selectedUser.id ? response.user : u));
+      setSelectedUser(response.user);
+      alert('Plano atualizado com sucesso!');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao atualizar o plano.');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
@@ -208,6 +240,7 @@ export function AdminPage() {
             <option value="Delivery">Delivery</option>
             <option value="Salão-Caixa">Salão-Caixa</option>
             <option value="Completo">Completo</option>
+            <option value="Sem plano">Sem plano</option>
           </select>
         </div>
 
@@ -228,10 +261,9 @@ export function AdminPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
             {paginatedUsers.map(u => {
-              const imageUrl = u.photoUrl || (u as any).photo;
               return (
               <div 
-                key={u.id || (u as any)._id || u.email} 
+                key={u.id} 
                 onClick={() => setSelectedUser(u)}
                 style={{ 
                   backgroundColor: '#FFF',
@@ -254,7 +286,7 @@ export function AdminPage() {
                 }}
               >
                 <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {imageUrl ? <img src={imageUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
+                  {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
@@ -334,12 +366,15 @@ export function AdminPage() {
             backgroundColor: '#FFF',
             borderRadius: '24px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh'
           }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: '32px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                 <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {(selectedUser.photoUrl || (selectedUser as any).photo) ? <img src={selectedUser.photoUrl || (selectedUser as any).photo} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
+                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
                 </div>
                 <div>
                   <h2 style={{ margin: '0 0 8px 0', fontSize: '1.75rem', fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -354,74 +389,136 @@ export function AdminPage() {
               </button>
             </div>
             
-            <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', maxHeight: '50vh', overflowY: 'auto' }}>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: selectedUser.status === 'ativo' ? '#10B981' : '#EF4444' }}></div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111', textTransform: 'capitalize' }}>{selectedUser.status || 'Desconhecido'}</div>
+            <div style={{ padding: '32px', overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: selectedUser.status === 'ativo' ? '#10B981' : '#EF4444' }}></div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111', textTransform: 'capitalize' }}>{selectedUser.status || 'Desconhecido'}</div>
+                  </div>
+                </div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
+                </div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'Não informado'}</div>
+                </div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
+                    {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Calendar size={18} /> Cadastrado em</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
+                    {new Date(selectedUser.createdAt || Date.now()).toLocaleDateString('pt-BR')}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Database size={18} /> ID no Banco</div>
+                  <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id}</div>
                 </div>
               </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
-              </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{(selectedUser as any).phone || 'Não informado'}</div>
-              </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><CreditCard size={18} /> Plano Atual</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{(selectedUser as any).plan || 'Nenhum plano'}</div>
-              </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
-                  {(selectedUser as any).lastLoginAt ? new Date((selectedUser as any).lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
+
+              <div style={{ backgroundColor: '#FFF', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
+                <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CreditCard size={20} style={{ color: '#F95D2A' }} /> Gerenciar Assinatura
+                </h3>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginBottom: '24px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Plano Ativo</label>
+                    <select 
+                      value={formPlan} 
+                      onChange={(e) => setFormPlan(e.target.value)}
+                      style={{ 
+                        width: '100%',
+                        padding: '14px 16px',
+                        borderRadius: '12px',
+                        border: '1px solid #E5E5E5',
+                        backgroundColor: '#FAFAFA',
+                        fontSize: '1rem',
+                        color: '#111',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="">Sem plano</option>
+                      <option value="Delivery">Delivery</option>
+                      <option value="Salão-Caixa">Salão-Caixa</option>
+                      <option value="Completo">Completo</option>
+                    </select>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Início</label>
+                      <input 
+                        type="date" 
+                        value={formStartDate} 
+                        onChange={(e) => setFormStartDate(e.target.value)}
+                        style={{ 
+                          width: '100%',
+                          padding: '14px 16px',
+                          borderRadius: '12px',
+                          border: '1px solid #E5E5E5',
+                          backgroundColor: '#FAFAFA',
+                          fontSize: '1rem',
+                          color: '#111',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Fim (Prazo)</label>
+                      <input 
+                        type="date" 
+                        value={formEndDate} 
+                        onChange={(e) => setFormEndDate(e.target.value)}
+                        style={{ 
+                          width: '100%',
+                          padding: '14px 16px',
+                          borderRadius: '12px',
+                          border: '1px solid #E5E5E5',
+                          backgroundColor: '#FAFAFA',
+                          fontSize: '1rem',
+                          color: '#111',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button 
+                    onClick={handleSavePlan}
+                    disabled={savingPlan}
+                    style={{ 
+                      padding: '14px 32px', 
+                      borderRadius: '9999px', 
+                      border: 'none', 
+                      backgroundColor: '#F95D2A', 
+                      color: '#FFF', 
+                      fontWeight: 700, 
+                      fontSize: '1rem',
+                      cursor: savingPlan ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 10px 20px rgba(249, 93, 42, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      opacity: savingPlan ? 0.7 : 1,
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {savingPlan ? 'Salvando...' : <><Save size={18} /> Salvar Alterações</>}
+                  </button>
                 </div>
               </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Calendar size={18} /> Cadastrado em</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
-                  {new Date(selectedUser.createdAt || Date.now()).toLocaleDateString('pt-BR')}
-                </div>
-              </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Database size={18} /> ID no Banco</div>
-                <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id || (selectedUser as any)._id}</div>
-              </div>
-              <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><LinkIcon size={18} /> Nome de Usuário</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>@{selectedUser.username || 'Não informado'}</div>
-              </div>
-            </div>
-            
-            <div style={{ padding: '24px 32px', backgroundColor: '#FAFAFA', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-              <button 
-                onClick={() => setSelectedUser(null)} 
-                style={{ 
-                  padding: '14px 32px', 
-                  borderRadius: '9999px', 
-                  border: 'none', 
-                  backgroundColor: '#F95D2A', 
-                  color: '#FFF', 
-                  fontWeight: 700, 
-                  fontSize: '1rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 10px 20px rgba(249, 93, 42, 0.2)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 14px 24px rgba(249, 93, 42, 0.3)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 10px 20px rgba(249, 93, 42, 0.2)';
-                }}
-              >
-                Concluir
-              </button>
             </div>
           </div>
         </div>
