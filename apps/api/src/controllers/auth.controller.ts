@@ -77,6 +77,7 @@ function publicUser(user: {
   displayName?: string;
   phone?: string;
   role: string;
+  isAdmin?: boolean;
   status: string;
   photo?: unknown;
   address?: unknown;
@@ -90,6 +91,7 @@ function publicUser(user: {
     displayName: user.displayName ?? '',
     phone: user.phone ?? '',
     role: user.role,
+    isAdmin: user.isAdmin === true,
     status: user.status,
     photoUrl: user.photo ? `${env.publicUrl}/api/images/${String(user.photo)}` : null,
     address: user.address ?? null,

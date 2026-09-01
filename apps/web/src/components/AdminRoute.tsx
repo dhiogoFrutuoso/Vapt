@@ -6,7 +6,10 @@ export function AdminRoute({ children }: { children?: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) return <div>Carregando...</div>;
-  if (!user || !user.isAdmin) return <Navigate to="/painel" replace />;
-
-  return children ? <>{children}</> : <Outlet />;
+  
+  if (user && user.isAdmin === true) {
+    return children ? <>{children}</> : <Outlet />;
+  }
+  
+  return <Navigate to="/painel" replace />;
 }

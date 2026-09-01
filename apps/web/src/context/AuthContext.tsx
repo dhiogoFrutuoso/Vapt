@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.me();
       setUser(data.user);
+        console.log('[AuthContext] user.isAdmin:', data.user?.isAdmin);
     } catch (error: any) {
       // 401 é resposta esperada para visitante sem sessão: não é erro de verdade.
       if (!(error instanceof ApiError) || error.status !== 401) {

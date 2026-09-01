@@ -21,6 +21,7 @@ declare global {
         role: 'owner' | 'admin';
         email: string;
         username?: string | null;
+        isAdmin?: boolean;
       };
     }
   }
@@ -53,6 +54,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       role: user.role as 'owner' | 'admin',
       email: user.email,
       username: user.username,
+      isAdmin: user.isAdmin ?? false,
     };
 
     next();
@@ -77,6 +79,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
         role: user.role as 'owner' | 'admin',
         email: user.email,
         username: user.username,
+      isAdmin: user.isAdmin ?? false,
       };
     }
 
