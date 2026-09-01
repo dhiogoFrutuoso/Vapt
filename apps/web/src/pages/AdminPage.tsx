@@ -1,45 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type AuthUser } from '../lib/api';
 import { Shield, Search, UserIcon, X, Calendar, Database, LinkIcon, Activity, ArrowLeft, Phone, Key, CreditCard, Clock } from 'lucide-react';
 
+const normalizeString = (str: string | undefined | null) => {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+};
+
 export function AdminPage() {
-  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Pagination & Filters
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const limit = 30;
+  const limit = 30; // Limite client-side
   
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isSubscribed, setIsSubscribed] = useState('');
   const [plan, setPlan] = useState('');
 
   // Modal
   const [selectedUser, setSelectedUser] = useState<AuthUser | null>(null);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1); // Reset page on search
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search]);
-
+  // Fetch only once to load a robust block of users for in-memory processing
   useEffect(() => {
     let mounted = true;
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        const data = await api.getAdminUsers(page, limit, debouncedSearch, isSubscribed, plan);
+        // limit = 1000 ensures we bring a large block of users to filter locally
+        const data = await api.getAdminUsers(1, 1000, '', '', '');
         if (mounted && data) {
-          setUsers(data.users || []);
-          setTotalPages(data.totalPages || 1);
-          setTotalUsers(data.totalUsers || 0);
+          setAllUsers(data.users || []);
         }
       } catch (err) {
         console.error('Erro ao buscar usuários:', err);
@@ -49,7 +42,40 @@ export function AdminPage() {
     };
     void fetchUsers();
     return () => { mounted = false; };
-  }, [page, limit, debouncedSearch, isSubscribed, plan]);
+  }, []);
+
+  // Real-Time Filtering Algorithm
+  const filteredUsers = useMemo(() => {
+    const normalizedSearch = normalizeString(search);
+    
+    return allUsers.filter(u => {
+      // Substring Matching
+      const matchSearch = normalizedSearch === '' || 
+        normalizeString(u.displayName).includes(normalizedSearch) || 
+        normalizeString(u.email).includes(normalizedSearch) ||
+        normalizeString(u.username).includes(normalizedSearch);
+        
+      // Event-Driven Array Filtering for status
+      const matchStatus = isSubscribed === '' || 
+        (isSubscribed === 'true' && u.status === 'ativo') || 
+        (isSubscribed === 'false' && u.status !== 'ativo');
+        
+      // Event-Driven Array Filtering for plan
+      const matchPlan = plan === '' || (u as any).plan === plan;
+      
+      return matchSearch && matchStatus && matchPlan;
+    });
+  }, [allUsers, search, isSubscribed, plan]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, isSubscribed, plan]);
+
+  // Client-side pagination
+  const totalUsers = filteredUsers.length;
+  const totalPages = Math.ceil(totalUsers / limit) || 1;
+  const paginatedUsers = filteredUsers.slice((page - 1) * limit, page * limit);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -127,7 +153,7 @@ export function AdminPage() {
           
           <select 
             value={isSubscribed} 
-            onChange={(e) => { setIsSubscribed(e.target.value); setPage(1); }}
+            onChange={(e) => setIsSubscribed(e.target.value)}
             style={{ 
               minWidth: '200px',
               padding: '14px 20px',
@@ -156,7 +182,7 @@ export function AdminPage() {
 
           <select 
             value={plan} 
-            onChange={(e) => { setPlan(e.target.value); setPage(1); }}
+            onChange={(e) => setPlan(e.target.value)}
             style={{ 
               minWidth: '200px',
               padding: '14px 20px',
@@ -193,7 +219,7 @@ export function AdminPage() {
         {/* User List */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
-        ) : users.length === 0 ? (
+        ) : paginatedUsers.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 40px', backgroundColor: '#FFF', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
             <Search size={48} style={{ color: '#DDD', margin: '0 auto 16px' }} />
             <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Nenhum usuário encontrado</h3>
@@ -201,7 +227,7 @@ export function AdminPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
-            {users.map(u => {
+            {paginatedUsers.map(u => {
               const imageUrl = u.photoUrl || (u as any).photo;
               return (
               <div 
