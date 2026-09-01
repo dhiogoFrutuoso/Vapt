@@ -463,7 +463,7 @@ export function EditorPage() {
       <header className="editor-topbar" style={{ padding: "16px 32px", backgroundColor: "var(--ep-sidebar)", borderBottom: "1px solid var(--ep-border)", boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 , flexWrap: 'wrap', gap: '16px'}}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <Link to="/painel" style={{ color: "var(--ep-text)", textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}><ArrowLeft size={20} /> Voltar</Link>
-          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, background: isDark ? 'linear-gradient(to right, #60a5fa, #a78bfa)' : 'linear-gradient(to right, #2563eb, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{app.name}</h1>
+          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, backgroundImage: isDark ? 'linear-gradient(to right, #60a5fa, #a78bfa)' : 'linear-gradient(to right, #2563eb, #7c3aed)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent' }}>{app.name}</h1>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={() => setEditorTheme(isDark ? 'claro' : 'escuro')} className="ep-btn ep-btn-secondary" style={{ width: 'auto', padding: '8px 12px', border: "1px solid var(--ep-border)" }}>
@@ -767,7 +767,7 @@ export function EditorPage() {
           style={{ width: '4px', cursor: 'col-resize', backgroundColor: 'var(--ep-border)', zIndex: 10, flexShrink: 0, transition: 'background-color 0.2s' }}
         />
         {/* PREVIEW CONTAINER */}
-        <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'center', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
+        <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'flex-start', flexDirection: 'column', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
           
           <div style={{ width: '100%', maxWidth: viewMode === 'fullscreen' ? '100%' : '1200px', display: 'flex', flexDirection: 'column', margin: '0 auto' }}>
             
