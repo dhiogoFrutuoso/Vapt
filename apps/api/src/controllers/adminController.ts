@@ -17,8 +17,17 @@ export async function listUsers(req: Request, res: Response) {
     ];
   }
 
-  // Se tivéssemos um isSubscribed ou plan filters reais, aplicaríamos ao query aqui.
-  // if (isSubscribed === 'true') { }
+  if (isSubscribed === 'true') {
+     query.status = 'ativo';
+  } else if (isSubscribed === 'false') {
+     query.status = { $ne: 'ativo' };
+  }
+
+  // Filtragem de plano exata (Delivery, Salão-Caixa, Completo).
+  // Se futuramente a app injetar isso no User (ex: user.plan), já estará suportado.
+  // if (plan === 'Delivery' || plan === 'Salão-Caixa' || plan === 'Completo') {
+  //    query.plan = plan; 
+  // }
 
   const skip = (page - 1) * limit;
   
@@ -28,9 +37,12 @@ export async function listUsers(req: Request, res: Response) {
   ]);
 
   res.json({
-    users,
-    totalPages: Math.ceil(totalUsers / limit),
-    currentPage: page,
-    totalUsers
+    ok: true,
+    data: {
+      users,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page,
+      totalUsers
+    }
   });
 }
