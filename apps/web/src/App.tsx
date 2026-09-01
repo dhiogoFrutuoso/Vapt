@@ -4,8 +4,10 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
+import { AdminPage } from './pages/AdminPage';
 import { PlanSelectionPage } from './pages/PlanSelectionPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
 import { GuestRoute } from './components/GuestRoute';
 
 import { Toaster } from 'react-hot-toast';
@@ -53,6 +55,15 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
+        }
+      />
+
       <Route
         path="/painel/app/:id"
         element={

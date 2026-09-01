@@ -103,6 +103,7 @@ export type AuthUser = {
   displayName: string;
   phone: string;
   role: 'owner' | 'admin';
+  isAdmin?: boolean;
   status: string;
   photoUrl: string | null;
   address: Address | null;
@@ -402,4 +403,16 @@ export const api = {
     
   closeCashRegister: (appId: string) =>
     request<{ deactivatedPromotions: number }>(`/apps/${appId}/cash/close`, { method: 'POST' }),
+
+  getAdminUsers: (page: number, limit: number, search: string, isSubscribed: string, plan: string) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (search) params.append('search', search);
+    if (isSubscribed) params.append('isSubscribed', isSubscribed);
+    if (plan) params.append('plan', plan);
+
+    return request<{ users: AuthUser[], totalPages: number, currentPage: number, totalUsers: number }>(`/admin/users?${params.toString()}`);
+  },
 };

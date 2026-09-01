@@ -72,6 +72,7 @@ const userSchema = new Schema(
     phone: { type: String, trim: true, maxlength: 30, default: '' },
     role: { type: String, enum: ['owner', 'admin'], default: 'owner' },
     status: { type: String, enum: ['ativo', 'suspenso'], default: 'ativo' },
+    isAdmin: { type: Boolean, default: false },
     lastLoginAt: { type: Date, default: null },
   },
   {

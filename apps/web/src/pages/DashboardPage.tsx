@@ -284,6 +284,11 @@ export function DashboardPage() {
               <strong style={{ fontSize: '0.9rem' }}>{user.displayName || user.username || 'Usuário'}</strong>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>@{user.username || user.email.split('@')[0]}</span>
             </div>
+            {user.isAdmin && (
+              <Link to="/admin" style={{ padding: '6px 12px', backgroundColor: '#f1f5f9', color: '#0f172a', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Shield size={14} /> Admin
+              </Link>
+            )}
             <button 
               type="button" 
               onClick={() => void handleLogout()}
