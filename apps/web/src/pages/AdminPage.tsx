@@ -139,7 +139,29 @@ export function AdminPage() {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
         <style>
-          {`
+            .admin-header-container {
+              max-width: 1200px;
+              margin: 0 auto;
+              padding: 16px 24px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .btn-voltar {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              background-color: #FFF;
+              color: #111;
+              text-decoration: none;
+              padding: 10px 20px;
+              border-radius: 9999px;
+              font-weight: 600;
+              font-size: 0.95rem;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+              transition: all 0.2s ease;
+              white-space: nowrap;
+            }
             .admin-control-bar {
               display: flex;
               gap: 16px;
@@ -162,19 +184,28 @@ export function AdminPage() {
               padding: 20px;
               box-shadow: 0 4px 14px rgba(0,0,0,0.02);
               border: 1px solid rgba(0,0,0,0.05);
+              cursor: pointer;
+              position: relative;
+              transition: transform 0.2s ease, box-shadow 0.2s ease;
+            }
+            .admin-user-card:hover {
+              transform: translateY(-4px);
+              box-shadow: 0 20px 40px rgba(0,0,0,0.08);
             }
             .admin-user-card-content {
               display: flex;
               gap: 16px;
               align-items: center;
               flex: 1;
+              overflow: hidden;
             }
             .admin-modal-content {
               background-color: #fff;
               border-radius: 24px;
-              width: 100%;
-              max-width: 800px;
+              width: 95%;
+              max-width: 800px; /* equivalent to max-w-3xl */
               max-height: 90vh;
+              overflow-x: hidden;
               overflow-y: auto;
               box-shadow: 0 24px 48px -12px rgba(0,0,0,0.18);
               display: flex;
@@ -185,8 +216,25 @@ export function AdminPage() {
               grid-template-columns: repeat(2, 1fr);
               gap: 24px;
             }
+            .admin-modal-card {
+              background-color: #FAFAFA;
+              padding: 24px;
+              border-radius: 16px;
+              width: 100%;
+              overflow: hidden;
+              box-sizing: border-box;
+            }
+            .admin-modal-body {
+              padding: 32px;
+            }
             
             @media (max-width: 768px) {
+              .admin-header-container {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+                text-align: left;
+              }
               .admin-control-bar {
                 flex-direction: column;
               }
@@ -199,8 +247,19 @@ export function AdminPage() {
                 align-items: flex-start;
                 gap: 8px;
               }
+              .admin-modal-content {
+                max-width: 28rem; /* max-w-md */
+              }
+              .admin-modal-body {
+                padding: 16px;
+              }
               .admin-modal-grid {
                 grid-template-columns: 1fr;
+                display: flex;
+                flex-direction: column;
+              }
+              .admin-modal-card {
+                padding: 16px;
               }
             }
           `}
@@ -213,7 +272,7 @@ export function AdminPage() {
           top: 0,
           zIndex: 50
         }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="admin-header-container">
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.05)' }}>
                 <Shield size={24} style={{ color: '#F95D2A' }} />
@@ -223,20 +282,7 @@ export function AdminPage() {
                 <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
               </div>
             </div>
-            <Link to="/painel" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              backgroundColor: '#FFF',
-              color: '#111',
-              textDecoration: 'none',
-              padding: '10px 20px',
-              borderRadius: '9999px',
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-              transition: 'all 0.2s ease'
-            }}>
+            <Link to="/painel" className="btn-voltar">
               <ArrowLeft size={18} /> Voltar para o Painel
             </Link>
           </div>
@@ -605,42 +651,42 @@ export function AdminPage() {
               </div>
             </div>
             
-            <div style={{ padding: '32px', overflowY: 'auto' }}>
+            <div className="admin-modal-body" style={{ overflowY: 'auto' }}>
               <div className="admin-modal-grid" style={{ marginBottom: '32px' }}>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div className="admin-modal-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: selectedUser.status === 'ativo' ? '#10B981' : '#EF4444' }}></div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111', textTransform: 'capitalize' }}>{selectedUser.status || 'Desconhecido'}</div>
                   </div>
                 </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div className="admin-modal-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
                 </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div className="admin-modal-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'Não informado'}</div>
                 </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div className="admin-modal-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
                     {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
                   </div>
                 </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div className="admin-modal-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Calendar size={18} /> Cadastrado em</div>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
                     {new Date(selectedUser.createdAt || Date.now()).toLocaleDateString('pt-BR')}
                   </div>
                 </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
+                <div className="admin-modal-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Database size={18} /> ID no Banco</div>
                   <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id}</div>
                 </div>
               </div>
 
-              <div style={{ backgroundColor: '#FFF', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
+              <div className="admin-modal-card" style={{ backgroundColor: '#FFF', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
                 <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CreditCard size={20} style={{ color: '#F95D2A' }} /> Gerenciar Assinatura
                 </h3>
