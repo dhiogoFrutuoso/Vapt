@@ -83,6 +83,7 @@ function publicUser(user: {
   address?: unknown;
   createdAt?: Date;
   lastLoginAt?: Date | null;
+  plan?: string | null;
 }) {
   return {
     id: String(user._id),
@@ -97,6 +98,7 @@ function publicUser(user: {
     address: user.address ?? null,
     createdAt: user.createdAt ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
+    plan: user.plan ?? null,
   };
 }
 

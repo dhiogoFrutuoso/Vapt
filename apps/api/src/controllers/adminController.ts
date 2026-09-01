@@ -101,10 +101,10 @@ export async function impersonateUser(req: Request, res: Response) {
 
     // Gera o token para o usuário alvo
     const token = signAccessToken({ sub: String(user._id), role: user.role as 'owner' | 'admin' });
-    const adminToken = req.cookies.token;
+    const adminToken = req.cookies[env.auth.cookieName] || req.cookies.token;
 
     // Substitui o cookie de sessão com o do novo usuário
-    res.cookie('token', token, cookieOptions());
+    res.cookie(env.auth.cookieName, token, cookieOptions());
 
     const userObject = user.toObject();
     const mappedUser = {

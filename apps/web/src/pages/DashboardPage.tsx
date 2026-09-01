@@ -5,7 +5,7 @@ import { auth, site } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
-import { Plus, Trash2, LogOut, Store, Search, LayoutDashboard, Settings, Edit3, Image as ImageIcon, Users, Shield, KeySquare, Save, Phone, Rocket, TestTube, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, LogOut, Store, Search, LayoutDashboard, Settings, Edit3, Image as ImageIcon, Users, Shield, KeySquare, Save, Phone, Rocket, TestTube, ChevronDown, Lock } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
 export function DashboardPage() {
@@ -18,6 +18,12 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const userPlan = (user?.plan || '').toLowerCase().trim();
+  const hasCompleto = userPlan.includes('completo') || userPlan.includes('master');
+  const hasDelivery = hasCompleto || userPlan.includes('delivery');
+  const hasSalao = hasCompleto || userPlan.includes('salão') || userPlan.includes('salao') || userPlan.includes('sal\u00e3o');
+  const canCreateOfficial = hasCompleto || hasDelivery || hasSalao;
 
   // Modal State
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
@@ -96,17 +102,12 @@ export function DashboardPage() {
     if (selectedAppType === 'TESTE') {
       finalAppPlanType = `TESTE_${selectedSubPlan}`;
     } else {
-      // Logic for Official App based on user plan
-      if (!user?.plan || user.plan.toLowerCase() === 'sem plano') {
+      if (!canCreateOfficial) {
         toast.error('Você precisa assinar um plano para criar um Aplicativo Oficial.');
         setCreating(false);
         return;
       }
-      
-      const p = user.plan.toUpperCase();
-      if (p.includes('DELIVERY')) finalAppPlanType = 'OFICIAL_DELIVERY';
-      else if (p.includes('SALAO') || p.includes('SALÃO')) finalAppPlanType = 'OFICIAL_SALAO';
-      else finalAppPlanType = 'OFICIAL_COMPLETO'; // Fallback / Completo
+      finalAppPlanType = `OFICIAL_${selectedSubPlan}`;
     }
 
     try {
@@ -193,12 +194,11 @@ export function DashboardPage() {
 
       await api.updateApp(fullApp._id, updates);
       
-      // Update app summary in list
       setApps(current => current.map(a => a.id === fullApp._id ? {
         ...a, 
         name: formName, 
         primaryColor: formPrimaryColor,
-        logoUrl: formLogoBase64 || a.logoUrl // Approximation since base64 will become objectId later on reload
+        logoUrl: formLogoBase64 || a.logoUrl 
       } : a));
       
       toast.success('Configurações salvas!');
@@ -215,7 +215,7 @@ export function DashboardPage() {
     try {
       const dataUrl = await fileToResizedDataUrl(file, 400);
       setFormLogoBase64(dataUrl);
-      setFormLogoUrl(dataUrl); // preview
+      setFormLogoUrl(dataUrl); 
     } catch (err) {
       toast.error('Erro ao processar imagem.');
     }
@@ -341,7 +341,7 @@ export function DashboardPage() {
         </div>
 
         {plan && (
-          <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e40af', padding: '1rem', borderRadius: '12px', marginBottom: '2rem' }}>
+          <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', color: '#111e40af', padding: '1rem', borderRadius: '12px', marginBottom: '2rem' }}>
             Plano escolhido: <strong>{plan}</strong>. Monte o seu aplicativo e finalize a contratação pelo WhatsApp.
           </div>
         )}
@@ -445,7 +445,6 @@ export function DashboardPage() {
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {/* Card: Test App */}
                   <div 
                     onClick={() => setSelectedAppType('TESTE')}
                     style={{ border: selectedAppType === 'TESTE' ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', borderRadius: '16px', padding: '1.5rem', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: selectedAppType === 'TESTE' ? '#fff8f6' : '#fff', position: 'relative' }}
@@ -479,16 +478,15 @@ export function DashboardPage() {
                     )}
                   </div>
 
-                  {/* Card: Official App */}
                   <div 
                     onClick={() => {
-                      if (!user?.plan || user.plan.toLowerCase() === 'sem plano') {
-                        toast.error('Você não possui um plano ativo.');
-                        return;
+                      if (canCreateOfficial) {
+                        setSelectedAppType('OFICIAL');
+                        if (!hasDelivery && hasSalao) setSelectedSubPlan('SALAO');
+                        else if (!hasDelivery && !hasSalao && hasCompleto) setSelectedSubPlan('COMPLETO');
                       }
-                      setSelectedAppType('OFICIAL');
                     }}
-                    style={{ border: selectedAppType === 'OFICIAL' ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', borderRadius: '16px', padding: '1.5rem', cursor: (!user?.plan || user.plan.toLowerCase() === 'sem plano') ? 'not-allowed' : 'pointer', transition: 'all 0.2s', backgroundColor: selectedAppType === 'OFICIAL' ? '#fff8f6' : '#FAFAFA', opacity: (!user?.plan || user.plan.toLowerCase() === 'sem plano') ? 0.6 : 1 }}
+                    style={{ border: selectedAppType === 'OFICIAL' ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', borderRadius: '16px', padding: '1.5rem', cursor: !canCreateOfficial ? 'not-allowed' : 'pointer', transition: 'all 0.2s', backgroundColor: selectedAppType === 'OFICIAL' ? '#fff8f6' : '#FAFAFA', opacity: !canCreateOfficial ? 0.6 : 1 }}
                   >
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <div style={{ backgroundColor: selectedAppType === 'OFICIAL' ? '#F95D2A' : '#e2e8f0', color: selectedAppType === 'OFICIAL' ? '#fff' : '#64748b', padding: '12px', borderRadius: '12px', transition: 'all 0.2s' }}>
@@ -498,10 +496,44 @@ export function DashboardPage() {
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: '#111', fontWeight: '700' }}>Aplicativo Oficial</h3>
                         <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
                           Crie seu app de produção vinculado à sua assinatura. 
-                          {(!user?.plan || user.plan.toLowerCase() === 'sem plano') ? ' (Requer Upgrade)' : ` (Liberado: ${user.plan})`}
+                          {!canCreateOfficial ? ' (Requer Upgrade)' : ` (Liberado: ${user?.plan || ''})`}
                         </p>
                       </div>
                     </div>
+
+                    {selectedAppType === 'OFICIAL' && canCreateOfficial && (
+                      <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(249, 93, 42, 0.2)' }} onClick={e => e.stopPropagation()}>
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#111', marginBottom: '12px' }}>Selecione o plano do App Oficial:</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <button 
+                            type="button"
+                            onClick={() => { if(hasDelivery) setSelectedSubPlan('DELIVERY') }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', borderRadius: '12px', border: selectedSubPlan === 'DELIVERY' && hasDelivery ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', backgroundColor: selectedSubPlan === 'DELIVERY' && hasDelivery ? '#fff8f6' : '#fff', opacity: hasDelivery ? 1 : 0.6, cursor: hasDelivery ? 'pointer' : 'not-allowed' }}
+                          >
+                            <span style={{ fontWeight: '600', color: '#333' }}>Delivery</span>
+                            {!hasDelivery && <Lock size={16} color="#999" />}
+                          </button>
+                          
+                          <button 
+                            type="button"
+                            onClick={() => { if(hasSalao) setSelectedSubPlan('SALAO') }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', borderRadius: '12px', border: selectedSubPlan === 'SALAO' && hasSalao ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', backgroundColor: selectedSubPlan === 'SALAO' && hasSalao ? '#fff8f6' : '#fff', opacity: hasSalao ? 1 : 0.6, cursor: hasSalao ? 'pointer' : 'not-allowed' }}
+                          >
+                            <span style={{ fontWeight: '600', color: '#333' }}>Salão-Caixa</span>
+                            {!hasSalao && <Lock size={16} color="#999" />}
+                          </button>
+                          
+                          <button 
+                            type="button"
+                            onClick={() => { if(hasCompleto) setSelectedSubPlan('COMPLETO') }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', borderRadius: '12px', border: selectedSubPlan === 'COMPLETO' && hasCompleto ? '2px solid #F95D2A' : '1px solid rgba(0,0,0,0.1)', backgroundColor: selectedSubPlan === 'COMPLETO' && hasCompleto ? '#fff8f6' : '#fff', opacity: hasCompleto ? 1 : 0.6, cursor: hasCompleto ? 'pointer' : 'not-allowed' }}
+                          >
+                            <span style={{ fontWeight: '600', color: '#333' }}>Completo</span>
+                            {!hasCompleto && <Lock size={16} color="#999" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

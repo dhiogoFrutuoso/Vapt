@@ -127,8 +127,8 @@ export function AdminPage() {
         if (res.adminToken) {
           localStorage.setItem('vapt_admin_token', res.adminToken);
         }
-        // Token is already set in the HTTP-only cookie by the backend
-        window.location.href = '/painel'; // Redirect to user dashboard
+        localStorage.setItem('vapt_token', res.token);
+        window.location.assign('/painel'); // Redirect and force reload with new state
       }
     } catch (err) {
       toast.error('Erro ao acessar o painel do lojista.');
@@ -141,6 +141,9 @@ export function AdminPage() {
         <style dangerouslySetInnerHTML={{ __html: `
             /* Tailwind Shims para Responsividade Mobile-First */
             @media (max-width: 767px) {
+              .block { display: block !important; }
+              .hidden { display: none !important; }
+              
               .flex-col { flex-direction: column !important; }
               .items-start { align-items: flex-start !important; }
               .items-center { align-items: center !important; }
@@ -163,6 +166,10 @@ export function AdminPage() {
             }
 
             @media (min-width: 768px) {
+              .md\\:block { display: block !important; }
+              .md\\:hidden { display: none !important; }
+              .md\\:flex { display: flex !important; }
+              
               .md\\:flex-row { flex-direction: row !important; }
               .md\\:items-center { align-items: center !important; }
               .md\\:items-start { align-items: flex-start !important; }
@@ -578,17 +585,38 @@ export function AdminPage() {
             flexDirection: 'column',
             maxHeight: '90vh'
           }} onClick={e => e.stopPropagation()}>
-            <div className="flex flex-col items-center md:flex-row md:justify-between md:items-center p-4 md:p-8 w-full box-border" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative', gap: '16px' }}>
-              <button onClick={() => setSelectedUser(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s', zIndex: 10 }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#EFEFEF'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F5'}>
+            {/* Cabeçalho Mobile */}
+            <div className="flex flex-col items-center text-center gap-4 block md:hidden p-4 w-full box-border" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative' }}>
+              <button onClick={() => setSelectedUser(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s', zIndex: 10 }}>
                 <X size={20} />
               </button>
               
-              <div className="flex flex-col md:flex-row items-center md:items-start w-full box-border" style={{ gap: '16px' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px' }}>
+                {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
+              </div>
+              <div className="flex flex-col items-center w-full box-border">
+                <h2 className="flex flex-col items-center justify-center gap-2" style={{ margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: 800, color: '#111' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{selectedUser.displayName || selectedUser.username || 'Sem Nome'}</span>
+                  {selectedUser.isAdmin && <span style={{ padding: '4px 10px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.75rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase', flexShrink: 0 }}>Admin</span>}
+                </h2>
+                <p style={{ margin: 0, fontSize: '1rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{selectedUser.email}</p>
+              </div>
+              
+              <div className="w-full mt-4">
+                <button onClick={handleImpersonate} className="whitespace-nowrap flex justify-center w-full" style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '12px 20px', borderRadius: '9999px', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
+                  <LogIn size={18} /> Acessar Painel
+                </button>
+              </div>
+            </div>
+
+            {/* Cabeçalho Desktop */}
+            <div className="hidden md:flex md:flex-row md:items-center md:justify-between p-8 w-full box-border" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative' }}>
+              <div className="flex items-center gap-4" style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
                 </div>
-                <div className="text-center md:text-left" style={{ flex: 1, minWidth: 0, width: '100%', paddingRight: '16px' }}>
-                  <h2 className="flex flex-col md:flex-row items-center md:justify-start" style={{ margin: '0 0 8px 0', fontSize: '1.5rem', fontWeight: 800, color: '#111', gap: '8px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 className="flex items-center gap-3" style={{ margin: '0 0 8px 0', fontSize: '1.75rem', fontWeight: 800, color: '#111' }}>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{selectedUser.displayName || selectedUser.username || 'Sem Nome'}</span>
                     {selectedUser.isAdmin && <span style={{ padding: '4px 10px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.75rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase', flexShrink: 0 }}>Admin</span>}
                   </h2>
@@ -596,9 +624,12 @@ export function AdminPage() {
                 </div>
               </div>
               
-              <div className="flex justify-center md:justify-end w-full md:w-auto mt-4 md:mt-0">
-                <button onClick={handleImpersonate} className="whitespace-nowrap" style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '12px 20px', borderRadius: '9999px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
-                  <LogIn size={18} /> Acessar Painel
+              <div className="flex items-center gap-3" style={{ flexShrink: 0 }}>
+                <button onClick={handleImpersonate} style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '10px 16px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.9rem', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
+                  <LogIn size={16} /> Acessar Painel do Lojista
+                </button>
+                <button onClick={() => setSelectedUser(null)} style={{ background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#EFEFEF'} onMouseLeave={e => e.currentTarget.style.backgroundColor = '#F5F5F5'}>
+                  <X size={20} />
                 </button>
               </div>
             </div>
