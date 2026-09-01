@@ -121,10 +121,10 @@ export function AdminPage() {
     if (!selectedUser) return;
     try {
       const res = await api.impersonateUser(selectedUser.id);
-      if (res.ok && res.data?.token) {
+      if (res && res.token) {
         // Save admin token to allow coming back
-        if (res.data.adminToken) {
-          localStorage.setItem('vapt_admin_token', res.data.adminToken);
+        if (res.adminToken) {
+          localStorage.setItem('vapt_admin_token', res.adminToken);
         }
         // Token is already set in the HTTP-only cookie by the backend
         window.location.href = '/painel'; // Redirect to user dashboard
