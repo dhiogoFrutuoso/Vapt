@@ -181,7 +181,7 @@ export function EditorPage() {
 
       cancelCategoryEdit();
     } catch (err) {
-      alert(editingCatId ? 'Erro ao salvar categoria' : 'Erro ao criar categoria');
+      toast.error(editingCatId ? 'Erro ao salvar categoria' : 'Erro ao criar categoria');
     } finally {
       setIsAddingCat(false);
     }

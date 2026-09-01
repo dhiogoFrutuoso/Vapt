@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { api, type AuthUser } from '../lib/api';
 import { Shield, Search, UserIcon, X, Calendar, Database, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save, LogIn } from 'lucide-react';
 
@@ -108,10 +109,10 @@ export function AdminPage() {
       // Update local state without refresh
       setAllUsers(prev => prev.map(u => u.id === selectedUser.id ? response.user : u));
       setSelectedUser(response.user);
-      alert('Plano atualizado com sucesso!');
+      toast.success('Plano atualizado com sucesso!');
     } catch (err) {
       console.error(err);
-      alert('Erro ao atualizar o plano.');
+      toast.error('Erro ao atualizar o plano.');
     } finally {
       setSavingPlan(false);
     }
@@ -130,13 +131,80 @@ export function AdminPage() {
         window.location.href = '/painel'; // Redirect to user dashboard
       }
     } catch (err) {
-      alert('Erro ao acessar o painel do lojista.');
+      toast.error('Erro ao acessar o painel do lojista.');
     }
   };
 
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
+        <style>
+          {`
+            .admin-control-bar {
+              display: flex;
+              gap: 16px;
+              margin-bottom: 32px;
+              flex-wrap: wrap;
+            }
+            .admin-control-bar-input {
+              flex: 1;
+              min-width: 300px;
+            }
+            .admin-control-bar-select {
+              min-width: 200px;
+            }
+            .admin-user-card {
+              display: flex;
+              gap: 16px;
+              align-items: center;
+              background-color: #fff;
+              border-radius: 16px;
+              padding: 20px;
+              box-shadow: 0 4px 14px rgba(0,0,0,0.02);
+              border: 1px solid rgba(0,0,0,0.05);
+            }
+            .admin-user-card-content {
+              display: flex;
+              gap: 16px;
+              align-items: center;
+              flex: 1;
+            }
+            .admin-modal-content {
+              background-color: #fff;
+              border-radius: 24px;
+              width: 100%;
+              max-width: 800px;
+              max-height: 90vh;
+              overflow-y: auto;
+              box-shadow: 0 24px 48px -12px rgba(0,0,0,0.18);
+              display: flex;
+              flex-direction: column;
+            }
+            .admin-modal-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 24px;
+            }
+            
+            @media (max-width: 768px) {
+              .admin-control-bar {
+                flex-direction: column;
+              }
+              .admin-control-bar-input, .admin-control-bar-select {
+                width: 100%;
+                min-width: 0;
+              }
+              .admin-user-card-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+              }
+              .admin-modal-grid {
+                grid-template-columns: 1fr;
+              }
+            }
+          `}
+        </style>
         <header style={{ 
           backgroundColor: 'rgba(255, 255, 255, 0.8)', 
           backdropFilter: 'blur(12px)',
@@ -314,8 +382,8 @@ export function AdminPage() {
 
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
         {/* Control Bar */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+        <div className="admin-control-bar">
+          <div className="admin-control-bar-input" style={{ position: 'relative' }}>
             <Search size={20} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
             <input 
               type="text" 
@@ -340,10 +408,10 @@ export function AdminPage() {
           </div>
           
           <select 
+            className="admin-control-bar-select"
             value={isSubscribed} 
             onChange={(e) => setIsSubscribed(e.target.value)}
             style={{ 
-              minWidth: '200px',
               padding: '14px 20px',
               borderRadius: '9999px',
               border: 'none',
@@ -369,10 +437,10 @@ export function AdminPage() {
           </select>
 
           <select 
+            className="admin-control-bar-select"
             value={plan} 
             onChange={(e) => setPlan(e.target.value)}
             style={{ 
-              minWidth: '200px',
               padding: '14px 20px',
               borderRadius: '9999px',
               border: 'none',
@@ -420,17 +488,12 @@ export function AdminPage() {
               return (
               <div 
                 key={u.id} 
+                className="admin-user-card"
                 onClick={() => setSelectedUser(u)}
                 style={{ 
-                  backgroundColor: '#FFF',
-                  padding: '24px', 
-                  borderRadius: '24px',
-                  display: 'flex', 
-                  gap: '16px', 
                   cursor: 'pointer', 
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  position: 'relative'
+                  position: 'relative',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-4px)';
@@ -441,15 +504,17 @@ export function AdminPage() {
                   e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)';
                 }}
               >
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
-                </div>
-                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.displayName || u.username || 'Sem Nome'}</h3>
-                    {u.isAdmin && <span style={{ padding: '4px 8px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.65rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase' }}>Admin</span>}
+                <div className="admin-user-card-content">
+                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</p>
+                  <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.displayName || u.username || 'Sem Nome'}</h3>
+                      {u.isAdmin && <span style={{ padding: '4px 8px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.65rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase' }}>Admin</span>}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</p>
+                  </div>
                 </div>
                 {/* Status Indicator */}
                 <div style={{ position: 'absolute', top: '24px', right: '24px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.status === 'ativo' ? '#10B981' : '#EF4444', boxShadow: `0 0 0 3px ${u.status === 'ativo' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}></div>
@@ -516,17 +581,7 @@ export function AdminPage() {
           justifyContent: 'center', 
           padding: '24px' 
         }} onClick={() => setSelectedUser(null)}>
-          <div style={{ 
-            width: '100%', 
-            maxWidth: '640px', 
-            backgroundColor: '#FFF',
-            borderRadius: '24px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '90vh'
-          }} onClick={e => e.stopPropagation()}>
+          <div className="admin-modal-content" onClick={e => e.stopPropagation()}>
             <div style={{ padding: '32px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                 <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -551,7 +606,7 @@ export function AdminPage() {
             </div>
             
             <div style={{ padding: '32px', overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
+              <div className="admin-modal-grid" style={{ marginBottom: '32px' }}>
                 <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

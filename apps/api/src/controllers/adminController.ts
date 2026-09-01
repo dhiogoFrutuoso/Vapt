@@ -91,31 +91,36 @@ export async function updateUserPlan(req: Request, res: Response) {
 }
 
 export async function impersonateUser(req: Request, res: Response) {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const user = await User.findById(id);
-  if (!user) {
-    return res.status(404).json({ ok: false, error: 'Usuário não encontrado.' });
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ ok: false, error: 'Usuário não encontrado.' });
+    }
+
+    // Gera o token para o usuário alvo
+    const token = signAccessToken({ sub: String(user._id), role: user.role as 'owner' | 'admin' });
+    const adminToken = req.cookies.token;
+
+    // Substitui o cookie de sessão com o do novo usuário
+    res.cookie('token', token, cookieOptions());
+
+    const userObject = user.toObject();
+    const mappedUser = {
+      ...userObject,
+      id: String(userObject._id),
+      photoUrl: userObject.photo ? `${env.publicUrl}/api/images/${String(userObject.photo)}` : null,
+    };
+
+    // Retorna o token para o frontend trocar e redirecionar
+    res.json({
+      ok: true,
+      data: { token, adminToken, user: mappedUser },
+      message: 'Impersonation gerado com sucesso.'
+    });
+  } catch (error) {
+    console.error('Erro no impersonateUser:', error);
+    res.status(500).json({ ok: false, message: 'Erro interno ao gerar token' });
   }
-
-  // Gera o token para o usuário alvo
-  const token = signAccessToken(user.id);
-  const adminToken = req.cookies.token;
-
-  // Substitui o cookie de sessão com o do novo usuário
-  res.cookie('token', token, cookieOptions());
-
-  const userObject = user.toObject();
-  const mappedUser = {
-    ...userObject,
-    id: String(userObject._id),
-    photoUrl: userObject.photo ? `${env.publicUrl}/api/images/${String(userObject.photo)}` : null,
-  };
-
-  // Retorna o token para o frontend trocar e redirecionar
-  res.json({
-    ok: true,
-    data: { token, adminToken, user: mappedUser },
-    message: 'Impersonation gerado com sucesso.'
-  });
 }
