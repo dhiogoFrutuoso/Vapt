@@ -86,6 +86,7 @@ export function PhonePreview({
   showRoomTab = false,
   liveBadge = false,
   code = null,
+  waiterCommissionRate,
 }: Props) {
   const [view, setView] = useState<View>('menu');
 
