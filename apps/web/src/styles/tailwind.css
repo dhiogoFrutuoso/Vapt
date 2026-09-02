@@ -1,0 +1,15 @@
+/*
+ * Camada Tailwind, isolada do restante do design system do site.
+ *
+ * @tailwind base fica praticamente vazio de proposito (preflight desligado
+ * em tailwind.config.js) para nao colidir com apps/web/src/styles/base.css,
+ * que ja e o reset/tema usado por Landing, Editor, Auth etc.
+ *
+ * Este arquivo existe para dar suporte real as classes utilitarias usadas
+ * em AdminPage.tsx (grid, flex, rounded-full, shadow-soft, responsividade
+ * md:/lg:) — substituindo o shim manual que so existia dentro do branch de
+ * loading e desaparecia assim que os dados chegavam.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

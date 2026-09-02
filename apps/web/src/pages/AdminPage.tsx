@@ -2,22 +2,113 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api, type AuthUser } from '../lib/api';
-import { Shield, Search, UserIcon, X, Calendar, Database, Activity, ArrowLeft, Phone, Key, CreditCard, Clock, Save, LogIn } from 'lucide-react';
+import {
+  Shield,
+  Search,
+  UserIcon,
+  X,
+  Calendar,
+  Database,
+  Activity,
+  ArrowLeft,
+  Phone,
+  Key,
+  CreditCard,
+  Clock,
+  Save,
+  LogIn,
+} from 'lucide-react';
 
 const normalizeString = (str: string | undefined | null) => {
   if (!str) return '';
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 };
 
+/** Seta customizada dos selects em pílula. Definida fora do componente para não recriar o objeto a cada render. */
+const selectArrowStyle: React.CSSProperties = {
+  appearance: 'none',
+  backgroundImage:
+    'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 20px top 50%',
+  backgroundSize: '12px auto',
+};
+
+type InfoCardProps = {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+};
+
+/** Card de informação do usuário na modal (Status, Telefone, ID etc). Extraído para não repetir a mesma marcação seis vezes. */
+function InfoCard({ icon, label, children }: InfoCardProps) {
+  return (
+    <div className="rounded-2xl bg-cream-100 p-5">
+      <div className="mb-2 flex items-center gap-2 text-sm text-ink-500">
+        {icon}
+        {label}
+      </div>
+      <div className="text-lg font-bold text-ink-900">{children}</div>
+    </div>
+  );
+}
+
+type UserCardProps = {
+  user: AuthUser;
+  onSelect: (user: AuthUser) => void;
+};
+
+/** Card de usuário na grade principal. */
+function UserCard({ user: u, onSelect }: UserCardProps) {
+  const isActive = u.status === 'ativo';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(u)}
+      className="group relative flex items-center gap-4 rounded-3xl bg-white p-6 text-left shadow-soft transition duration-200 ease-smooth hover:-translate-y-1 hover:shadow-soft-lg"
+    >
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-100">
+        {u.photoUrl ? (
+          <img src={u.photoUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <UserIcon size={24} className="text-ink-300" />
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <div className="mb-1 flex items-center gap-2">
+          <h3 className="truncate text-lg font-bold text-ink-900">
+            {u.displayName || u.username || 'Sem Nome'}
+          </h3>
+          {u.isAdmin && (
+            <span className="shrink-0 rounded-full bg-brand-soft px-2 py-1 text-[0.65rem] font-extrabold uppercase text-brand">
+              Admin
+            </span>
+          )}
+        </div>
+        <p className="truncate text-sm text-ink-500">{u.email}</p>
+      </div>
+
+      <div
+        className={`absolute right-6 top-6 h-3 w-3 rounded-full ring-4 ${
+          isActive ? 'bg-emerald-500 ring-emerald-500/20' : 'bg-red-500 ring-red-500/20'
+        }`}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
 export function AdminPage() {
   const navigate = useNavigate();
   const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Pagination & Filters
   const [page, setPage] = useState(1);
   const limit = 30; // Limite client-side
-  
+
   const [search, setSearch] = useState('');
   const [isSubscribed, setIsSubscribed] = useState('');
   const [plan, setPlan] = useState('');
@@ -58,28 +149,32 @@ export function AdminPage() {
       }
     };
     void fetchUsers();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Real-Time Filtering Algorithm
   const filteredUsers = useMemo(() => {
     const normalizedSearch = normalizeString(search);
-    
-    return allUsers.filter(u => {
+
+    return allUsers.filter((u) => {
       // Substring Matching
-      const matchSearch = normalizedSearch === '' || 
-        normalizeString(u.displayName).includes(normalizedSearch) || 
+      const matchSearch =
+        normalizedSearch === '' ||
+        normalizeString(u.displayName).includes(normalizedSearch) ||
         normalizeString(u.email).includes(normalizedSearch) ||
         normalizeString(u.username).includes(normalizedSearch);
-        
+
       // Event-Driven Array Filtering for status
-      const matchStatus = isSubscribed === '' || 
-        (isSubscribed === 'true' && u.status === 'ativo') || 
+      const matchStatus =
+        isSubscribed === '' ||
+        (isSubscribed === 'true' && u.status === 'ativo') ||
         (isSubscribed === 'false' && u.status !== 'ativo');
-        
+
       // Event-Driven Array Filtering for plan
-      const matchPlan = plan === '' || (plan === 'Sem plano' ? (!u.plan) : u.plan === plan);
-      
+      const matchPlan = plan === '' || (plan === 'Sem plano' ? !u.plan : u.plan === plan);
+
       return matchSearch && matchStatus && matchPlan;
     });
   }, [allUsers, search, isSubscribed, plan]);
@@ -108,7 +203,7 @@ export function AdminPage() {
     try {
       const response = await api.updateUserPlan(selectedUser.id, formPlan, formStartDate, formEndDate);
       // Update local state without refresh
-      setAllUsers(prev => prev.map(u => u.id === selectedUser.id ? response.user : u));
+      setAllUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? response.user : u)));
       setSelectedUser(response.user);
       toast.success('Plano atualizado com sucesso!');
     } catch (err) {
@@ -124,320 +219,60 @@ export function AdminPage() {
     navigate(`/painel?editUserId=${selectedUser.id}&plan=${encodeURIComponent(selectedUser.plan || '')}`);
   };
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
-        <style dangerouslySetInnerHTML={{ __html: `
-            /* Tailwind Shims para Responsividade Mobile-First */
-            @media (max-width: 767px) {
-              .block { display: block !important; }
-              .hidden { display: none !important; }
-              
-              .flex-col { flex-direction: column !important; }
-              .items-start { align-items: flex-start !important; }
-              .items-center { align-items: center !important; }
-              .justify-center { justify-content: center !important; }
-              .gap-4 { gap: 16px !important; }
-              .text-center { text-align: center !important; }
-              .text-left { text-align: left !important; }
-              
-              .w-\\[95\\%\\] { width: 95% !important; }
-              .max-w-md { max-width: 28rem !important; }
-              .max-h-\\[90vh\\] { max-height: 90vh !important; }
-              .overflow-y-auto { overflow-y: auto !important; }
-              .overflow-x-hidden { overflow-x: hidden !important; }
-              
-              .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
-              
-              .p-4 { padding: 1rem !important; }
-              .mb-4 { margin-bottom: 1rem !important; }
-              .mt-4 { margin-top: 1rem !important; }
-            }
-
-            @media (min-width: 768px) {
-              .md\\:block { display: block !important; }
-              .md\\:hidden { display: none !important; }
-              .md\\:flex { display: flex !important; }
-              
-              .md\\:flex-row { flex-direction: row !important; }
-              .md\\:items-center { align-items: center !important; }
-              .md\\:items-start { align-items: flex-start !important; }
-              .md\\:justify-between { justify-content: space-between !important; }
-              .md\\:justify-start { justify-content: flex-start !important; }
-              .md\\:justify-end { justify-content: flex-end !important; }
-              .md\\:text-left { text-align: left !important; }
-              
-              .md\\:max-w-2xl { max-width: 42rem !important; }
-              .md\\:max-w-3xl { max-width: 48rem !important; }
-              .md\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-              .md\\:p-6 { padding: 1.5rem !important; }
-              .md\\:p-8 { padding: 2rem !important; }
-              
-              .md\\:w-auto { width: auto !important; }
-              .md\\:mt-0 { margin-top: 0 !important; }
-            }
-
-            .whitespace-nowrap { white-space: nowrap !important; }
-            .w-full { width: 100% !important; }
-            .overflow-hidden { overflow: hidden !important; }
-            .box-border { box-sizing: border-box !important; }
-            .grid { display: grid !important; }
-            .flex { display: flex !important; }
-        ` }} />
-        <header style={{ 
-          backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(0,0,0,0.05)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 50
-        }}>
-          <div className="flex flex-col gap-4 items-start md:flex-row md:items-center md:justify-between w-full" style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.05)' }}>
-                <Shield size={24} style={{ color: '#F95D2A' }} />
-              </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
-                <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
-              </div>
-            </div>
-            <Link to="/painel" className="whitespace-nowrap" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              backgroundColor: '#FFF',
-              color: '#111',
-              textDecoration: 'none',
-              padding: '10px 20px',
-              borderRadius: '9999px',
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-              transition: 'all 0.2s ease'
-            }}>
-              <ArrowLeft size={18} /> Voltar para o Painel
-            </Link>
-          </div>
-        </header>
-
-        <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
-          {/* Control Bar */}
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
-              <Search size={20} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-              <input 
-                type="text" 
-                placeholder="Buscar por nome ou e-mail..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ 
-                  width: '100%',
-                  padding: '14px 20px 14px 52px',
-                  borderRadius: '9999px',
-                  border: 'none',
-                  backgroundColor: '#FFF',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                  fontSize: '1rem',
-                  color: '#111',
-                  outline: 'none',
-                  transition: 'box-shadow 0.2s ease'
-                }}
-                onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
-                onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
-              />
-            </div>
-            
-            <select 
-              value={isSubscribed} 
-              onChange={(e) => setIsSubscribed(e.target.value)}
-              style={{ 
-                minWidth: '200px',
-                padding: '14px 20px',
-                borderRadius: '9999px',
-                border: 'none',
-                backgroundColor: '#FFF',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                fontSize: '1rem',
-                color: '#111',
-                outline: 'none',
-                cursor: 'pointer',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 20px top 50%',
-                backgroundSize: '12px auto',
-                transition: 'box-shadow 0.2s ease'
-              }}
-              onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
-              onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
-            >
-              <option value="">Status: Todos</option>
-              <option value="true">Ativos</option>
-              <option value="false">Suspensos</option>
-            </select>
-
-            <select 
-              value={plan} 
-              onChange={(e) => setPlan(e.target.value)}
-              style={{ 
-                minWidth: '200px',
-                padding: '14px 20px',
-                borderRadius: '9999px',
-                border: 'none',
-                backgroundColor: '#FFF',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                fontSize: '1rem',
-                color: '#111',
-                outline: 'none',
-                cursor: 'pointer',
-                appearance: 'none',
-                backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 20px top 50%',
-                backgroundSize: '12px auto',
-                transition: 'box-shadow 0.2s ease'
-              }}
-              onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
-              onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
-            >
-              <option value="">Plano: Todos</option>
-              <option value="Delivery">Delivery</option>
-              <option value="Salão-Caixa">Salão-Caixa</option>
-              <option value="Completo">Completo</option>
-              <option value="Sem plano">Sem plano</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
-            <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
-          </div>
-
-          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#FAFAFA', color: '#111', fontFamily: '"Inter", "Poppins", sans-serif' }}>
-      <header style={{ 
-        backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(0,0,0,0.05)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(0,0,0,0.05)' }}>
-              <Shield size={24} style={{ color: '#F95D2A' }} />
+    <div className="min-h-screen bg-cream-100 font-sans text-ink-900 antialiased">
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/75 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-4 px-6 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-soft">
+              <Shield size={24} className="text-brand" />
             </div>
             <div>
-              <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>Painel Admin</h1>
-              <span style={{ fontSize: '0.9rem', color: '#666' }}>Gestão de clientes e assinaturas</span>
+              <h1 className="text-2xl font-extrabold leading-tight text-ink-900">Painel Admin</h1>
+              <p className="text-sm text-ink-500">Gestão de clientes e assinaturas</p>
             </div>
           </div>
-          <Link to="/painel" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            backgroundColor: '#FFF',
-            color: '#111',
-            textDecoration: 'none',
-            padding: '10px 20px',
-            borderRadius: '9999px',
-            fontWeight: 600,
-            fontSize: '0.95rem',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-            transition: 'all 0.2s ease'
-          }}>
+
+          <Link
+            to="/painel"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-ink-900 shadow-soft transition duration-200 ease-smooth hover:-translate-y-0.5 hover:shadow-soft-lg"
+          >
             <ArrowLeft size={18} /> Voltar para o Painel
           </Link>
         </div>
       </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 24px' }}>
-        {/* Control Bar */}
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
-            <Search size={20} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-            <input 
-              type="text" 
-              placeholder="Buscar por nome ou e-mail..." 
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        {/* CONTROL BAR — empilha no mobile, lado a lado a partir de md */}
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center">
+          <div className="relative w-full md:min-w-[280px] md:flex-1">
+            <Search size={20} className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-ink-300" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou e-mail..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ 
-                width: '100%',
-                padding: '14px 20px 14px 52px',
-                borderRadius: '9999px',
-                border: 'none',
-                backgroundColor: '#FFF',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                fontSize: '1rem',
-                color: '#111',
-                outline: 'none',
-                transition: 'box-shadow 0.2s ease'
-              }}
-              onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
-              onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
+              className="w-full rounded-full border-none bg-white py-3.5 pl-12 pr-5 text-base text-ink-900 shadow-soft outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand"
             />
           </div>
-          
-          <select 
-            value={isSubscribed} 
+
+          <select
+            value={isSubscribed}
             onChange={(e) => setIsSubscribed(e.target.value)}
-            style={{ 
-              minWidth: '200px',
-              padding: '14px 20px',
-              borderRadius: '9999px',
-              border: 'none',
-              backgroundColor: '#FFF',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-              fontSize: '1rem',
-              color: '#111',
-              outline: 'none',
-              cursor: 'pointer',
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 20px top 50%',
-              backgroundSize: '12px auto',
-              transition: 'box-shadow 0.2s ease'
-            }}
-            onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
-            onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
+            style={selectArrowStyle}
+            className="w-full cursor-pointer rounded-full border-none bg-white px-5 py-3.5 text-base text-ink-900 shadow-soft outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand md:w-auto md:min-w-[190px]"
           >
             <option value="">Status: Todos</option>
             <option value="true">Ativos</option>
             <option value="false">Suspensos</option>
           </select>
 
-          <select 
-            value={plan} 
+          <select
+            value={plan}
             onChange={(e) => setPlan(e.target.value)}
-            style={{ 
-              minWidth: '200px',
-              padding: '14px 20px',
-              borderRadius: '9999px',
-              border: 'none',
-              backgroundColor: '#FFF',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-              fontSize: '1rem',
-              color: '#111',
-              outline: 'none',
-              cursor: 'pointer',
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23111111%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 20px top 50%',
-              backgroundSize: '12px auto',
-              transition: 'box-shadow 0.2s ease'
-            }}
-            onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px #F95D2A, 0 10px 30px rgba(0,0,0,0.04)'}
-            onBlur={(e) => e.target.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)'}
+            style={selectArrowStyle}
+            className="w-full cursor-pointer rounded-full border-none bg-white px-5 py-3.5 text-base text-ink-900 shadow-soft outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand md:w-auto md:min-w-[190px]"
           >
             <option value="">Plano: Todos</option>
             <option value="Delivery">Delivery</option>
@@ -447,99 +282,49 @@ export function AdminPage() {
           </select>
         </div>
 
-        <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#111' }}>Usuários Cadastrados</h2>
-          <span style={{ fontSize: '0.9rem', color: '#666', backgroundColor: '#EFEFEF', padding: '4px 12px', borderRadius: '9999px', fontWeight: 600 }}>Total: {totalUsers}</span>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-ink-900">Usuários Cadastrados</h2>
+          <span className="rounded-full bg-black/5 px-3 py-1 text-sm font-semibold text-ink-500">
+            Total: {totalUsers}
+          </span>
         </div>
 
-        {/* User List */}
+        {/* LISTA — único ponto de bifurcação por estado, sem duplicar cabeçalho/control bar */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '64px', color: '#666' }}>Carregando usuários...</div>
+          <div className="py-16 text-center text-ink-500">Carregando usuários...</div>
         ) : paginatedUsers.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 40px', backgroundColor: '#FFF', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)' }}>
-            <Search size={48} style={{ color: '#DDD', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Nenhum usuário encontrado</h3>
-            <p style={{ color: '#666', margin: 0 }}>Tente ajustar os filtros de busca para encontrar o que procura.</p>
+          <div className="rounded-4xl bg-white px-10 py-20 text-center shadow-soft">
+            <Search size={48} className="mx-auto mb-4 text-ink-300/60" />
+            <h3 className="mb-2 text-lg font-semibold text-ink-900">Nenhum usuário encontrado</h3>
+            <p className="text-ink-500">Tente ajustar os filtros de busca para encontrar o que procura.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
-            {paginatedUsers.map(u => {
-              return (
-              <div 
-                key={u.id} 
-                onClick={() => setSelectedUser(u)}
-                style={{ 
-                  backgroundColor: '#FFF',
-                  padding: '24px', 
-                  borderRadius: '24px',
-                  display: 'flex', 
-                  gap: '16px', 
-                  cursor: 'pointer', 
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  position: 'relative'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.08)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.04)';
-                }}
-              >
-                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {u.photoUrl ? <img src={u.photoUrl} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <UserIcon size={24} style={{ color: '#999' }} />}
-                </div>
-                <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.displayName || u.username || 'Sem Nome'}</h3>
-                    {u.isAdmin && <span style={{ padding: '4px 8px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.65rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase' }}>Admin</span>}
-                  </div>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</p>
-                </div>
-                {/* Status Indicator */}
-                <div style={{ position: 'absolute', top: '24px', right: '24px', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: u.status === 'ativo' ? '#10B981' : '#EF4444', boxShadow: `0 0 0 3px ${u.status === 'ativo' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}></div>
-              </div>
-            )})}
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {paginatedUsers.map((u) => (
+              <UserCard key={u.id} user={u} onSelect={setSelectedUser} />
+            ))}
           </div>
         )}
 
-        {/* Pagination */}
+        {/* PAGINAÇÃO */}
         {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', marginTop: '48px' }}>
-            <button 
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+          <div className="mt-12 flex items-center justify-center gap-5">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              style={{ 
-                padding: '10px 24px',
-                borderRadius: '9999px',
-                border: 'none',
-                backgroundColor: '#FFF',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                fontWeight: 600,
-                color: '#111',
-                opacity: page === 1 ? 0.5 : 1, 
-                cursor: page === 1 ? 'not-allowed' : 'pointer' 
-              }}
+              className="rounded-full bg-white px-6 py-2.5 font-semibold text-ink-900 shadow-soft transition duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Anterior
             </button>
-            <span style={{ color: '#666', fontWeight: 600 }}>Página {page} de {totalPages}</span>
-            <button 
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            <span className="font-semibold text-ink-500">
+              Página {page} de {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              style={{ 
-                padding: '10px 24px',
-                borderRadius: '9999px',
-                border: 'none',
-                backgroundColor: '#FFF',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                fontWeight: 600,
-                color: '#111',
-                opacity: page === totalPages ? 0.5 : 1, 
-                cursor: page === totalPages ? 'not-allowed' : 'pointer' 
-              }}
+              className="rounded-full bg-white px-6 py-2.5 font-semibold text-ink-900 shadow-soft transition duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Próxima
             </button>
@@ -547,115 +332,110 @@ export function AdminPage() {
         )}
       </main>
 
-      {/* User Details Modal */}
+      {/* MODAL DE DETALHES DO USUÁRIO */}
       {selectedUser && (
-        <div style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          right: 0, 
-          bottom: 0, 
-          backgroundColor: 'rgba(0,0,0,0.4)', 
-          backdropFilter: 'blur(4px)',
-          zIndex: 9999, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          padding: '24px' 
-        }} onClick={() => setSelectedUser(null)}>
-          <div className="w-[95%] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden md:max-w-2xl" style={{ 
-            width: '100%', 
-            maxWidth: '640px', 
-            backgroundColor: '#FFF',
-            borderRadius: '24px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '90vh'
-          }} onClick={e => e.stopPropagation()}>
-            <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4 p-6 md:p-8 w-full box-border" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'relative' }}>
-              <button onClick={() => setSelectedUser(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: '#F5F5F5', border: 'none', cursor: 'pointer', color: '#666', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color 0.2s', zIndex: 10 }}>
-                <X size={20} />
-              </button>
-              
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mt-4 md:mt-0" style={{ flex: 1, minWidth: 0, width: '100%' }}>
-                <div style={{ width: '88px', height: '88px', borderRadius: '50%', backgroundColor: '#F5F5F5', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {selectedUser.photoUrl ? <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : <UserIcon size={40} style={{ color: '#999' }} />}
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm sm:p-6"
+          onClick={() => setSelectedUser(null)}
+        >
+          <div
+            className="relative flex max-h-[85vh] w-[95%] max-w-md flex-col overflow-x-hidden overflow-y-auto rounded-[28px] bg-white shadow-soft-xl md:max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Único botão de fechar, canto superior direito */}
+            <button
+              type="button"
+              onClick={() => setSelectedUser(null)}
+              aria-label="Fechar"
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-cream-100 text-ink-500 transition duration-200 hover:bg-black/10"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Cabeçalho — estrutura única, empilhada no mobile e lado a lado a partir de md */}
+            <div className="flex flex-col items-center gap-5 border-b border-black/5 p-6 text-center md:flex-row md:items-start md:justify-between md:gap-6 md:p-8 md:text-left">
+              <div className="flex min-w-0 flex-1 flex-col items-center gap-4 md:flex-row md:items-center">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-100 md:h-[88px] md:w-[88px]">
+                  {selectedUser.photoUrl ? (
+                    <img src={selectedUser.photoUrl} alt="Foto de perfil do usuário" className="h-full w-full object-cover" />
+                  ) : (
+                    <UserIcon size={40} className="text-ink-300" />
+                  )}
                 </div>
-                <div className="text-center md:text-left" style={{ flex: 1, minWidth: 0, paddingRight: '20px' }}>
-                  <h2 className="flex flex-col md:flex-row items-center md:justify-start gap-2" style={{ margin: '0 0 8px 0', fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{selectedUser.displayName || selectedUser.username || 'Sem Nome'}</span>
-                    {selectedUser.isAdmin && <span style={{ padding: '4px 10px', backgroundColor: '#FFF0EC', color: '#F95D2A', fontSize: '0.75rem', borderRadius: '9999px', fontWeight: 800, textTransform: 'uppercase', flexShrink: 0 }}>Admin</span>}
+
+                <div className="min-w-0">
+                  <h2 className="mb-2 flex flex-wrap items-center justify-center gap-2 text-xl font-extrabold text-ink-900 md:justify-start md:text-2xl">
+                    <span className="max-w-full truncate">
+                      {selectedUser.displayName || selectedUser.username || 'Sem Nome'}
+                    </span>
+                    {selectedUser.isAdmin && (
+                      <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-extrabold uppercase text-brand">
+                        Admin
+                      </span>
+                    )}
                   </h2>
-                  <p style={{ margin: 0, fontSize: '1.1rem', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{selectedUser.email}</p>
+                  <p className="truncate text-base text-ink-500 md:text-lg">{selectedUser.email}</p>
                 </div>
               </div>
-              
-              <div className="w-full md:w-auto mt-2 md:mt-0 flex justify-center md:justify-end" style={{ flexShrink: 0 }}>
-                <button onClick={handleImpersonate} className="whitespace-nowrap w-full md:w-auto justify-center" style={{ background: '#F95D2A', border: 'none', cursor: 'pointer', color: '#FFF', padding: '12px 20px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.95rem', transition: 'background-color 0.2s', boxShadow: '0 4px 12px rgba(249, 93, 42, 0.2)' }}>
+
+              <div className="flex w-full shrink-0 justify-center md:w-auto md:justify-end">
+                <button
+                  type="button"
+                  onClick={handleImpersonate}
+                  className="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-brand px-6 py-3 text-sm font-bold text-white shadow-brand transition duration-200 ease-smooth hover:-translate-y-0.5 hover:brightness-110 hover:shadow-brand-lg md:w-auto"
+                >
                   <LogIn size={18} /> Acessar Painel
                 </button>
               </div>
             </div>
-            
-            <div className="p-4 md:p-6" style={{ overflowY: 'auto' }}>
-              <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: '24px', marginBottom: '32px' }}>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Activity size={18} /> Status da Conta</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: selectedUser.status === 'ativo' ? '#10B981' : '#EF4444' }}></div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111', textTransform: 'capitalize' }}>{selectedUser.status || 'Desconhecido'}</div>
+
+            {/* Corpo — grid de informações + gestão de assinatura */}
+            <div className="p-5 md:p-8">
+              <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <InfoCard icon={<Activity size={18} />} label="Status da Conta">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        selectedUser.status === 'ativo' ? 'bg-emerald-500' : 'bg-red-500'
+                      }`}
+                    />
+                    <span className="capitalize">{selectedUser.status || 'Desconhecido'}</span>
                   </div>
-                </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Key size={18} /> Tipo de Permissão</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}</div>
-                </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Phone size={18} /> Telefone / WhatsApp</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>{selectedUser.phone || 'Não informado'}</div>
-                </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Clock size={18} /> Último Login</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
-                    {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
-                  </div>
-                </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Calendar size={18} /> Cadastrado em</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111' }}>
-                    {new Date(selectedUser.createdAt || Date.now()).toLocaleDateString('pt-BR')}
-                  </div>
-                </div>
-                <div style={{ backgroundColor: '#FAFAFA', padding: '20px', borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#666', marginBottom: '8px', fontSize: '0.95rem' }}><Database size={18} /> ID no Banco</div>
-                  <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#111', fontWeight: 600 }}>{selectedUser.id}</div>
-                </div>
+                </InfoCard>
+
+                <InfoCard icon={<Key size={18} />} label="Tipo de Permissão">
+                  {selectedUser.isAdmin ? 'Administrador' : 'Proprietário/Lojista'}
+                </InfoCard>
+
+                <InfoCard icon={<Phone size={18} />} label="Telefone / WhatsApp">
+                  {selectedUser.phone || 'Não informado'}
+                </InfoCard>
+
+                <InfoCard icon={<Clock size={18} />} label="Último Login">
+                  {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleDateString('pt-BR') : 'Nunca logou'}
+                </InfoCard>
+
+                <InfoCard icon={<Calendar size={18} />} label="Cadastrado em">
+                  {new Date(selectedUser.createdAt || Date.now()).toLocaleDateString('pt-BR')}
+                </InfoCard>
+
+                <InfoCard icon={<Database size={18} />} label="ID no Banco">
+                  <span className="break-all font-mono text-base">{selectedUser.id}</span>
+                </InfoCard>
               </div>
 
-              <div style={{ backgroundColor: '#FFF', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '24px', padding: '24px', boxShadow: '0 4px 14px rgba(0,0,0,0.02)' }}>
-                <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CreditCard size={20} style={{ color: '#F95D2A' }} /> Gerenciar Assinatura
+              <div className="rounded-3xl bg-white p-6 shadow-soft ring-1 ring-black/5">
+                <h3 className="mb-5 flex items-center gap-2 text-lg font-bold text-ink-900">
+                  <CreditCard size={20} className="text-brand" /> Gerenciar Assinatura
                 </h3>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', marginBottom: '24px' }}>
+
+                <div className="mb-6 grid grid-cols-1 gap-5">
                   <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Plano Ativo</label>
-                    <select 
-                      value={formPlan} 
+                    <label className="mb-2 block text-sm font-semibold text-ink-700">Plano Ativo</label>
+                    <select
+                      value={formPlan}
                       onChange={(e) => setFormPlan(e.target.value)}
-                      style={{ 
-                        width: '100%',
-                        padding: '14px 16px',
-                        borderRadius: '12px',
-                        border: '1px solid #E5E5E5',
-                        backgroundColor: '#FAFAFA',
-                        fontSize: '1rem',
-                        color: '#111',
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
+                      className="w-full cursor-pointer rounded-xl border border-black/10 bg-cream-100 px-4 py-3.5 text-base text-ink-900 outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand"
                     >
                       <option value="">Sem plano</option>
                       <option value="Delivery">Delivery</option>
@@ -663,71 +443,45 @@ export function AdminPage() {
                       <option value="Completo">Completo</option>
                     </select>
                   </div>
-                  
+
                   {formPlan && formPlan !== 'Sem plano' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Início</label>
-                        <input 
-                          type="date" 
-                          value={formStartDate} 
+                        <label className="mb-2 block text-sm font-semibold text-ink-700">Data de Início</label>
+                        <input
+                          type="date"
+                          value={formStartDate}
                           onChange={(e) => setFormStartDate(e.target.value)}
-                          style={{ 
-                            width: '100%',
-                            padding: '14px 16px',
-                            borderRadius: '12px',
-                            border: '1px solid #E5E5E5',
-                            backgroundColor: '#FAFAFA',
-                            fontSize: '1rem',
-                            color: '#111',
-                            outline: 'none'
-                          }}
+                          className="w-full min-w-0 rounded-xl border border-black/10 bg-cream-100 px-4 py-3.5 text-base text-ink-900 outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand"
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.95rem', fontWeight: 600, color: '#333' }}>Data de Fim (Prazo)</label>
-                        <input 
-                          type="date" 
-                          value={formEndDate} 
+                        <label className="mb-2 block text-sm font-semibold text-ink-700">Data de Fim (Prazo)</label>
+                        <input
+                          type="date"
+                          value={formEndDate}
                           onChange={(e) => setFormEndDate(e.target.value)}
-                          style={{ 
-                            width: '100%',
-                            padding: '14px 16px',
-                            borderRadius: '12px',
-                            border: '1px solid #E5E5E5',
-                            backgroundColor: '#FAFAFA',
-                            fontSize: '1rem',
-                            color: '#111',
-                            outline: 'none'
-                          }}
+                          className="w-full min-w-0 rounded-xl border border-black/10 bg-cream-100 px-4 py-3.5 text-base text-ink-900 outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand"
                         />
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button 
+                <div className="flex justify-end">
+                  <button
+                    type="button"
                     onClick={handleSavePlan}
                     disabled={savingPlan}
-                    style={{ 
-                      padding: '14px 32px', 
-                      borderRadius: '9999px', 
-                      border: 'none', 
-                      backgroundColor: '#F95D2A', 
-                      color: '#FFF', 
-                      fontWeight: 700, 
-                      fontSize: '1rem',
-                      cursor: savingPlan ? 'not-allowed' : 'pointer',
-                      boxShadow: '0 10px 20px rgba(249, 93, 42, 0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      opacity: savingPlan ? 0.7 : 1,
-                      transition: 'all 0.2s ease'
-                    }}
+                    className="inline-flex items-center gap-2 rounded-full bg-brand px-8 py-3.5 text-base font-bold text-white shadow-brand transition duration-200 ease-smooth hover:-translate-y-0.5 hover:brightness-110 hover:shadow-brand-lg disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {savingPlan ? 'Salvando...' : <><Save size={18} /> Salvar Alterações</>}
+                    {savingPlan ? (
+                      'Salvando...'
+                    ) : (
+                      <>
+                        <Save size={18} /> Salvar Alterações
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
