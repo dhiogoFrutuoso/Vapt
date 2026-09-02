@@ -489,9 +489,18 @@ export function EditorPage() {
 
       {/* EDITOR WORKSPACE */}
       <div className="flex flex-1 flex-col md:flex-row w-full md:overflow-hidden editor-workspace">
+        <style>{`
+          @media (min-width: 768px) {
+            .sidebar-responsive {
+              width: var(--sidebar-width) !important;
+              min-width: var(--sidebar-width) !important;
+              max-width: var(--sidebar-width) !important;
+            }
+          }
+        `}</style>
         
         {/* SIDEBAR */}
-        <aside className={`editor-sidebar ${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-col shrink-0 z-10 w-full md:w-[var(--md-width)] md:overflow-y-auto`} style={{ '--md-width': `${sidebarWidth}px`, backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' } as React.CSSProperties}>
+        <aside className={`editor-sidebar sidebar-responsive ${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-col shrink-0 z-10 w-full md:overflow-y-auto`} style={{ '--sidebar-width': `${sidebarWidth}px`, backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' } as React.CSSProperties}>
           
           {/* Cardápio e Categorias */}
           <div style={{ padding: "32px 24px", borderBottom: "1px solid var(--ep-border)" }}>
@@ -773,7 +782,7 @@ export function EditorPage() {
         </aside>
         <div 
           onMouseDown={handleMouseDown}
-          className="editor-resizer"
+          className="editor-resizer hidden md:block"
           style={{ width: '4px', cursor: 'col-resize', backgroundColor: 'var(--ep-border)', zIndex: 10, flexShrink: 0, transition: 'background-color 0.2s' }}
         />
         {/* PREVIEW CONTAINER */}
