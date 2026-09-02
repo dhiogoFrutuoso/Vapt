@@ -13,7 +13,7 @@ function cookieOptions(): CookieOptions {
     path: '/',
   };
 }
-import { env } from '../config/env.js';
+
 
 export async function listUsers(req: Request, res: Response) {
 
