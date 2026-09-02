@@ -52,6 +52,7 @@ type Props = {
   liveBadge?: boolean;
   code?: string | null;
   theme?: 'claro' | 'escuro';
+  waiterCommissionRate?: number;
 };
 
 /** Contraste automático: texto branco em cor escura, texto escuro em cor clara. */
@@ -109,6 +110,7 @@ export function EditorPreview({
   code = null,
   promotions = [],
   onCloseRegister,
+  waiterCommissionRate,
 }: Props) {
   const [view, setView] = useState<View>(showDeliveryTab ? 'menu' : 'salao');
   const [receptionTab, setReceptionTab] = useState<ReceptionTab>(
@@ -207,7 +209,7 @@ export function EditorPreview({
         title: `Mesa ${openTable.label}`,
         status: openTable.status,
         items: openTable.items ?? [],
-        serviceFeeRate: 0.1,
+        serviceFeeRate: waiterCommissionRate ?? 0.1,
       }
     : openTakeout
       ? {

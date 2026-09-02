@@ -111,7 +111,7 @@ export function EditorPage() {
       }
     }
     void loadApp();
-  }, [id, navigate]);
+  }, [id]);
 
   const [catImage, setCatImage] = useState<string | null>(null);
   const catFileInputRef = useRef<HTMLInputElement>(null);
@@ -824,6 +824,7 @@ export function EditorPage() {
                 showRoomTab={showRoom}
                 showDeliveryTab={showDelivery}
                 liveBadge={true}
+                waiterCommissionRate={app.dining?.isWaiterCommissionEnabled ? (app.dining.waiterCommissionPercentage ?? 10) / 100 : 0}
                 onTablesChange={setLiveTables} // Agora as mesas ganham vida e salvam os itens lançados!
                 onCloseRegister={async () => {
                   if (app) {

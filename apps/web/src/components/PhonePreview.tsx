@@ -37,6 +37,7 @@ type Props = {
   showRoomTab?: boolean;
   liveBadge?: boolean;
   code?: string | null;
+  waiterCommissionRate?: number;
 };
 
 /** Contraste automático: texto branco em cor escura, texto escuro em cor clara. */
@@ -298,7 +299,7 @@ export function PhonePreview({
                 title: `Mesa ${openTable.label}`,
                 status: openTable.status,
                 items: openTable.items ?? [],
-                serviceFeeRate: 0.1,
+                serviceFeeRate: waiterCommissionRate ?? 0.1,
               }}
               products={products}
               promotions={promotions}
