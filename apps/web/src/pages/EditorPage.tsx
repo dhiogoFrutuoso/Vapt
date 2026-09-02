@@ -463,7 +463,7 @@ export function EditorPage() {
   const showRoom = !isDeliveryOnly;  // Completo ou Salão
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden", backgroundColor: "var(--ep-bg)", color: "var(--ep-text)", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="flex flex-col min-h-screen md:h-screen md:overflow-hidden bg-[var(--ep-bg)] text-[var(--ep-text)] font-sans" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       
       {/* HEADER BAR */}
       <header className="editor-topbar" style={{ padding: "16px 32px", backgroundColor: "var(--ep-sidebar)", borderBottom: "1px solid var(--ep-border)", boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 10 , flexWrap: 'wrap', gap: '16px'}}>
@@ -488,10 +488,10 @@ export function EditorPage() {
       </div>
 
       {/* EDITOR WORKSPACE */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }} className="editor-workspace">
+      <div className="flex flex-1 flex-col md:flex-row w-full md:overflow-hidden editor-workspace">
         
         {/* SIDEBAR */}
-        <aside style={{ width: `${sidebarWidth}px`, backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'editor' ? 'flex' : 'none', flexDirection: 'column', flexShrink: 0, minHeight: 0, zIndex: 5, boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' }} className="editor-sidebar">
+        <aside className={`editor-sidebar ${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-col shrink-0 z-10 w-full md:w-[var(--md-width)] md:overflow-y-auto`} style={{ '--md-width': `${sidebarWidth}px`, backgroundColor: "var(--ep-sidebar)", borderRight: "1px solid var(--ep-border)", boxShadow: isDark ? 'none' : '4px 0 12px rgba(0,0,0,0.02)' } as React.CSSProperties}>
           
           {/* Cardápio e Categorias */}
           <div style={{ padding: "32px 24px", borderBottom: "1px solid var(--ep-border)" }}>
@@ -504,7 +504,7 @@ export function EditorPage() {
                 {editingCatId ? 'Editando a categoria. Troque o nome, a foto, ou cancele.' : 'A categoria vira um card com foto no cardápio do cliente.'}
               </p>
 
-              <form onSubmit={handleSaveCategory} style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
+              <form onSubmit={handleSaveCategory} className="flex flex-col md:flex-row gap-3 items-center w-full mb-4">
                 <div
                   onClick={() => catFileInputRef.current?.click()}
                   title="Foto da categoria"
@@ -520,11 +520,11 @@ export function EditorPage() {
                   }
                 }} />
                 <input type="text" placeholder="Nome (Ex: Lanches)" required value={newCat} onChange={e => setNewCat(e.target.value)} className="ep-input" style={{ marginBottom: 0, height: '42px' }} />
-                <button type="submit" disabled={isAddingCat} className="ep-btn" style={{ marginBottom: 0, height: '42px', width: 'auto', padding: '0 20px' }}>
+                <button type="submit" disabled={isAddingCat} className="ep-btn w-full md:w-auto" style={{ marginBottom: 0, height: '42px', padding: '0 20px' }}>
                   {editingCatId ? 'Salvar' : '+'}
                 </button>
                 {editingCatId && (
-                  <button type="button" onClick={cancelCategoryEdit} className="ep-btn ep-btn-secondary" style={{ width: "auto", height: '42px', padding: '0 14px', marginBottom: 0 }}>
+                  <button type="button" onClick={cancelCategoryEdit} className="ep-btn ep-btn-secondary w-full md:w-auto" style={{ height: '42px', padding: '0 14px', marginBottom: 0 }}>
                     Cancelar
                   </button>
                 )}
@@ -567,18 +567,18 @@ export function EditorPage() {
                 <p style={{ fontSize: '0.9rem', color: '#ef4444', fontWeight: 600 }}>Crie uma categoria acima primeiro.</p>
               ) : (
                 <>
-                  <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  <div className="flex flex-col md:flex-row gap-3 mb-3 w-full">
                     <div 
                       onClick={() => fileInputRef.current?.click()}
                       style={{ width: '80px', height: '80px', borderRadius: '10px', border: isDark ? '2px dashed rgba(255,255,255,0.2)' : '2px dashed var(--ep-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: 'pointer', backgroundColor: "var(--ep-panel)", flexShrink: 0 }}
                     >
                       {prodImage ? <img src={prodImage} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera size={32} color="#94a3b8" />}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <input type="text" placeholder="Nome do produto" required value={prodName} onChange={e => setProdName(e.target.value)} className="ep-input" />
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>R$</span>
-                        <input type="text" inputMode="decimal" placeholder="32,90" required value={prodPrice} onChange={e => setProdPrice(e.target.value)} className="ep-input" />
+                    <div style={{ flex: 1 }} className="flex flex-col gap-2">
+                      <input type="text" placeholder="Nome do produto" required value={prodName} onChange={e => setProdName(e.target.value)} className="ep-input w-full" style={{ marginBottom: 0 }} />
+                      <div className="flex gap-2 w-full items-center">
+                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>R$</span>
+                        <input type="text" inputMode="decimal" placeholder="32,90" required value={prodPrice} onChange={e => setProdPrice(e.target.value)} className="ep-input w-full" style={{ marginBottom: 0 }} />
                       </div>
                     </div>
                   </div>
@@ -595,13 +595,13 @@ export function EditorPage() {
                     Destacar no topo do cardápio
                   </label>
 
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="flex flex-col md:flex-row gap-2 w-full">
                     {editingProductId && (
-                      <button type="button" onClick={resetProdForm} className="ep-btn ep-btn-secondary">
+                      <button type="button" onClick={resetProdForm} className="ep-btn ep-btn-secondary w-full md:w-auto">
                         Cancelar
                       </button>
                     )}
-                    <button type="submit" disabled={isSavingProd} className="ep-btn">
+                    <button type="submit" disabled={isSavingProd} className="ep-btn w-full md:w-auto">
                       {isSavingProd ? 'Salvando...' : (editingProductId ? 'Salvar Edição' : '+ Adicionar')}
                     </button>
                   </div>
@@ -732,22 +732,22 @@ export function EditorPage() {
 
             <form onSubmit={handleSaveTable} className="ep-card">
               <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>{editingTableId ? 'Editar Mesa' : 'Adicionar Mesa'}</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <input type="text" placeholder="Rótulo (Ex: 01)" required value={tableLabel} onChange={e => setTableLabel(e.target.value)} className="ep-input" style={{ marginBottom: 0 }} />
-                <input type="number" placeholder="Lugares (Ex: 4)" min="1" required value={tableSeats} onChange={e => setTableSeats(e.target.value)} className="ep-input" style={{ marginBottom: 0 }} />
+              <div className="flex flex-col md:grid md:grid-cols-2 gap-3 mb-3 w-full">
+                <input type="text" placeholder="Rótulo (Ex: 01)" required value={tableLabel} onChange={e => setTableLabel(e.target.value)} className="ep-input w-full" style={{ marginBottom: 0 }} />
+                <input type="number" placeholder="Lugares (Ex: 4)" min="1" required value={tableSeats} onChange={e => setTableSeats(e.target.value)} className="ep-input w-full" style={{ marginBottom: 0 }} />
               </div>
               <select value={tableArea} onChange={e => setTableArea(e.target.value)} className="ep-input">
                 <option value="Salão">Salão Principal</option>
                 <option value="Varanda">Varanda</option>
                 <option value="Balcão">Balcão</option>
               </select>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="flex flex-col md:flex-row gap-2 w-full mt-2">
                 {editingTableId && (
-                  <button type="button" onClick={resetTableForm} className="ep-btn ep-btn-secondary">
+                  <button type="button" onClick={resetTableForm} className="ep-btn ep-btn-secondary w-full md:w-auto">
                     Cancelar
                   </button>
                 )}
-                <button type="submit" disabled={isSavingTable} className="ep-btn">
+                <button type="submit" disabled={isSavingTable} className="ep-btn w-full md:w-auto">
                   {isSavingTable ? 'Salvando...' : (editingTableId ? 'Salvar Edição' : '+ Adicionar')}
                 </button>
               </div>
@@ -777,7 +777,7 @@ export function EditorPage() {
           style={{ width: '4px', cursor: 'col-resize', backgroundColor: 'var(--ep-border)', zIndex: 10, flexShrink: 0, transition: 'background-color 0.2s' }}
         />
         {/* PREVIEW CONTAINER */}
-        <main style={{ flex: 1, padding: viewMode === 'fullscreen' ? '0' : '32px', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: mobileTab === 'preview' ? 'flex' : 'none', justifyContent: 'flex-start', flexDirection: 'column', backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }} className="editor-main">
+        <main className={`editor-main ${mobileTab === 'preview' ? 'flex' : 'hidden'} md:flex flex-col flex-1 w-full md:overflow-y-auto p-0 md:p-8`} style={{ padding: viewMode === 'fullscreen' ? '0' : undefined, backgroundImage: viewMode === 'fullscreen' ? 'none' : (isDark ? 'radial-gradient(rgba(255,255,255,0.05) 1.5px, transparent 1.5px)' : 'radial-gradient(#cbd5e1 1.5px, transparent 1.5px)'), backgroundSize: '24px 24px', backgroundColor: viewMode === 'fullscreen' ? (isDark ? '#111827' : '#fff') : 'transparent' }}>
           
           <div style={{ width: '100%', maxWidth: viewMode === 'fullscreen' ? '100%' : '1200px', display: 'flex', flexDirection: 'column', margin: '0 auto' }}>
             
