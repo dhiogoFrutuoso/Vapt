@@ -24,14 +24,42 @@ export function DashboardPage() {
   
   // Se for admin em modo edição, o plano efetivo é o plano passado na URL
   const effectivePlan = (user?.isAdmin && editUserId && targetPlan !== null) ? targetPlan : (user?.plan || '');
-  const userPlan = effectivePlan.toLowerCase().trim();
+
+  // Modal State
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+  const [liveUserPlan, setLiveUserPlan] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      async function fetchUserPlan() {
+        try {
+          if (user?.isAdmin && editUserId) {
+            const res = await api.getAdminUsers(1, 1, editUserId, '', '');
+            const targetUser = res.users.find(u => u.id === editUserId);
+            if (targetUser) {
+              setLiveUserPlan(targetUser.plan || '');
+            }
+          } else {
+            const res = await api.me();
+            setLiveUserPlan(res.user.plan || '');
+          }
+        } catch (err) {
+          console.error('Erro ao buscar plano atualizado', err);
+        }
+      }
+      void fetchUserPlan();
+    } else {
+      setLiveUserPlan(null);
+    }
+  }, [isCreateModalOpen, user?.isAdmin, editUserId]);
+
+  const planToEvaluate = liveUserPlan !== null ? liveUserPlan : effectivePlan;
+  const userPlan = planToEvaluate.toLowerCase().trim();
   const hasCompleto = userPlan.includes('completo') || userPlan.includes('master');
   const hasDelivery = hasCompleto || userPlan.includes('delivery');
   const hasSalao = hasCompleto || userPlan.includes('salão') || userPlan.includes('salao') || userPlan.includes('sal\u00e3o');
   const canCreateOfficial = hasCompleto || hasDelivery || hasSalao;
 
-  // Modal State
-  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [createStep, setCreateStep] = useState<1 | 2>(1); // 1: Choose Type, 2: Setup Name & Submit
   const [selectedAppType, setSelectedAppType] = useState<'TESTE' | 'OFICIAL' | null>(null);
   const [selectedSubPlan, setSelectedSubPlan] = useState<'DELIVERY' | 'SALAO' | 'COMPLETO'>('COMPLETO');
@@ -510,7 +538,7 @@ export function DashboardPage() {
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: '#111', fontWeight: '700' }}>Aplicativo Oficial</h3>
                         <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
                           Crie seu app de produção vinculado à sua assinatura. 
-                          {!canCreateOfficial ? ' (Requer Upgrade)' : ` (Liberado: ${user?.plan || ''})`}
+                          {!canCreateOfficial ? ' (Requer Upgrade)' : ` (Liberado: ${planToEvaluate})`}
                         </p>
                       </div>
                     </div>
@@ -596,7 +624,7 @@ export function DashboardPage() {
                     }}
                   />
                   <p style={{ marginTop: '8px', fontSize: '0.85rem', color: '#666' }}>
-                    Modo selecionado: <strong>{selectedAppType === 'TESTE' ? `Teste (${selectedSubPlan})` : `Oficial (${user?.plan})`}</strong>
+                    Modo selecionado: <strong>{selectedAppType === 'TESTE' ? `Teste (${selectedSubPlan})` : `Oficial (${planToEvaluate})`}</strong>
                   </p>
                 </div>
                 
