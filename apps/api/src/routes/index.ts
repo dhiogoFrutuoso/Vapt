@@ -32,6 +32,9 @@ import {
   addProduct,
   updateProduct,
   removeProduct,
+  addStation,
+  updateStation,
+  removeStation,
   addTable,
   updateTable,
   removeTable,
@@ -95,6 +98,9 @@ router.delete('/apps/:id/categories/:categoryId', requireAuth, removeCategory);
 router.post('/apps/:id/products', requireAuth, writeLimiter, addProduct);
 router.patch('/apps/:id/products/:productId', requireAuth, writeLimiter, updateProduct);
 router.delete('/apps/:id/products/:productId', requireAuth, removeProduct);
+router.post('/apps/:id/stations', requireAuth, writeLimiter, addStation);
+router.patch('/apps/:id/stations/:stationId', requireAuth, writeLimiter, updateStation);
+router.delete('/apps/:id/stations/:stationId', requireAuth, removeStation);
 router.post('/apps/:id/tables', requireAuth, writeLimiter, addTable);
 router.patch('/apps/:id/tables/:tableId', requireAuth, writeLimiter, updateTable);
 router.delete('/apps/:id/tables/:tableId', requireAuth, removeTable);

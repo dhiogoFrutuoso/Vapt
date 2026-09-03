@@ -5,7 +5,7 @@ import { auth, site } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
-import { Plus, Trash2, LogOut, Store, Search, LayoutDashboard, Settings, Edit3, Image as ImageIcon, Users, Shield, KeySquare, Save, Phone, Rocket, TestTube, ChevronDown, Lock } from 'lucide-react';
+import { Plus, Trash2, LogOut, Store, Search, LayoutDashboard, Settings, Edit3, Image as ImageIcon, Users, Shield, KeySquare, Save, Phone, Rocket, TestTube, ChevronDown, Lock, ChefHat } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
 export function DashboardPage() {
@@ -84,13 +84,20 @@ export function DashboardPage() {
   // Form State for "Equipe" (Roles)
   const [newRoleName, setNewRoleName] = useState('');
   const [newRolePermissions, setNewRolePermissions] = useState<string[]>([]);
+  /** Espelha 1:1 as abas do aplicativo — o que o funcionario ve, ele acessa. */
   const PERMISSIONS = [
-    { id: 'pedidos', label: 'Pedidos / Caixa' },
-    { id: 'entregas', label: 'Fila de Entregas' },
-    { id: 'mesas', label: 'Gestão de Mesas' },
-    { id: 'cardapio', label: 'Editar Cardápio' }
+    { id: 'cliente', label: 'Cliente' },
+    { id: 'recepcao', label: 'Recepção' },
+    { id: 'salao', label: 'Salão' },
+    { id: 'caixa', label: 'Caixa' },
+    { id: 'entregador', label: 'Entregador' },
+    { id: 'cozinha', label: 'Cozinha' },
   ];
   const [isAddingRole, setIsAddingRole] = useState(false);
+
+  // Form State for "Equipe" (Saguoes / pracas de preparo)
+  const [newStationName, setNewStationName] = useState('');
+  const [isAddingStation, setIsAddingStation] = useState(false);
 
   // Form State for "Equipe" (Employees)
   const [newEmpName, setNewEmpName] = useState('');
@@ -271,6 +278,42 @@ export function DashboardPage() {
     } finally {
       setIsAddingRole(false);
     }
+  }
+
+  async function handleAddStation(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fullApp || !newStationName.trim()) return;
+    setIsAddingStation(true);
+    try {
+      const station = await api.addStation(fullApp._id, { name: newStationName.trim() });
+      setFullApp({ ...fullApp, stations: [...(fullApp.stations || []), station] });
+      setNewStationName('');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao criar saguão');
+    } finally {
+      setIsAddingStation(false);
+    }
+  }
+
+  async function handleRemoveStation(stationId: string, stationName: string) {
+    if (!fullApp) return;
+    confirm({
+      title: 'Excluir Saguão',
+      message: `Os produtos vinculados a "${stationName}" ficarão sem saguão. Continuar?`,
+      confirmText: 'Excluir',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          await api.removeStation(fullApp._id, stationId);
+          setFullApp({
+            ...fullApp,
+            stations: (fullApp.stations || []).filter((s: any) => s._id !== stationId),
+          });
+        } catch (err) {
+          toast.error('Erro ao excluir saguão');
+        }
+      },
+    });
   }
 
   async function handleRemoveRole(roleId: string) {
@@ -742,7 +785,7 @@ export function DashboardPage() {
                   )}
 
                   {settingsTab === 'equipe' && (
-                    <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-start' }}>
                       {/* Funções (Roles) */}
                       <div style={{ flex: 1, backgroundColor: '#FAFAFA', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}><Shield size={20} color="#F95D2A" /> Funções</h3>
@@ -828,6 +871,39 @@ export function DashboardPage() {
                               </div>
                             );
                           }) : <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Nenhum funcionário adicionado.</p>}
+                        </div>
+                      </div>
+
+                      {/* Saguões (praças de preparo da cozinha) */}
+                      <div style={{ flexBasis: '100%', backgroundColor: '#FAFAFA', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '4px', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}><ChefHat size={20} color="#F95D2A" /> Saguões</h3>
+                        <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+                          As praças de preparo da cozinha. Cada produto do cardápio é roteado para um saguão.
+                        </p>
+
+                        <form onSubmit={handleAddStation} style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+                          <input
+                            type="text"
+                            placeholder="Ex: Sushi, Chapa, Forno, Bebidas"
+                            value={newStationName}
+                            onChange={e => setNewStationName(e.target.value)}
+                            required
+                            style={{ flex: 1, minWidth: 0, padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }}
+                            onFocus={(e) => e.target.style.borderColor = '#F95D2A'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'}
+                          />
+                          <button type="submit" disabled={isAddingStation || !newStationName.trim()} style={{ flexShrink: 0, padding: '12px 20px', background: '#111', color: '#fff', border: 'none', borderRadius: '99px', fontWeight: '600', cursor: 'pointer', opacity: (isAddingStation || !newStationName.trim()) ? 0.5 : 1 }}>
+                            Adicionar
+                          </button>
+                        </form>
+
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {fullApp.stations?.length > 0 ? fullApp.stations.map((st: any) => (
+                            <span key={st._id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '99px', padding: '8px 8px 8px 14px', fontSize: '0.9rem', fontWeight: '600', color: '#111' }}>
+                              {st.name}
+                              <button onClick={() => handleRemoveStation(st._id, st.name)} aria-label={`Excluir saguão ${st.name}`} style={{ display: 'flex', background: '#fff5f5', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', borderRadius: '99px' }}><Trash2 size={14} /></button>
+                            </span>
+                          )) : <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic' }}>Nenhum saguão criado. Sem eles, a aba Cozinha mostra tudo junto.</p>}
                         </div>
                       </div>
                     </div>

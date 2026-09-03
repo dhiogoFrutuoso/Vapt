@@ -117,7 +117,14 @@ export function OrderSheet({
       <li key={product.id ?? `${product.name}-${index}`}>
         <button
           type="button"
-          onClick={() => onAddItem({ name: product.name, price: product.price })}
+          onClick={() =>
+            onAddItem({
+              name: product.name,
+              price: product.price,
+              station: product.station,
+              isPromo: product.isPromo,
+            })
+          }
           aria-label={`Lançar ${product.name} em ${ticket.title}`}
         >
           <span className="phone__picker-icon" aria-hidden="true">
@@ -207,7 +214,9 @@ export function OrderSheet({
                         <li key={promo._id ?? `promo-${index}`}>
                           <button
                             type="button"
-                            onClick={() => onAddItem({ name: promo.name, price: promo.promotionalPrice })}
+                            onClick={() =>
+                              onAddItem({ name: promo.name, price: promo.promotionalPrice, isPromo: true })
+                            }
                             aria-label={`Lançar ${promo.name} em ${ticket.title}`}
                           >
                             <span className="phone__picker-icon" aria-hidden="true" style={{ fontSize: '1.2rem' }}>

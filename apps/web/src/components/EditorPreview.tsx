@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { Bike, ConciergeBell, User, UtensilsCrossed, Wallet } from 'lucide-react';
+import { Bike, ChefHat, ConciergeBell, User, UtensilsCrossed, Wallet } from 'lucide-react';
 import { demo } from '../data/content';
 import { MenuView } from './phone/MenuView';
 import { CheckoutSheet } from './phone/CheckoutSheet';
@@ -8,6 +8,7 @@ import { CashRegister } from './phone/CashRegister';
 import { OrderSheet, type Ticket } from './phone/OrderSheet';
 import { DeliveryView } from './phone/DeliveryView';
 import { ReceptionView } from './phone/ReceptionView';
+import { KitchenView } from './phone/KitchenView';
 import { IconRenderer } from './IconRenderer';
 import { NEXT_STATUS, sumItems } from './phone/types';
 import type {
@@ -15,6 +16,8 @@ import type {
   CategoryItem,
   DeliveryAddress,
   DeliveryOrder,
+  KitchenStatus,
+  KitchenTicket,
   OrderItem,
   PaymentSplit,
   PreviewProduct,
@@ -31,10 +34,11 @@ export type { PreviewProduct, PreviewTable, DeliveryOrder } from './phone/types'
  *   menu      -> cliente monta o pedido
  *   recepcao  -> logistica: define a taxa e despacha para o entregador
  *   salao     -> mesas e retiradas no balcao
+ *   cozinha   -> producao: KDS com as pracas de preparo (saguoes)
  *   caixa     -> exclusivamente financeiro (fechamento e conciliacao)
  *   entrega   -> visao do entregador
  */
-type View = 'menu' | 'recepcao' | 'salao' | 'entrega' | 'caixa';
+type View = 'menu' | 'recepcao' | 'salao' | 'cozinha' | 'entrega' | 'caixa';
 
 type Props = {
   storeName: string;
@@ -51,6 +55,8 @@ type Props = {
   deliveryFee?: number;
   courierPaidPerDelivery?: boolean;
   onCloseRegister?: () => Promise<void> | void;
+  /** Saguoes cadastrados pelo dono, na ordem do cadastro. */
+  stations?: string[];
   showRoomTab?: boolean;
   showDeliveryTab?: boolean;
   liveBadge?: boolean;
@@ -94,6 +100,7 @@ export function EditorPreview({
   initialDeliveries = [],
   deliveryFee = 0,
   courierPaidPerDelivery = false,
+  stations = [],
   showRoomTab = false,
   showDeliveryTab = false,
   liveBadge = false,
@@ -116,6 +123,10 @@ export function EditorPreview({
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   /** Turnos ja fechados. Alimenta a sub-aba "Registro" do Caixa. */
   const [cashArchive, setCashArchive] = useState<CashEntry[]>([]);
+
+  /** Cozinha: praca selecionada e status por "comandaId::saguao". */
+  const [activeStation, setActiveStation] = useState('todos');
+  const [kitchenStatus, setKitchenStatus] = useState<Record<string, KitchenStatus>>({});
 
   const interactive = Boolean(onTablesChange);
   const onBrand = readableText(brandColor);
@@ -413,10 +424,74 @@ export function EditorPreview({
     }
   }
 
+  /**
+   * A cozinha nao tem estado proprio de pedidos: ela le mesa, retirada e
+   * delivery e monta a fila de producao. Assim nada precisa ser
+   * sincronizado — o que existe no salao existe na cozinha.
+   */
+  const kitchenTickets = useMemo<KitchenTicket[]>(() => {
+    const list: KitchenTicket[] = [];
+
+    for (const table of tables) {
+      const items = table.items ?? [];
+      if (table.status === 'livre' || items.length === 0) continue;
+      list.push({
+        id: `k-mesa-${table.id}`,
+        origin: 'mesa',
+        label: `Mesa ${table.label}`,
+        customerName: `Mesa ${table.label}`,
+        items,
+        createdAt: 0,
+      });
+    }
+
+    for (const takeout of takeouts) {
+      if (takeout.items.length === 0) continue;
+      list.push({
+        id: `k-retirada-${takeout.id}`,
+        origin: 'retirada',
+        label: `Retirada #${takeout.label}`,
+        customerName: takeout.customerName,
+        items: takeout.items,
+        createdAt: takeout.createdAt,
+      });
+    }
+
+    for (const order of deliveries) {
+      // Entregue ja saiu da cozinha; o resto ainda interessa a producao.
+      if (order.status === 'entregue' || order.items.length === 0) continue;
+      list.push({
+        id: `k-delivery-${order.id}`,
+        origin: 'delivery',
+        label: `Entrega #${order.code}`,
+        customerName: order.customerName,
+        items: order.items,
+        createdAt: 0,
+      });
+    }
+
+    return list;
+  }, [tables, takeouts, deliveries]);
+
+  function kitchenStatusOf(ticketId: string, station: string): KitchenStatus {
+    return kitchenStatus[`${ticketId}::${station}`] ?? 'recebido';
+  }
+
+  function handleSetKitchenStatus(ticketId: string, stationList: string[], status: KitchenStatus) {
+    setKitchenStatus((current) => {
+      const next = { ...current };
+      for (const station of stationList) next[`${ticketId}::${station}`] = status;
+      return next;
+    });
+  }
+
   const occupiedTables = tables.filter((t) => t.status !== 'livre').length;
   const pendingDeliveries = deliveries.filter((order) => order.status !== 'entregue').length;
   const openTickets = takeouts.length + occupiedTables;
   const newOrders = deliveries.filter((d) => d.status === 'novo').length;
+  const kitchenPending = kitchenTickets.filter((ticket) =>
+    ticket.items.some((item) => kitchenStatusOf(ticket.id, (item.station || 'Sem saguão')) !== 'pronto')
+  ).length;
   const courierQueue = deliveries.filter((d) => d.status === 'aceito' || d.status === 'a_caminho').length;
 
   return (
@@ -465,6 +540,12 @@ export function EditorPreview({
                 <span className="phone__chip">{openTickets} comandas abertas</span>
               </>
             )}
+            {view === 'cozinha' && (
+              <>
+                <span className="phone__chip phone__chip--on">Cozinha ativa</span>
+                <span className="phone__chip">{kitchenTickets.length} em produção</span>
+              </>
+            )}
             {view === 'caixa' && (
               <>
                 <span className="phone__chip phone__chip--on">Turno ativo</span>
@@ -492,7 +573,9 @@ export function EditorPreview({
               promotions={promotions}
               categories={categories}
               cart={cart}
-              onAddToCart={(p) => setCart([...cart, { name: p.name, price: p.price }])}
+              onAddToCart={(p) =>
+                setCart([...cart, { name: p.name, price: p.price, station: p.station, isPromo: p.isPromo }])
+              }
               onRemoveFromCart={(name) => {
                 const idx = cart.findIndex((i) => i.name === name);
                 if (idx !== -1) {
@@ -532,6 +615,20 @@ export function EditorPreview({
             onSetTakeoutStatus={handleSetTakeoutStatus}
             onCancelTakeout={handleRemoveTakeout}
           />
+        )}
+
+        {view === 'cozinha' && (
+          <>
+            <KitchenView
+              tickets={kitchenTickets}
+              stations={stations}
+              activeStation={activeStation}
+              onChangeStation={setActiveStation}
+              statusOf={kitchenStatusOf}
+              onSetStatus={handleSetKitchenStatus}
+            />
+            {flash && <p className="phone__flash phone__flash--float">{flash}</p>}
+          </>
         )}
 
         {view === 'caixa' && (
@@ -633,6 +730,17 @@ export function EditorPreview({
             <UtensilsCrossed size={14} /> Salão
           </button>
         )}
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'cozinha'}
+          className={view === 'cozinha' ? 'is-active' : ''}
+          onClick={() => setView('cozinha')}
+        >
+          <ChefHat size={14} /> Cozinha
+          {kitchenPending > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
+        </button>
 
         <button
           type="button"

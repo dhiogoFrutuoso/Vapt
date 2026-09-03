@@ -264,6 +264,9 @@ const addProductSchema = z.object({
   description: z.string().max(240).optional().default(''),
   price: z.number().min(0).max(99999),
   category: z.string().max(40).optional().default('Destaques'),
+  pricingType: z.enum(['unit', 'weight']).optional().default('unit'),
+  /** Saguão que prepara o item. Vazio = nao entra no roteamento da Cozinha. */
+  station: z.string().max(40).optional().default(''),
   isFeatured: z.boolean().optional().default(false),
   available: z.boolean().optional().default(true),
   order: z.number().optional().default(0),
@@ -297,6 +300,8 @@ export const addProduct = async (req: Request, res: Response) => {
                     description: data.description,
                     price: data.price,
                     category: data.category,
+                    pricingType: data.pricingType,
+                    station: data.station,
                     isFeatured: data.isFeatured,
                     available: data.available,
                     order: data.order,
@@ -371,6 +376,8 @@ export const updateProduct = async (req: Request, res: Response) => {
                   if (data.description !== undefined) product.description = data.description;
                   if (data.price !== undefined) product.price = data.price;
                   if (data.category !== undefined) product.category = data.category;
+                  if (data.pricingType !== undefined) product.pricingType = data.pricingType;
+                  if (data.station !== undefined) product.station = data.station;
                   if (data.isFeatured !== undefined) product.isFeatured = data.isFeatured;
                   if (data.available !== undefined) product.available = data.available;
                   if (data.order !== undefined) product.order = data.order;
@@ -1179,6 +1186,133 @@ export const closeCashRegister = async (req: Request, res: Response) => {
               return res.status(401).json({ message: "Sessão expirada ou inválida." });
             }
             
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+/* ======================= Saguoes (pracas de preparo) ====================== */
+
+const stationSchemaApi = z.object({
+  name: z.string().min(1, 'O saguão precisa de um nome.').max(40),
+  color: z.string().max(9).optional(),
+  order: z.number().optional(),
+});
+
+export const addStation = async (req: Request, res: Response) => {
+          try {
+            const data = stationSchemaApi.parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  const exists = app.stations.some(
+                    (s: any) => String(s.name).toLowerCase() === data.name.toLowerCase()
+                  );
+                  if (exists) throw HttpError.conflict('Já existe um saguão com esse nome.');
+
+                  app.stations.push(data as any);
+                  await app.save();
+
+                  res.status(201).json({ ok: true, data: app.stations[app.stations.length - 1] });
+
+          } catch (error: any) {
+            console.error('[API Error - addStation]:', error);
+
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessao expirada ou invalida." });
+            }
+
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const updateStation = async (req: Request, res: Response) => {
+          try {
+            const data = stationSchemaApi.partial().parse(req.body);
+                  const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  const station = app.stations.id(req.params.stationId);
+                  if (!station) throw HttpError.notFound('Saguão não encontrado.');
+
+                  const previousName = station.name;
+
+                  if (data.name !== undefined) station.name = data.name;
+                  if (data.color !== undefined) station.color = data.color;
+                  if (data.order !== undefined) station.order = data.order;
+
+                  // Produtos apontam para o saguão pelo nome: renomear tem de arrastar o vínculo.
+                  if (data.name !== undefined && data.name !== previousName) {
+                    for (const product of app.products) {
+                      if (product.station === previousName) product.station = data.name;
+                    }
+                  }
+
+                  await app.save();
+                  res.json({ ok: true, data: station });
+
+          } catch (error: any) {
+            console.error('[API Error - updateStation]:', error);
+
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessao expirada ou invalida." });
+            }
+
+            return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
+          }
+        };
+
+export const removeStation = async (req: Request, res: Response) => {
+          try {
+            const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
+
+                  const index = app.stations.findIndex(
+                    (s: any) => String(s._id) === req.params.stationId
+                  );
+                  if (index === -1) throw HttpError.notFound('Saguão não encontrado.');
+
+                  const removedName = app.stations[index].name;
+                  app.stations.splice(index, 1);
+
+                  // Sem o saguão, os produtos dele ficam sem roteamento em vez de apontar para o vazio.
+                  for (const product of app.products) {
+                    if (product.station === removedName) product.station = '';
+                  }
+
+                  await app.save();
+                  res.json({ ok: true, data: { removed: req.params.stationId } });
+
+          } catch (error: any) {
+            console.error('[API Error - removeStation]:', error);
+
+            if (error.name === 'ZodError') {
+              return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
+            }
+
+            if (error.status) {
+              return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
+            }
+
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+              return res.status(401).json({ message: "Sessao expirada ou invalida." });
+            }
+
             return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
           }
         };

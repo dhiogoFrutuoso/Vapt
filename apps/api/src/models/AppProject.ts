@@ -29,11 +29,27 @@ const productSchema = new Schema(
     /** Imagem WEBP em base64, na colecao Image. */
     image: { type: Schema.Types.ObjectId, ref: 'Image', default: null },
     category: { type: String, trim: true, maxlength: 40, default: 'Destaques' },
+    /** Saguão (praça de preparo) que produz este item. Vazio = sem roteamento. */
+    station: { type: String, trim: true, maxlength: 40, default: '' },
     isFeatured: { type: Boolean, default: false },
     available: { type: Boolean, default: true },
     order: { type: Number, default: 0 },
   },
   { _id: true, timestamps: true }
+);
+
+/**
+ * Saguão = praça de preparo da cozinha ("Sushi", "Chapa", "Forno").
+ * Cada produto aponta para um deles pelo nome, e a aba Cozinha usa isso
+ * para desmembrar um pedido entre as praças que o produzem.
+ */
+const stationSchema = new Schema(
+  {
+    name: { type: String, required: [true, 'O saguão precisa de um nome.'], trim: true, maxlength: 40 },
+    color: { type: String, trim: true, maxlength: 9, default: '#F95D2A' },
+    order: { type: Number, default: 0 },
+  },
+  { _id: true }
 );
 
 const promotionSchema = new Schema(
@@ -63,7 +79,9 @@ const tableSchema = new Schema(
 const roleSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 40 },
-    permissions: [{ type: String, enum: ['pedidos', 'entregas', 'mesas', 'cardapio'] }],
+    permissions: [
+      { type: String, enum: ['cliente', 'recepcao', 'salao', 'caixa', 'entregador', 'cozinha'] },
+    ],
   },
   { _id: true, timestamps: true }
 );
@@ -143,6 +161,7 @@ const appProjectSchema = new Schema(
     products: { type: [productSchema], default: [] },
     promotions: { type: [promotionSchema], default: [] },
     tables: { type: [tableSchema], default: [] },
+    stations: { type: [stationSchema], default: [] },
     roles: { type: [roleSchema], default: [] },
     employees: { type: [employeeSchema], default: [] },
     status: {

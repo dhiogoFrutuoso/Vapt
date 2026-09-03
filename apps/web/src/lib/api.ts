@@ -222,9 +222,19 @@ export type Product = {
   pricingType?: 'unit' | 'weight';
   image: string | null;
   category: string;
+  /** Saguão (praça de preparo) que produz o item. */
+  station?: string;
   isFeatured?: boolean;
   available: boolean;
   order: number;
+};
+
+/** Saguão = praça de preparo da cozinha ("Sushi", "Chapa", "Forno"). */
+export type Station = {
+  _id: string;
+  name: string;
+  color?: string;
+  order?: number;
 };
 
 export type Promotion = {
@@ -301,6 +311,7 @@ export type AppProjectFull = {
   products: Product[];
   promotions: Promotion[];
   tables: Table[];
+  stations: Station[];
   roles: Role[];
   employees: Employee[];
   status: string;
@@ -371,13 +382,23 @@ export const api = {
   removeCategory: (id: string, categoryId: string) =>
     request<null>(`/apps/${id}/categories/${categoryId}`, { method: 'DELETE' }),
 
-  addProduct: (id: string, input: { name: string; description?: string; price: number; pricingType?: 'unit' | 'weight'; category?: string; isFeatured?: boolean; imageBase64?: string }) =>
+  addProduct: (id: string, input: { name: string; description?: string; price: number; pricingType?: 'unit' | 'weight'; category?: string; station?: string; isFeatured?: boolean; imageBase64?: string }) =>
     request<Product>(`/apps/${id}/products`, { method: 'POST', body: JSON.stringify(input) }),
-  updateProduct: (id: string, productId: string, input: { name?: string; description?: string; price?: number; pricingType?: 'unit' | 'weight'; category?: string; isFeatured?: boolean; imageBase64?: string | null }) =>
+  updateProduct: (id: string, productId: string, input: { name?: string; description?: string; price?: number; pricingType?: 'unit' | 'weight'; category?: string; station?: string; isFeatured?: boolean; imageBase64?: string | null }) =>
     request<Product>(`/apps/${id}/products/${productId}`, { method: 'PATCH', body: JSON.stringify(input) }),
   removeProduct: (id: string, productId: string) =>
     request<null>(`/apps/${id}/products/${productId}`, { method: 'DELETE' }),
   
+  addStation: (id: string, input: { name: string; color?: string; order?: number }) =>
+    request<Station>(`/apps/${id}/stations`, { method: 'POST', body: JSON.stringify(input) }),
+  updateStation: (id: string, stationId: string, input: { name?: string; color?: string; order?: number }) =>
+    request<Station>(`/apps/${id}/stations/${stationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  removeStation: (id: string, stationId: string) =>
+    request<null>(`/apps/${id}/stations/${stationId}`, { method: 'DELETE' }),
+
   addTable: (id: string, input: { label: string; seats: number; area?: string }) =>
     request<Table>(`/apps/${id}/tables`, { method: 'POST', body: JSON.stringify(input) }),
   updateTable: (id: string, tableId: string, input: { label?: string; seats?: number; area?: string }) =>

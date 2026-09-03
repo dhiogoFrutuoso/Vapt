@@ -50,6 +50,8 @@ export type PreviewProduct = {
   imageUrl?: string | null;
   iconName?: string;
   category?: string;
+  /** Saguão (praça de preparo) que produz o item. */
+  station?: string;
   isFeatured?: boolean;
   isPromo?: boolean;
 };
@@ -59,6 +61,53 @@ export type OrderItem = {
   price: number;
   quantity?: number;
   pricingType?: 'unit' | 'weight';
+  /** Copiado do produto no momento do pedido: e o que roteia para a Cozinha. */
+  station?: string;
+  /** Item promocional — ganha destaque no ticket da cozinha. */
+  isPromo?: boolean;
+};
+
+/* ---------------------------- Cozinha ----------------------------- */
+
+/** Saguão cadastrado pelo dono. */
+export type KitchenStation = {
+  id: string;
+  name: string;
+  color?: string;
+};
+
+/** Rótulo usado quando o produto não foi vinculado a nenhum saguão. */
+export const NO_STATION = 'Sem saguão';
+
+export type KitchenStatus = 'recebido' | 'confeccao' | 'pronto';
+
+export const KITCHEN_FLOW: KitchenStatus[] = ['recebido', 'confeccao', 'pronto'];
+
+export const KITCHEN_LABEL: Record<KitchenStatus, string> = {
+  recebido: 'Entregue à cozinha',
+  confeccao: 'Em confecção',
+  pronto: 'Pronto',
+};
+
+/**
+ * Comanda como a cozinha enxerga: sem preço, sem pagamento — só quem
+ * pediu, de onde veio e o que precisa ser produzido.
+ */
+export type KitchenTicket = {
+  id: string;
+  origin: OrderSource;
+  /** "Mesa 03", "Retirada #12", "Entrega #1042". */
+  label: string;
+  customerName: string;
+  items: OrderItem[];
+  createdAt: number;
+};
+
+/** Um bloco de itens de um mesmo saguão dentro de um ticket. */
+export type KitchenGroup = {
+  station: string;
+  items: OrderItem[];
+  status: KitchenStatus;
 };
 
 /* ----------------------------- Salão ----------------------------- */

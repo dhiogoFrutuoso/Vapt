@@ -1,0 +1,329 @@
+/* ==================================================================
+   Vapt — KDS (Kitchen Display System)
+   ------------------------------------------------------------------
+   Tela de producao. Prioridades de leitura, nesta ordem:
+     1. nome do cliente  — o cozinheiro grita o nome quando fica pronto;
+     2. origem do pedido — cor forte, identificavel de longe;
+     3. itens da praca   — so o que aquela praca precisa montar;
+     4. status           — tres pilulas largas, alvo generoso.
+   ================================================================== */
+
+/* ----------------------- Filtro de saguoes ------------------------ */
+.kds-stations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.kds-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-500);
+  font-size: 0.5rem;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.kds-chip.is-active {
+  background: var(--ink-900);
+  border-color: var(--ink-900);
+  color: #fff;
+}
+
+/* --------------------------- Comandas ----------------------------- */
+.kds-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kds-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Comanda inteira pronta sai do caminho sem sumir da tela. */
+.kds-card.is-done {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.kds-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Destaque maximo: e por aqui que o cozinheiro identifica a comanda. */
+.kds-card__client {
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+
+.kds-card__origin {
+  flex-shrink: 0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.46rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #fff;
+}
+
+/* Cores fortes e distintas — leitura a distancia, sem depender do texto. */
+.kds-card__origin.is-mesa {
+  background: #4338ca;
+}
+
+.kds-card__origin.is-retirada {
+  background: #b45309;
+}
+
+.kds-card__origin.is-delivery {
+  background: #047857;
+}
+
+.kds-card__meta {
+  margin: 0;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--ink-300);
+}
+
+.kds-card__body {
+  display: grid;
+  gap: 7px;
+}
+
+/* ------------------------ Grupo por saguao ------------------------ */
+.kds-group__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+  padding-bottom: 3px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.kds-group__name {
+  font-size: 0.48rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.kds-group__status {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.42rem;
+  font-weight: 800;
+}
+
+.kds-group__status.is-recebido {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.kds-group__status.is-confeccao {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.kds-group__status.is-pronto {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+/* ---------------------------- Itens ------------------------------- */
+.kds-items {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kds-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  line-height: 1.3;
+}
+
+.kds-item__qty {
+  flex-shrink: 0;
+  min-width: 20px;
+  font-weight: 900;
+  color: var(--brand);
+}
+
+.kds-item__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Item promocional: o preparo costuma ter regra propria. */
+.kds-item.is-promo .kds-item__name {
+  color: #b45309;
+}
+
+.kds-item__promo {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.42rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+/* --------------------- Rodape: fluxo de producao ------------------- */
+.kds-card__foot {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.kds-btn {
+  padding: 7px 4px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--surface-2);
+  color: var(--ink-500);
+  font-size: 0.46rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.kds-btn:hover {
+  border-color: var(--line);
+}
+
+/* Estado ativo por etapa: neutro -> aviso -> sucesso. */
+.kds-btn.is-recebido.is-active {
+  background: #475569;
+  border-color: #475569;
+  color: #fff;
+}
+
+.kds-btn.is-confeccao.is-active {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
+}
+
+.kds-btn.is-pronto.is-active {
+  background: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+
+/* Alvo confortavel no toque: a cozinha opera com a mao ocupada. */
+@media (pointer: coarse) {
+  .kds-btn,
+  .kds-chip {
+    min-height: 40px;
+  }
+}
+
+/* --------------------------- Tema escuro --------------------------- */
+.editor-preview.theme-escuro .kds-card,
+.editor-preview.theme-escuro .kds-chip {
+  background: #1f2937;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+.editor-preview.theme-escuro .kds-card__client,
+.editor-preview.theme-escuro .kds-item {
+  color: #f3f4f6;
+}
+
+.editor-preview.theme-escuro .kds-chip.is-active {
+  background: #f3f4f6;
+  border-color: #f3f4f6;
+  color: #111827;
+}
+
+.editor-preview.theme-escuro .kds-btn {
+  background: #111827;
+  color: #d1d5db;
+}
+
+/* ==================================================================
+   Escala no editor (.studio-root) — o painel renderiza maior que o
+   chassi do celular, entao as fontes sobem sem perder a densidade.
+   ================================================================== */
+.studio-root .editor-preview .kds-chip {
+  min-height: 32px;
+  padding: 6px 14px;
+  font-size: 0.74rem;
+}
+
+.studio-root .editor-preview .kds-card {
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.studio-root .editor-preview .kds-card__client {
+  font-size: 1.05rem;
+}
+
+.studio-root .editor-preview .kds-card__origin {
+  font-size: 0.62rem;
+  padding: 4px 10px;
+}
+
+.studio-root .editor-preview .kds-card__meta {
+  font-size: 0.7rem;
+}
+
+.studio-root .editor-preview .kds-group__name {
+  font-size: 0.68rem;
+}
+
+.studio-root .editor-preview .kds-group__status {
+  font-size: 0.6rem;
+}
+
+.studio-root .editor-preview .kds-item {
+  font-size: 0.88rem;
+}
+
+.studio-root .editor-preview .kds-item__promo {
+  font-size: 0.6rem;
+}
+
+.studio-root .editor-preview .kds-btn {
+  min-height: 38px;
+  font-size: 0.66rem;
+}

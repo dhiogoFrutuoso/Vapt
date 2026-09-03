@@ -103,6 +103,7 @@ export function EditorPage() {
   const [prodPrice, setProdPrice] = useState('');
   const [prodPricingType, setProdPricingType] = useState<'unit' | 'weight'>('unit');
   const [prodCategory, setProdCategory] = useState('');
+  const [prodStation, setProdStation] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodImage, setProdImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -306,6 +307,7 @@ export function EditorPage() {
           price: priceVal,
           pricingType: prodPricingType,
           category: prodCategory,
+          station: prodStation,
           isFeatured: prodFeatured,
           imageBase64: prodImage && prodImage.startsWith('data:') ? prodImage.split(',')[1] : undefined,
         });
@@ -317,6 +319,7 @@ export function EditorPage() {
           price: priceVal,
           pricingType: prodPricingType,
           category: prodCategory,
+          station: prodStation,
           isFeatured: prodFeatured,
           imageBase64: prodImage?.split(',')[1],
         });
@@ -337,6 +340,7 @@ export function EditorPage() {
     setProdPrice(p.price.toString().replace('.', ','));
     setProdPricingType(p.pricingType === 'weight' ? 'weight' : 'unit');
     setProdCategory(p.category || app?.categories?.[0]?.name || '');
+    setProdStation(p.station || '');
     setProdFeatured(p.isFeatured || false);
     setProdImage(getImageUrl(p.image));
   }
@@ -347,6 +351,7 @@ export function EditorPage() {
     setProdDesc('');
     setProdPrice('');
     setProdPricingType('unit');
+    setProdStation('');
     setProdFeatured(false);
     setProdImage(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -498,10 +503,17 @@ export function EditorPage() {
       price: p.price,
       pricingType: p.pricingType,
       category: p.category,
+      station: p.station || '',
       isFeatured: p.isFeatured,
       imageUrl: getImageUrl(p.image),
       emoji: '',
     }));
+  }, [app]);
+
+  /** Nomes dos saguoes na ordem do cadastro — a Cozinha usa para agrupar. */
+  const stationNames = useMemo<string[]>(() => {
+    if (!app?.stations) return [];
+    return app.stations.map((s: any) => s.name);
   }, [app]);
 
   if (loading || !app) {
@@ -725,6 +737,26 @@ export function EditorPage() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="studio-field" style={{ marginBottom: 12 }}>
+                    <span>Saguão (praça de preparo)</span>
+                    <select
+                      value={prodStation}
+                      onChange={(e) => setProdStation(e.target.value)}
+                      className="studio-input"
+                    >
+                      <option value="">Sem saguão</option>
+                      {(app.stations || []).map((s: any) => (
+                        <option key={s._id} value={s.name}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="studio-hint">
+                      Define para qual praça da cozinha este item é roteado.
+                      {(!app.stations || app.stations.length === 0) &&
+                        ' Cadastre os saguões em Configurações > Equipe e Acessos.'}
+                    </small>
                   </div>
                   <div className="studio-field" style={{ marginBottom: 12 }}>
                     <span>Cobrança</span>
@@ -1053,6 +1085,7 @@ export function EditorPage() {
                 logoUrl={logoUrl}
                 categories={app.categories}
                 products={previewProducts}
+                stations={stationNames}
                 promotions={app.promotions}
                 tables={liveTables}
                 deliveryFee={app.delivery?.fee ?? 0}
