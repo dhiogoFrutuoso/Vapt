@@ -10,7 +10,7 @@ import { DeliveryView } from './phone/DeliveryView';
 import { ReceptionView } from './phone/ReceptionView';
 import { KitchenView } from './phone/KitchenView';
 import { IconRenderer } from './IconRenderer';
-import { NEXT_STATUS, sumItems } from './phone/types';
+import { NEXT_STATUS, NO_STATION, sumItems } from './phone/types';
 import type {
   CashEntry,
   CategoryItem,
@@ -490,7 +490,14 @@ export function EditorPreview({
   const openTickets = takeouts.length + occupiedTables;
   const newOrders = deliveries.filter((d) => d.status === 'novo').length;
   const kitchenPending = kitchenTickets.filter((ticket) =>
-    ticket.items.some((item) => kitchenStatusOf(ticket.id, (item.station || 'Sem saguão')) !== 'pronto')
+    ticket.items.some((item) => {
+      // Combo nao tem saguao proprio: quem responde pelo status sao as pecas.
+      const stationList =
+        item.components && item.components.length > 0
+          ? item.components.map((part) => part.station || NO_STATION)
+          : [item.station || NO_STATION];
+      return stationList.some((station) => kitchenStatusOf(ticket.id, station) !== 'pronto');
+    })
   ).length;
   const courierQueue = deliveries.filter((d) => d.status === 'aceito' || d.status === 'a_caminho').length;
 
@@ -574,7 +581,16 @@ export function EditorPreview({
               categories={categories}
               cart={cart}
               onAddToCart={(p) =>
-                setCart([...cart, { name: p.name, price: p.price, station: p.station, isPromo: p.isPromo }])
+                setCart([
+                  ...cart,
+                  {
+                    name: p.name,
+                    price: p.price,
+                    station: p.station,
+                    isPromo: p.isPromo,
+                    components: p.components,
+                  },
+                ])
               }
               onRemoveFromCart={(name) => {
                 const idx = cart.findIndex((i) => i.name === name);

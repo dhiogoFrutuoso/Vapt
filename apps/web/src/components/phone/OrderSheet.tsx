@@ -6,7 +6,7 @@ import { CategoryGrid } from './CategoryGrid';
 import { MoneyInput } from './MoneyInput';
 import { IconRenderer } from '../IconRenderer';
 import { useConfirm } from '../ConfirmModal';
-import { sumItems, type CategoryItem, type OrderItem, type PaymentMethod, type PaymentSplit, type PaymentSplitItem, type PreviewProduct, type TableStatus } from './types';
+import { promotionParts, sumItems, type CategoryItem, type OrderItem, type PaymentMethod, type PaymentSplit, type PaymentSplitItem, type PreviewProduct, type TableStatus } from './types';
 
 /** Comanda normalizada: mesa e retirada usam a mesma tela. */
 export type Ticket = {
@@ -215,7 +215,12 @@ export function OrderSheet({
                           <button
                             type="button"
                             onClick={() =>
-                              onAddItem({ name: promo.name, price: promo.promotionalPrice, isPromo: true })
+                              onAddItem({
+                                name: promo.name,
+                                price: promo.promotionalPrice,
+                                isPromo: true,
+                                components: promotionParts(promo, products),
+                              })
                             }
                             aria-label={`Lançar ${promo.name} em ${ticket.title}`}
                           >

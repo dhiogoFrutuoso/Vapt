@@ -4,6 +4,7 @@ import { brl } from '../../lib/format';
 import { CategoryGrid } from './CategoryGrid';
 import { ProductRow, countInList } from './ProductRow';
 import { getImageUrl } from '../../lib/api';
+import { promotionParts } from './types';
 import type { CategoryItem, OrderItem, PreviewProduct, PreviewPromotion } from './types';
 
 type Props = {
@@ -59,6 +60,7 @@ export function MenuView({
           iconName: targetProd?.iconName || 'Star',
           category: 'Combos e Promoções',
           isPromo: true,
+          components: promotionParts(promo, products),
         };
       });
     } else {
@@ -170,6 +172,7 @@ export function MenuView({
                       originalPrice: originalTotal > promo.promotionalPrice ? originalTotal : undefined,
                       iconName: promo.type === 'combo' ? 'package' : 'tag',
                       isPromo: true,
+                      components: promotionParts(promo, products),
                     };
 
                     return (

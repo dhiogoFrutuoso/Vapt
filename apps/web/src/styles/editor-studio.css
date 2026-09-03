@@ -1104,9 +1104,9 @@
   .studio-device--mobile {
     width: 100%;
     max-width: 380px;
-    height: auto;
+    /* Altura fixa: o chassi nao pode mudar de tamanho ao trocar de aba. */
+    height: calc(100dvh - 200px);
     min-height: 0;
-    /* Altura util = viewport menos topo, abas e respiro do canvas. */
     max-height: calc(100dvh - 200px);
     margin: 0 auto;
     border: 8px solid #1c1917;
@@ -1143,6 +1143,7 @@
 @media (max-width: 767px) and (max-height: 700px) {
   .studio-device--default,
   .studio-device--mobile {
+    height: calc(100dvh - 150px);
     max-height: calc(100dvh - 150px);
     border-width: 6px;
     border-radius: 28px;
@@ -1499,4 +1500,79 @@
   .studio-root .editor-preview .cash-tabs button {
     min-height: 40px;
   }
+}
+
+/* ==================================================================
+   CHASSI ESTAVEL — altura fixa, rolagem por dentro
+   ------------------------------------------------------------------
+   Sintoma: o celular esticava e encolhia conforme a aba ativa, porque
+   a altura vinha do conteudo. Aqui o chassi passa a ter altura propria
+   e vira uma coluna flex de tres partes:
+
+     cabecalho  -> flex-shrink: 0   (nunca encolhe)
+     conteudo   -> flex: 1 + overflow-y: auto + min-height: 0
+     abas       -> flex-shrink: 0   (travadas no rodape)
+
+   O `min-height: 0` e a peca critica: sem ele um filho flex se recusa a
+   ficar menor que o proprio conteudo, empurra a altura para fora e a
+   rolagem interna nunca acontece.
+   ================================================================== */
+.studio-root .studio-device--default {
+  /* Realista e estavel: nao depende do que a aba renderiza. */
+  height: 844px;
+  min-height: 0;
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow: hidden;
+}
+
+.studio-root .studio-device--mobile {
+  height: 892px;
+  max-height: calc(100dvh - 160px);
+  overflow: hidden;
+}
+
+.studio-root .studio-device--fullscreen {
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+
+/* --- A coluna interna do simulador -------------------------------- */
+.studio-root .editor-preview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-root .editor-preview__screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-root .editor-preview .phone__header {
+  flex-shrink: 0;
+}
+
+/* Area de conteudo: rola por dentro, com folga para passar por tras
+   da barra inferior (equivalente ao pb-24). */
+.studio-root .editor-preview .phone__body,
+.studio-root .editor-preview .phone__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.studio-root .editor-preview .phone__body {
+  padding-bottom: 96px;
+}
+
+/* Barra inferior travada no fim da coluna: nunca sai da tela. */
+.studio-root .editor-preview .phone__tabs {
+  flex-shrink: 0;
+  margin-top: auto;
 }

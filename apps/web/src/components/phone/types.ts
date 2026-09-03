@@ -54,6 +54,18 @@ export type PreviewProduct = {
   station?: string;
   isFeatured?: boolean;
   isPromo?: boolean;
+  /** Peças do combo, quando este "produto" na verdade e uma promoção. */
+  components?: ComboPart[];
+};
+
+/**
+ * Peça interna de um combo/promoção, já resolvida para o produto real.
+ * É por ela que a Cozinha roteia: o combo em si não tem saguão, os filhos têm.
+ */
+export type ComboPart = {
+  name: string;
+  quantity: number;
+  station?: string;
 };
 
 export type OrderItem = {
@@ -65,6 +77,8 @@ export type OrderItem = {
   station?: string;
   /** Item promocional — ganha destaque no ticket da cozinha. */
   isPromo?: boolean;
+  /** Preenchido quando o item e um combo: sem isso ele cairia em "Sem saguão". */
+  components?: ComboPart[];
 };
 
 /* ---------------------------- Cozinha ----------------------------- */
@@ -103,12 +117,6 @@ export type KitchenTicket = {
   createdAt: number;
 };
 
-/** Um bloco de itens de um mesmo saguão dentro de um ticket. */
-export type KitchenGroup = {
-  station: string;
-  items: OrderItem[];
-  status: KitchenStatus;
-};
 
 /* ----------------------------- Salão ----------------------------- */
 
@@ -274,6 +282,42 @@ export type CashEntry = {
 };
 
 /** Total dos itens de uma comanda. */
+/**
+ * Resolve uma promoção nas peças que a cozinha precisa produzir.
+ *
+ * - combo    -> cada produto de `comboItems` (repetidos viram quantidade);
+ * - desconto -> o próprio produto alvo.
+ *
+ * Sem isto o combo chega na Cozinha como um item solto, sem saguão, e cai no
+ * balde "Sem saguão" — que era exatamente o bug: ninguém via o que preparar.
+ */
+export function promotionParts(
+  promo: PreviewPromotion,
+  products: PreviewProduct[]
+): ComboPart[] {
+  const ids =
+    promo.type === 'combo'
+      ? promo.comboItems ?? []
+      : promo.targetProductId
+        ? [promo.targetProductId]
+        : [];
+
+  const counted = new Map<string, ComboPart>();
+
+  for (const id of ids) {
+    const product = products.find((item) => item.id === id);
+    // Produto apagado depois de entrar no combo: mantemos o lugar na lista.
+    const name = product?.name ?? 'Item removido';
+    const key = `${id}::${name}`;
+    const existing = counted.get(key);
+
+    if (existing) existing.quantity += 1;
+    else counted.set(key, { name, quantity: 1, station: product?.station || '' });
+  }
+
+  return [...counted.values()];
+}
+
 export function sumItems(items: OrderItem[]): number {
   return items.reduce((sum, item) => sum + item.price, 0);
 }

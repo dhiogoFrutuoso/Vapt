@@ -327,3 +327,83 @@
   min-height: 38px;
   font-size: 0.66rem;
 }
+
+/* ==================================================================
+   COMBOS DESMEMBRADOS
+   ------------------------------------------------------------------
+   O combo nao e um item de praca nenhuma: e um recipiente. Por isso
+   ganha moldura propria, com o nome servindo de contexto e as pecas
+   listadas por baixo — filtradas pela praca ativa, ou todas em "Todos".
+   ================================================================== */
+.kds-combo {
+  padding: 6px 7px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+}
+
+.kds-combo__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.kds-combo__name {
+  min-width: 0;
+  font-size: 0.6rem;
+  font-weight: 900;
+  color: var(--ink-900);
+  overflow-wrap: anywhere;
+}
+
+/* Peca de combo recua: fica claro que pertence ao recipiente acima. */
+.kds-item.is-part {
+  padding-left: 6px;
+  border-left: 2px solid var(--line);
+}
+
+/* Em "Todos", cada peca diz de qual praca ela e. */
+.kds-item__station {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-500);
+  font-size: 0.42rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.kds-group__status.is-parcial {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+/* --------------------------- Tema escuro --------------------------- */
+.editor-preview.theme-escuro .kds-combo {
+  background: #111827;
+  border-color: #374151;
+}
+
+.editor-preview.theme-escuro .kds-combo__name {
+  color: #f3f4f6;
+}
+
+.editor-preview.theme-escuro .kds-item__station {
+  background: #1f2937;
+  border-color: #374151;
+  color: #d1d5db;
+}
+
+/* ------------------------- Escala no editor ------------------------ */
+.studio-root .editor-preview .kds-combo__name {
+  font-size: 0.8rem;
+}
+
+.studio-root .editor-preview .kds-item__station {
+  font-size: 0.6rem;
+}

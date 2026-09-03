@@ -3,7 +3,7 @@ import {
   KITCHEN_FLOW,
   KITCHEN_LABEL,
   NO_STATION,
-  type KitchenGroup,
+  type ComboPart,
   type KitchenStatus,
   type KitchenTicket,
   type OrderItem,
@@ -27,86 +27,166 @@ type Props = {
   onSetStatus: (ticketId: string, stations: string[], status: KitchenStatus) => void;
 };
 
-/** Quantidade some quando é 1: o cozinheiro lê mais rápido sem ruído. */
-function quantityLabel(item: OrderItem): string {
-  const qty = item.quantity ?? 1;
-  return qty > 1 ? `${qty}x` : '1x';
+/** Linha simples: um produto avulso da comanda. */
+type SimpleLine = {
+  key: string;
+  name: string;
+  quantity: number;
+  isPromo?: boolean;
+};
+
+/**
+ * Bloco de um combo. `parts` já vem filtrado pela praça ativa — em "Todos"
+ * traz o combo inteiro, num saguão específico traz só o que aquela praça faz.
+ */
+type ComboBlock = {
+  key: string;
+  name: string;
+  parts: ComboPart[];
+  /** Praças que o combo toca. Define o status agregado e o que o rodapé move. */
+  stations: string[];
+  status: KitchenStatus | 'parcial';
+};
+
+type StationBlock = {
+  station: string;
+  status: KitchenStatus;
+  lines: SimpleLine[];
+};
+
+type TicketRender = {
+  ticket: KitchenTicket;
+  stationBlocks: StationBlock[];
+  combos: ComboBlock[];
+  /** União de todas as praças do card: e o alcance dos botões do rodapé. */
+  stations: string[];
+};
+
+function normalizeStation(value?: string): string {
+  const trimmed = (value ?? '').trim();
+  return trimmed.length > 0 ? trimmed : NO_STATION;
 }
 
-function stationOf(item: OrderItem): string {
-  const value = (item.station ?? '').trim();
-  return value.length > 0 ? value : NO_STATION;
+/** Um item é combo quando traz peças resolvidas dentro dele. */
+function partsOf(item: OrderItem): ComboPart[] | null {
+  return item.components && item.components.length > 0 ? item.components : null;
+}
+
+/** Ordena praças pela sequência que o dono cadastrou; desconhecidas vão ao fim. */
+function orderStations(names: Iterable<string>, stations: string[]): string[] {
+  const set = new Set(names);
+  const ordered = [...stations, NO_STATION].filter((name) => set.has(name));
+  for (const name of set) {
+    if (!ordered.includes(name)) ordered.push(name);
+  }
+  return ordered;
 }
 
 /**
- * Quebra a comanda nas praças que a produzem, preservando a ordem em que
- * o dono cadastrou os saguões. É esse agrupamento que faz cada cozinheiro
- * enxergar só a peça que lhe cabe montar.
+ * Monta o que o card mostra, já respeitando o filtro de praça.
+ *
+ * Produto avulso -> entra no bloco do próprio saguão.
+ * Combo          -> não tem saguão próprio; quem roteia são as peças. Em
+ *                   "Todos" ele aparece inteiro; filtrado, só com as peças
+ *                   daquela praça, mantendo o nome do combo como contexto.
  */
-function groupByStation(
+function buildTicket(
   ticket: KitchenTicket,
   stations: string[],
+  activeStation: string,
   statusOf: Props['statusOf']
-): KitchenGroup[] {
-  const buckets = new Map<string, OrderItem[]>();
+): TicketRender | null {
+  const isAll = activeStation === 'todos';
 
-  for (const item of ticket.items) {
-    const key = stationOf(item);
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(item);
-    else buckets.set(key, [item]);
-  }
+  const buckets = new Map<string, SimpleLine[]>();
+  const combos: ComboBlock[] = [];
+  const touched = new Set<string>();
 
-  const ordered = [...stations, NO_STATION].filter((name) => buckets.has(name));
-  // Saguão que sumiu do cadastro mas ainda tem item em produção não pode evaporar.
-  for (const key of buckets.keys()) {
-    if (!ordered.includes(key)) ordered.push(key);
-  }
+  ticket.items.forEach((item, index) => {
+    const parts = partsOf(item);
 
-  return ordered.map((station) => ({
+    if (!parts) {
+      const station = normalizeStation(item.station);
+      touched.add(station);
+      if (!isAll && station !== activeStation) return;
+
+      const line: SimpleLine = {
+        key: `${ticket.id}-i${index}`,
+        name: item.name,
+        quantity: item.quantity ?? 1,
+        isPromo: item.isPromo,
+      };
+      const bucket = buckets.get(station);
+      if (bucket) bucket.push(line);
+      else buckets.set(station, [line]);
+      return;
+    }
+
+    const comboStations = new Set(parts.map((part) => normalizeStation(part.station)));
+    for (const station of comboStations) touched.add(station);
+
+    // Filtrado: o combo só aparece se alguma peça for daquela praça.
+    const visibleParts = isAll
+      ? parts
+      : parts.filter((part) => normalizeStation(part.station) === activeStation);
+    if (visibleParts.length === 0) return;
+
+    const list = orderStations(comboStations, stations);
+    const statuses = list.map((station) => statusOf(ticket.id, station));
+    const uniform = statuses.every((value) => value === statuses[0]);
+
+    combos.push({
+      key: `${ticket.id}-c${index}`,
+      name: item.name,
+      parts: visibleParts,
+      stations: list,
+      status: uniform ? statuses[0] : 'parcial',
+    });
+  });
+
+  if (buckets.size === 0 && combos.length === 0) return null;
+
+  const stationBlocks = orderStations(buckets.keys(), stations).map((station) => ({
     station,
-    items: buckets.get(station) ?? [],
     status: statusOf(ticket.id, station),
+    lines: buckets.get(station) ?? [],
   }));
+
+  return {
+    ticket,
+    stationBlocks,
+    combos,
+    stations: orderStations(touched, stations),
+  };
 }
 
-function ItemLine({ item }: { item: OrderItem }) {
+function PartLine({ part, showStation }: { part: ComboPart; showStation: boolean }) {
   return (
-    <li className={`kds-item ${item.isPromo ? 'is-promo' : ''}`}>
-      <span className="kds-item__qty">{quantityLabel(item)}</span>
-      <span className="kds-item__name">{item.name}</span>
-      {item.isPromo && (
-        <span className="kds-item__promo">
-          <span aria-hidden="true">★</span> Promo
-        </span>
-      )}
+    <li className="kds-item is-part">
+      <span className="kds-item__qty">{part.quantity}x</span>
+      <span className="kds-item__name">{part.name}</span>
+      {showStation && <span className="kds-item__station">{normalizeStation(part.station)}</span>}
     </li>
   );
 }
 
 function TicketCard({
-  ticket,
-  groups,
+  render,
   showStationLabels,
   onSetStatus,
 }: {
-  ticket: KitchenTicket;
-  groups: KitchenGroup[];
+  render: TicketRender;
   showStationLabels: boolean;
   onSetStatus: Props['onSetStatus'];
 }) {
-  const stationsInCard = groups.map((group) => group.station);
+  const { ticket, stationBlocks, combos, stations } = render;
 
-  /**
-   * Com uma praça só, o rodapé comanda aquela praça. Com o filtro em
-   * "Todos", ele move a comanda inteira — e cada bloco mostra o próprio
-   * estado para o cozinheiro não perder a informação.
-   */
-  const current = groups.every((group) => group.status === groups[0]?.status)
-    ? groups[0]?.status
-    : undefined;
-
-  const done = groups.every((group) => group.status === 'pronto');
+  const statuses = [
+    ...stationBlocks.map((block) => block.status),
+    ...combos.map((combo) => combo.status),
+  ];
+  const current = statuses.every((value) => value === statuses[0]) ? statuses[0] : undefined;
+  const done = statuses.length > 0 && statuses.every((value) => value === 'pronto');
 
   return (
     <li className={`kds-card ${done ? 'is-done' : ''}`}>
@@ -121,17 +201,43 @@ function TicketCard({
       </p>
 
       <div className="kds-card__body">
-        {groups.map((group) => (
-          <div key={group.station} className="kds-group">
+        {stationBlocks.map((block) => (
+          <div key={block.station} className="kds-group">
             {showStationLabels && (
               <div className="kds-group__head">
-                <span className="kds-group__name">{group.station}</span>
-                <span className={`kds-group__status is-${group.status}`}>{KITCHEN_LABEL[group.status]}</span>
+                <span className="kds-group__name">{block.station}</span>
+                <span className={`kds-group__status is-${block.status}`}>{KITCHEN_LABEL[block.status]}</span>
               </div>
             )}
             <ul className="kds-items">
-              {group.items.map((item, index) => (
-                <ItemLine key={`${item.name}-${index}`} item={item} />
+              {block.lines.map((line) => (
+                <li key={line.key} className={`kds-item ${line.isPromo ? 'is-promo' : ''}`}>
+                  <span className="kds-item__qty">{line.quantity}x</span>
+                  <span className="kds-item__name">{line.name}</span>
+                  {line.isPromo && (
+                    <span className="kds-item__promo">
+                      <span aria-hidden="true">★</span> Promo
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+        {combos.map((combo) => (
+          <div key={combo.key} className="kds-combo">
+            <div className="kds-combo__head">
+              <span className="kds-combo__name">
+                <span aria-hidden="true">📦</span> {combo.name}
+              </span>
+              <span className={`kds-group__status is-${combo.status}`}>
+                {combo.status === 'parcial' ? 'Parcial' : KITCHEN_LABEL[combo.status]}
+              </span>
+            </div>
+            <ul className="kds-items">
+              {combo.parts.map((part, index) => (
+                <PartLine key={`${combo.key}-p${index}`} part={part} showStation={showStationLabels} />
               ))}
             </ul>
           </div>
@@ -144,7 +250,7 @@ function TicketCard({
             key={status}
             type="button"
             className={`kds-btn is-${status} ${current === status ? 'is-active' : ''}`}
-            onClick={() => onSetStatus(ticket.id, stationsInCard, status)}
+            onClick={() => onSetStatus(ticket.id, stations, status)}
             aria-pressed={current === status}
           >
             {KITCHEN_LABEL[status]}
@@ -158,9 +264,9 @@ function TicketCard({
 /**
  * KDS — a tela de produção.
  *
- * O cozinheiro escolhe a praça no topo e passa a ver apenas os itens
- * daquela praça, comanda por comanda. Em "Todos" as comandas aparecem
- * inteiras, agrupadas por saguão.
+ * O cozinheiro escolhe a praça no topo e passa a ver apenas o que aquela
+ * praça monta, comanda por comanda — combos inclusive, desmembrados peça a
+ * peça. Em "Todos" as comandas aparecem inteiras.
  */
 export function KitchenView({
   tickets,
@@ -172,38 +278,40 @@ export function KitchenView({
 }: Props) {
   const isAll = activeStation === 'todos';
 
-  /** Saguões que realmente têm item na fila entram nos chips, mesmo sem cadastro. */
+  /** Praças com item na fila entram nos chips, cadastradas ou não. */
   const chips = useMemo(() => {
     const live = new Set<string>();
+
     for (const ticket of tickets) {
-      for (const item of ticket.items) live.add(stationOf(item));
+      for (const item of ticket.items) {
+        const parts = partsOf(item);
+        if (parts) {
+          for (const part of parts) live.add(normalizeStation(part.station));
+        } else {
+          live.add(normalizeStation(item.station));
+        }
+      }
     }
 
-    const ordered = stations.filter((name) => live.has(name));
-    for (const name of live) {
-      if (!ordered.includes(name)) ordered.push(name);
-    }
-    return ordered;
+    return orderStations(live, stations);
   }, [tickets, stations]);
 
   const visible = useMemo(() => {
     return tickets
-      .map((ticket) => {
-        const groups = groupByStation(ticket, stations, statusOf);
-        const filtered = isAll ? groups : groups.filter((group) => group.station === activeStation);
-        return { ticket, groups: filtered };
-      })
-      .filter((entry) => entry.groups.length > 0)
+      .map((ticket) => buildTicket(ticket, stations, activeStation, statusOf))
+      .filter((render): render is TicketRender => render !== null)
       .sort((a, b) => {
-        const aDone = a.groups.every((g) => g.status === 'pronto') ? 1 : 0;
-        const bDone = b.groups.every((g) => g.status === 'pronto') ? 1 : 0;
+        const aDone = a.stations.every((s) => statusOf(a.ticket.id, s) === 'pronto') ? 1 : 0;
+        const bDone = b.stations.every((s) => statusOf(b.ticket.id, s) === 'pronto') ? 1 : 0;
         // Pronto desce; o resto sobe pela ordem de chegada.
         if (aDone !== bDone) return aDone - bDone;
         return a.ticket.createdAt - b.ticket.createdAt;
       });
-  }, [tickets, stations, activeStation, isAll, statusOf]);
+  }, [tickets, stations, activeStation, statusOf]);
 
-  const pending = visible.filter((entry) => entry.groups.some((g) => g.status !== 'pronto')).length;
+  const pending = visible.filter((render) =>
+    render.stations.some((station) => statusOf(render.ticket.id, station) !== 'pronto')
+  ).length;
 
   return (
     <div className="phone__body">
@@ -248,11 +356,10 @@ export function KitchenView({
         </div>
       ) : (
         <ul className="kds-list">
-          {visible.map(({ ticket, groups }) => (
+          {visible.map((render) => (
             <TicketCard
-              key={ticket.id}
-              ticket={ticket}
-              groups={groups}
+              key={render.ticket.id}
+              render={render}
               showStationLabels={isAll}
               onSetStatus={onSetStatus}
             />
