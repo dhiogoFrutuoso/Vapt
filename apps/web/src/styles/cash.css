@@ -671,3 +671,359 @@
     position: static;
   }
 }
+
+/* ==================================================================
+   RESPONSIVIDADE MOBILE-FIRST — Salao e Caixa
+   ------------------------------------------------------------------
+   Os grids de 2-3 colunas (formulario de retirada, formas de
+   pagamento, totais do caixa) sao os que mais sofrem em telas de
+   ~360px. Aqui eles empilham no mobile e voltam a expandir a partir
+   de 480px / 768px, com alvos de toque de 44px.
+   ================================================================== */
+
+/* --- Alvos de toque ------------------------------------------------ */
+@media (pointer: coarse) {
+  .team-tabs button,
+  .takeout-form__submit,
+  .svc-card__open,
+  .svc-status select,
+  .sheet-pay__options button,
+  .cash-entry__pay-options button,
+  .cash-filter select {
+    min-height: 44px;
+  }
+
+  .svc-card__cancel {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* --- Retirada no balcao: 3 colunas nao cabem no celular ------------ */
+@media (max-width: 599px) {
+  .takeout-form {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .takeout-form__submit {
+    width: 100%;
+  }
+}
+
+/* --- Mesas e retiradas: grade fluida em qualquer largura ----------- */
+@media (max-width: 479px) {
+  .svc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .svc-grid--tables {
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  }
+
+  .svc-card__open {
+    padding: 10px;
+  }
+
+  .svc-card__name {
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-width: 339px) {
+  .svc-grid,
+  .svc-grid--tables {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Formas de pagamento (comanda e caixa) ------------------------- */
+@media (max-width: 419px) {
+  .sheet-pay__options,
+  .cash-entry__pay-options {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* --- Filtros e totais do caixa ------------------------------------- */
+@media (max-width: 479px) {
+  .cash-filters {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .cash-totals {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .cash-totals__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .cash-totals__grid--split {
+    grid-template-columns: 1fr;
+  }
+
+  .cash-total strong {
+    font-size: 0.98rem;
+  }
+
+  .cash-total.is-main strong {
+    font-size: 1.18rem;
+  }
+}
+
+@media (max-width: 339px) {
+  .cash-totals__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Lancamentos do caixa: cabecalho quebra sem espremer ----------- */
+@media (max-width: 479px) {
+  .cash-entry {
+    padding: 12px;
+  }
+
+  .cash-entry__head {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .cash-entry__head strong {
+    flex: 1 1 100%;
+    order: 3;
+    white-space: normal;
+  }
+
+  .cash-entry__values {
+    gap: 8px;
+  }
+}
+
+/* --- Painel largo do editor: mais colunas -------------------------- */
+@media (min-width: 768px) {
+  .editor-preview .svc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .editor-preview .svc-grid--tables {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+/* --- Contencao horizontal ------------------------------------------ */
+.team-tabs,
+.takeout-form,
+.svc-grid,
+.cash-list,
+.cash-totals,
+.cash-filters {
+  max-width: 100%;
+}
+
+.cash-entry__head strong,
+.svc-card__name {
+  overflow-wrap: anywhere;
+}
+
+/* ==================================================================
+   AJUSTES CIRURGICOS — Retirada (encaixe) e Caixa (alta densidade)
+   ------------------------------------------------------------------
+   1) .takeout-* : o card de "Retirada no balcao" estava com os campos
+      encostando nas bordas. Ganha respiro interno, alinhamento pela
+      base dos campos e altura uniforme entre input e botao.
+
+   2) .cash-*    : SOMENTE a aba Caixa fica compacta, para caber mais
+      linhas de faturamento na tela. As classes da aba Equipe
+      (.svc-*, .takeout-*, .team-tabs) NAO sao tocadas aqui.
+   ================================================================== */
+
+/* ------------------------------------------------------------------
+   1) RETIRADA NO BALCAO — encaixe do card
+   ------------------------------------------------------------------ */
+.takeout-form {
+  padding: 16px;
+  gap: 14px;
+  align-items: end;
+  border-radius: 14px;
+}
+
+.takeout-form__field {
+  min-width: 0;
+}
+
+.takeout-form__field > span {
+  margin-bottom: 2px;
+  line-height: 1.3;
+}
+
+.takeout-form__field input {
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 10px;
+}
+
+.takeout-form__submit {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* O bloco todo respira em relacao ao conteudo vizinho da secao. */
+.svc-block .takeout-form {
+  margin-bottom: 16px;
+}
+
+/* ------------------------------------------------------------------
+   2) CAIXA — alta densidade (exclusivo das classes .cash-*)
+   ------------------------------------------------------------------ */
+.cash-filters {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cash-filter > span {
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+
+.cash-filter select {
+  padding: 7px 9px;
+  font-size: 0.76rem;
+  border-radius: 9px;
+}
+
+.cash-list {
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cash-entry {
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.cash-entry__head {
+  gap: 6px;
+}
+
+.cash-entry__head strong {
+  font-size: 0.8rem;
+}
+
+.cash-entry__source {
+  font-size: 0.58rem;
+  padding: 2px 7px;
+}
+
+.cash-entry__time {
+  font-size: 0.66rem;
+}
+
+.cash-entry__client {
+  font-size: 0.7rem;
+}
+
+.cash-entry__items {
+  gap: 2px;
+  padding: 6px 0;
+}
+
+.cash-entry__items li {
+  font-size: 0.7rem;
+}
+
+.cash-entry__values {
+  gap: 9px;
+  font-size: 0.68rem;
+}
+
+.cash-entry__total {
+  font-size: 0.9rem;
+}
+
+.cash-entry__status {
+  gap: 5px;
+}
+
+.cash-badge {
+  font-size: 0.6rem;
+  padding: 3px 8px;
+}
+
+.cash-entry__pay {
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.cash-entry__pay > span {
+  font-size: 0.66rem;
+}
+
+.cash-entry__pay-options {
+  gap: 5px;
+}
+
+.cash-entry__pay-options button {
+  padding: 7px 5px;
+  font-size: 0.68rem;
+  border-radius: 8px;
+}
+
+.cash-totals {
+  gap: 9px;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.cash-totals h4 {
+  font-size: 0.82rem;
+}
+
+.cash-totals__grid {
+  gap: 8px;
+}
+
+.cash-total {
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: 9px;
+}
+
+.cash-total span {
+  font-size: 0.63rem;
+}
+
+.cash-total strong {
+  font-size: 0.92rem;
+}
+
+.cash-total.is-main strong {
+  font-size: 1.1rem;
+}
+
+.cash-note {
+  font-size: 0.63rem;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------
+   Ordem de cascata: o padding base de 16px definido acima vem depois
+   da media query de 599px e a anulava. Reaplicamos o respiro menor no
+   celular aqui, no fim do arquivo, para o mobile voltar a vencer.
+   ------------------------------------------------------------------ */
+@media (max-width: 599px) {
+  .takeout-form {
+    padding: 14px;
+    gap: 12px;
+  }
+}

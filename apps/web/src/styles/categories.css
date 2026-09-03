@@ -415,3 +415,75 @@
   color: #f3f4f6;
   border-color: #374151;
 }
+
+/* ==================================================================
+   RESPONSIVIDADE MOBILE-FIRST — Categorias e abas do entregador
+   ------------------------------------------------------------------
+   A grade de categorias ja usa auto-fill, entao precisa apenas de
+   ajuste fino nas telas estreitas; as abas Em andamento/Concluidas e
+   a rolagem do cardapio dentro da comanda recebem alturas relativas
+   a viewport para nunca estourar a tela.
+   ================================================================== */
+
+/* --- Cards de categoria: 2 colunas confortaveis no celular --------- */
+@media (max-width: 479px) {
+  .cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .cat-grid--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cat-card__name {
+    font-size: 0.84rem;
+  }
+}
+
+/* --- Telas muito estreitas: uma coluna, foto mais baixa ------------ */
+@media (max-width: 359px) {
+  .cat-grid,
+  .cat-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .cat-card__media {
+    aspect-ratio: 16 / 7;
+  }
+}
+
+/* --- Painel largo do editor: mais colunas -------------------------- */
+@media (min-width: 768px) {
+  .editor-preview .cat-grid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  }
+}
+
+/* --- Rolagem do cardapio na comanda proporcional a tela ------------ */
+@media (max-height: 720px) {
+  .phone__picker-scroll {
+    max-height: 38vh;
+  }
+}
+
+/* --- Abas e busca do entregador: alvo de toque --------------------- */
+@media (pointer: coarse) {
+  .deliv-tabs button,
+  .deliv-search input {
+    min-height: 44px;
+  }
+}
+
+/* --- Contencao horizontal ------------------------------------------ */
+.cat-grid,
+.cat-view,
+.deliv-tabs,
+.deliv-search {
+  max-width: 100%;
+}
+
+.cat-card__name,
+.cat-header__text strong {
+  overflow-wrap: anywhere;
+}

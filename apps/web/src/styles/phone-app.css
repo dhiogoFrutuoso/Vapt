@@ -920,3 +920,113 @@
 .phone__chip { padding: 4px 6px; font-size: 10px; }
 .cat-header { padding: 6px; gap: 8px; }
 .cat-header__media { width: 33px; height: 33px; }
+/* ==================================================================
+   RESPONSIVIDADE MOBILE-FIRST — Cliente e Entregador
+   ------------------------------------------------------------------
+   O CSS base destes componentes foi desenhado para a moldura estreita
+   do simulador na landing. Em telas reais de celular (~360px) alguns
+   grids rigidos de 2-3 colunas ficam espremidos. As regras abaixo
+   fazem esses grids empilharem no mobile e voltarem a expandir a
+   partir de 480px / 768px.
+   ================================================================== */
+
+/* --- Alvos de toque confortaveis em telas sensiveis ao toque ------- */
+@media (pointer: coarse) {
+  .phone__add-btn,
+  .phone__cartbar-cta,
+  .phone__sheet-btn,
+  .phone__pay button,
+  .phone__gps-btn,
+  .phone__stepper button,
+  .phone__delivery-actions > * {
+    min-height: 44px;
+  }
+
+  .phone__stepper {
+    grid-template-columns: 44px 1fr 44px;
+  }
+}
+
+/* --- Formas de pagamento: 3 colunas nao cabem em 360px ------------- */
+@media (max-width: 419px) {
+  .phone__pay {
+    grid-template-columns: 1fr;
+  }
+
+  .phone__pay button {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    justify-items: start;
+    text-align: left;
+    gap: 10px;
+    padding: 11px 14px;
+  }
+}
+
+/* --- Endereco manual: rua/numero e cidade/bairro empilham ---------- */
+@media (max-width: 479px) {
+  .phone__manual-row,
+  .phone__manual-row--street {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Sacola e cardapio da comanda: altura proporcional a tela ------ */
+@media (max-height: 720px) {
+  .phone__cartbar-items {
+    max-height: 22vh;
+  }
+
+  .phone__picker {
+    max-height: 34vh;
+  }
+}
+
+/* --- Folha inferior (checkout/comanda) ocupa a tela no mobile ------ */
+@media (max-width: 479px) {
+  .phone__sheet {
+    border-radius: 22px 22px 0 0;
+    padding: 16px 14px 20px;
+  }
+
+  .phone__sheet--tall {
+    max-height: 92%;
+  }
+}
+
+/* --- Entregador: acoes empilhadas com toque confortavel ------------ */
+@media (max-width: 479px) {
+  .phone__delivery-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .phone__delivery-actions .phone__sheet-btn {
+    padding: 12px 10px;
+    font-size: 0.78rem;
+  }
+
+  .phone__delivery header {
+    flex-wrap: wrap;
+  }
+}
+
+/* --- Nada pode vazar horizontalmente ------------------------------- */
+.phone__body,
+.phone__sheet,
+.phone__deliveries,
+.phone__list {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* --- Painel largo do editor: linhas do cardapio ganham respiro ----- */
+@media (min-width: 768px) {
+  .editor-preview .phone__item {
+    padding: 14px;
+  }
+
+  .editor-preview .phone__delivery-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}

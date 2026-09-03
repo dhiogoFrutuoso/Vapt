@@ -38,6 +38,60 @@ export function EditorPage() {
   const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor');
   const [viewMode, setViewMode] = useState<'mobile' | 'default' | 'fullscreen'>('default');
 
+  /**
+   * Largura da sidebar em px, controlada pelo arraste do handle.
+   * `null` = usa o padrao do CSS (33.333%). O clamp de seguranca
+   * (280px a 560px) vive no CSS, entao um valor fora de faixa nunca
+   * quebra o layout.
+   */
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+
+  /** Inicia o arraste. Funciona com mouse e com toque (pointer events). */
+  function handleResizeStart(event: React.PointerEvent<HTMLDivElement>) {
+    const current = sidebarRef.current?.getBoundingClientRect().width ?? 320;
+    resizeStateRef.current = { startX: event.clientX, startWidth: current };
+    setIsResizing(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  /** Teclado: setas ajustam de 16 em 16px, para acessibilidade. */
+  function handleResizeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const base = sidebarRef.current?.getBoundingClientRect().width ?? 320;
+    const delta = event.key === 'ArrowLeft' ? -16 : 16;
+    setSidebarWidth(Math.min(560, Math.max(280, base + delta)));
+  }
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMove = (event: PointerEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      const next = state.startWidth + (event.clientX - state.startX);
+      setSidebarWidth(Math.min(560, Math.max(280, next)));
+    };
+
+    const onUp = () => {
+      resizeStateRef.current = null;
+      setIsResizing(false);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [isResizing]);
+
   const [appName, setAppName] = useState('');
   const [tagline, setTagline] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#F95D2A');
@@ -467,7 +521,11 @@ export function EditorPage() {
   const isFullscreen = viewMode === 'fullscreen';
 
   return (
-    <div className="studio-root" data-theme={editorTheme}>
+    <div
+      className={`studio-root ${isResizing ? 'is-resizing' : ''}`}
+      data-theme={editorTheme}
+      style={sidebarWidth ? ({ '--studio-sidebar-w': `${sidebarWidth}px` } as React.CSSProperties) : undefined}
+    >
       {!isFullscreen && (
         <header className="studio-topbar">
           <div className="studio-topbar__brand">
@@ -513,7 +571,7 @@ export function EditorPage() {
       )}
 
       <div className={`studio-workspace ${isFullscreen ? 'is-fullscreen' : ''}`}>
-        <aside className={`studio-sidebar ${mobileTab === 'editor' ? 'is-open' : ''}`}>
+        <aside ref={sidebarRef} className={`studio-sidebar ${mobileTab === 'editor' ? 'is-open' : ''}`}>
           <section className="studio-section">
             <h2>Cardápio</h2>
             <div className="studio-card">
@@ -936,6 +994,19 @@ export function EditorPage() {
             </section>
           )}
         </aside>
+
+        {!isFullscreen && (
+          <div
+            className={`studio-resizer ${isResizing ? 'is-dragging' : ''}`}
+            onPointerDown={handleResizeStart}
+            onKeyDown={handleResizeKeyDown}
+            onDoubleClick={() => setSidebarWidth(null)}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Redimensionar painel de edição (duplo clique restaura)"
+            tabIndex={0}
+          />
+        )}
 
         <main className={`studio-stage ${mobileTab === 'preview' ? 'is-open' : ''} ${isFullscreen ? 'is-fullscreen' : ''}`}>
           <div className="studio-stage__bar">
