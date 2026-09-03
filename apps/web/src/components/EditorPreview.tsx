@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { Bike, User, UtensilsCrossed, Wallet } from 'lucide-react';
+import { Bike, ConciergeBell, User, UtensilsCrossed, Wallet } from 'lucide-react';
 import { demo } from '../data/content';
 import { MenuView } from './phone/MenuView';
 import { CheckoutSheet } from './phone/CheckoutSheet';
@@ -26,7 +26,15 @@ import type {
 
 export type { PreviewProduct, PreviewTable, DeliveryOrder } from './phone/types';
 
-type View = 'menu' | 'salao' | 'entrega' | 'caixa';
+/**
+ * Separacao de responsabilidades das abas:
+ *   menu      -> cliente monta o pedido
+ *   recepcao  -> logistica: define a taxa e despacha para o entregador
+ *   salao     -> mesas e retiradas no balcao
+ *   caixa     -> exclusivamente financeiro (fechamento e conciliacao)
+ *   entrega   -> visao do entregador
+ */
+type View = 'menu' | 'recepcao' | 'salao' | 'entrega' | 'caixa';
 
 type Props = {
   storeName: string;
@@ -311,8 +319,55 @@ export function EditorPreview({
     setDeliveries((list) => [order, ...list]);
     setCart([]);
     setCheckoutOpen(false);
-    setView('caixa');
+    // O pedido novo cai na Recepcao, nao mais no Caixa.
+    setView('recepcao');
     showFlash(demo.preview.checkoutSuccess, 3200);
+  }
+
+  /**
+   * Despacho: a Recepcao define a taxa daquele pedido, manda para a fila
+   * do entregador e so entao o lancamento aparece no Caixa.
+   */
+  function handleAcceptDelivery(id: string, fee: number) {
+    const order = deliveries.find((item) => item.id === id);
+
+    if (order) {
+      const itemsTotal = sumItems(order.items);
+      const totalWithFee = itemsTotal + fee;
+      const paidUpfront = order.payments.length > 0 && order.payments.every((p) => p.method === 'pix');
+
+      setDeliveries((list) =>
+        list.map((item) =>
+          item.id === id ? { ...item, deliveryFee: fee, total: totalWithFee, status: 'aceito' } : item
+        )
+      );
+
+      setCashEntries((list) => [
+        {
+          id: `c-${id}`,
+          source: 'delivery',
+          label: `Entrega #${order.code}`,
+          customerName: order.customerName,
+          items: order.items,
+          subtotal: itemsTotal,
+          serviceFee: 0,
+          deliveryFee: fee,
+          total: totalWithFee,
+          payments: order.payments,
+          orderStatus: 'feito',
+          paymentStatus: paidUpfront ? 'concluido' : 'pendente',
+          createdAt: Date.now(),
+          closedAt: paidUpfront ? Date.now() : null,
+        },
+        ...list,
+      ]);
+    }
+
+    showFlash('Pedido despachado para o entregador!');
+  }
+
+  function handleRejectDelivery(id: string) {
+    setDeliveries((list) => list.filter((order) => order.id !== id));
   }
 
   function advanceDelivery(id: string) {
@@ -387,6 +442,12 @@ export function EditorPreview({
                 <span className="phone__chip">Retirada</span>
               </>
             )}
+            {view === 'recepcao' && (
+              <>
+                <span className="phone__chip phone__chip--on">Recepção ativa</span>
+                <span className="phone__chip">{newOrders} para despachar</span>
+              </>
+            )}
             {view === 'salao' && (
               <>
                 <span className="phone__chip phone__chip--on">Caixa aberto</span>
@@ -435,6 +496,18 @@ export function EditorPreview({
           </div>
         )}
 
+        {view === 'recepcao' && (
+          <>
+            <ReceptionView
+              deliveries={deliveries}
+              defaultFee={deliveryFee}
+              onAccept={handleAcceptDelivery}
+              onReject={handleRejectDelivery}
+            />
+            {flash && <p className="phone__flash phone__flash--float">{flash}</p>}
+          </>
+        )}
+
         {view === 'salao' && (
           <ServiceView
             tables={tables}
@@ -452,44 +525,6 @@ export function EditorPreview({
 
         {view === 'caixa' && (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {showDeliveryTab && (
-              <ReceptionView
-                deliveries={deliveries}
-                onAccept={(id, fee) => {
-                  const d = deliveries.find((x) => x.id === id);
-                  if (d) {
-                    const itemsTotal = sumItems(d.items);
-                    const totalWithFee = itemsTotal + fee;
-                    setDeliveries((list) =>
-                      list.map((x) => (x.id === id ? { ...x, deliveryFee: fee, total: totalWithFee, status: 'aceito' } : x))
-                    );
-                    setCashEntries((list) => [
-                      {
-                        id: `c-${id}`,
-                        source: 'delivery' as const,
-                        label: `Entrega #${d.code}`,
-                        customerName: d.customerName,
-                        items: d.items,
-                        subtotal: itemsTotal,
-                        serviceFee: 0,
-                        deliveryFee: fee,
-                        total: totalWithFee,
-                        payments: d.payments,
-                        orderStatus: 'feito' as const,
-                        paymentStatus: d.payments.every((p) => p.method === 'pix') ? ('concluido' as const) : ('pendente' as const),
-                        createdAt: Date.now(),
-                        closedAt: d.payments.every((p) => p.method === 'pix') ? Date.now() : null,
-                      },
-                      ...list,
-                    ]);
-                  }
-                  showFlash('Pedido despachado para o entregador!');
-                }}
-                onReject={(id) => {
-                  setDeliveries((list) => list.filter((d) => d.id !== id));
-                }}
-              />
-            )}
             <CashRegister
               entries={cashEntries}
               courierPaidPerDelivery={courierPaidPerDelivery}
@@ -562,6 +597,19 @@ export function EditorPreview({
           </button>
         )}
 
+        {showDeliveryTab && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'recepcao'}
+            className={view === 'recepcao' ? 'is-active' : ''}
+            onClick={() => setView('recepcao')}
+          >
+            <ConciergeBell size={14} /> Recepção
+            {newOrders > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
+          </button>
+        )}
+
         {showRoomTab && (
           <button
             type="button"
@@ -582,7 +630,6 @@ export function EditorPreview({
           onClick={() => setView('caixa')}
         >
           <Wallet size={14} /> Caixa
-          {newOrders > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
         </button>
 
         {showDeliveryTab && (

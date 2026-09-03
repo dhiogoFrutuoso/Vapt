@@ -12,33 +12,52 @@ function formatPayments(payments: PaymentSplit): string {
   return payments.map((p) => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
 }
 
+/** Aceita "8", "8,50" e "8.50" — o recepcionista digita como quiser. */
+function parseFee(raw: string): number {
+  return parseFloat(raw.trim().replace(',', '.'));
+}
+
+function feeToInput(value: number): string {
+  if (!value) return '';
+  return value.toFixed(2).replace('.', ',');
+}
+
 interface ReceptionViewProps {
   deliveries: DeliveryOrder[];
+  /** Taxa configurada no editor: entra pre-preenchida e vira atalho. */
+  defaultFee?: number;
   onAccept: (id: string, fee: number) => void;
   onReject: (id: string) => void;
 }
 
 function ReceptionOrderItem({
   d,
+  defaultFee,
   onAccept,
   onReject,
   confirm,
 }: {
   d: DeliveryOrder;
+  defaultFee: number;
   onAccept: ReceptionViewProps['onAccept'];
   onReject: ReceptionViewProps['onReject'];
   confirm: ReturnType<typeof useConfirm>['confirm'];
 }) {
-  const [fee, setFee] = useState('');
+  const [fee, setFee] = useState(() => feeToInput(defaultFee));
+
+  const parsed = parseFee(fee || '0');
+  const feeValid = !Number.isNaN(parsed) && parsed >= 0;
+  const itemsTotal = d.items.reduce((sum, item) => sum + item.price, 0);
+
+  /** Atalhos de taxa: gratis e o valor padrao do app, sem repetir. */
+  const presets = defaultFee > 0 ? [0, defaultFee] : [0];
 
   function handleAccept() {
-    const feeRaw = fee || '0';
-    const feeNum = parseFloat(feeRaw.replace(',', '.'));
-    if (isNaN(feeNum) || feeNum < 0) {
-      toast.error('Insira um valor válido para a taxa.');
+    if (!feeValid) {
+      toast.error('Insira um valor válido para a taxa de entrega.');
       return;
     }
-    onAccept(d.id, feeNum);
+    onAccept(d.id, parsed);
   }
 
   return (
@@ -84,23 +103,48 @@ function ReceptionOrderItem({
         </p>
       )}
 
-      <div className="takeout-form mx-auto flex w-full max-w-sm flex-col gap-3" style={{ marginTop: 12 }}>
-        <label className="takeout-form__field w-full">
-          <span>Taxa de entrega (R$)</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={fee}
-            onChange={(e) => setFee(e.target.value)}
-            placeholder="0,00"
-          />
-        </label>
-        <button type="button" className="takeout-form__submit w-full" onClick={handleAccept}>
-          Despachar
-        </button>
+      {/* Taxa da entrega: definida por pedido, antes de ir para o entregador. */}
+      <div className="recep-fee">
+        <div className="recep-fee__row">
+          <label className="recep-fee__field">
+            <span>Valor da entrega</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={fee}
+              onChange={(event) => setFee(event.target.value)}
+              placeholder="0,00"
+              aria-label={`Valor da entrega do pedido ${d.code}`}
+            />
+          </label>
+          <button
+            type="button"
+            className="recep-fee__dispatch"
+            onClick={handleAccept}
+            disabled={!feeValid}
+          >
+            Despachar
+          </button>
+        </div>
+
+        <div className="recep-fee__presets">
+          {presets.map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={`recep-chip ${parsed === value && feeValid ? 'is-active' : ''}`}
+              onClick={() => setFee(feeToInput(value))}
+            >
+              {value === 0 ? 'Grátis' : brl(value)}
+            </button>
+          ))}
+          <span className="recep-fee__sum">
+            Total: <strong>{brl(itemsTotal + (feeValid ? parsed : 0))}</strong>
+          </span>
+        </div>
       </div>
 
-      <div className="phone__delivery-actions" style={{ marginTop: 12 }}>
+      <div className="phone__delivery-actions" style={{ marginTop: 10 }}>
         <a className="phone__sheet-btn" href={mapsUrl(d.address)} target="_blank" rel="noreferrer">
           Abrir mapa
         </a>
@@ -124,13 +168,14 @@ function ReceptionOrderItem({
   );
 }
 
-export function ReceptionView({ deliveries, onAccept, onReject }: ReceptionViewProps) {
+export function ReceptionView({ deliveries, defaultFee = 0, onAccept, onReject }: ReceptionViewProps) {
   const { confirm, ConfirmElement } = useConfirm();
   const novos = deliveries.filter((d) => d.status === 'novo');
+  const despachados = deliveries.filter((d) => d.status === 'aceito' || d.status === 'a_caminho').length;
 
   return (
-    <div className="phone__body" style={{ flex: '0 0 auto', paddingBottom: 8 }}>
-      <p className="phone__role">Recepção · novos pedidos</p>
+    <div className="phone__body">
+      <p className="phone__role">Recepção · fila de despacho</p>
 
       <div className="phone__section-title">
         Novos pedidos
@@ -140,15 +185,29 @@ export function ReceptionView({ deliveries, onAccept, onReject }: ReceptionViewP
       {novos.length === 0 ? (
         <div className="phone__empty">
           <strong>Fila limpa</strong>
-          <p>Os pedidos do cliente caem aqui para você calcular a taxa e despachar.</p>
+          <p>Os pedidos do cliente caem aqui para você definir a taxa e despachar.</p>
         </div>
       ) : (
         <ul className="phone__deliveries">
           {novos.map((d) => (
-            <ReceptionOrderItem key={d.id} d={d} onAccept={onAccept} onReject={onReject} confirm={confirm} />
+            <ReceptionOrderItem
+              key={d.id}
+              d={d}
+              defaultFee={defaultFee}
+              onAccept={onAccept}
+              onReject={onReject}
+              confirm={confirm}
+            />
           ))}
         </ul>
       )}
+
+      {despachados > 0 && (
+        <p className="recep-hint">
+          {despachados} {despachados === 1 ? 'pedido já está' : 'pedidos já estão'} com o entregador.
+        </p>
+      )}
+
       {ConfirmElement}
     </div>
   );
