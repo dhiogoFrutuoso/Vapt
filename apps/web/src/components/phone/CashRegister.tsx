@@ -6,6 +6,8 @@ import type { CashEntry, OrderSource, PaymentMethod, PaymentSplit, PaymentSplitI
 
 type Props = {
   entries: CashEntry[];
+  /** Turnos ja fechados. So a sub-aba "Registro" enxerga. */
+  archive?: CashEntry[];
   /** Dono marcou que o entregador recebe por entrega (sem salário fixo). */
   courierPaidPerDelivery: boolean;
   onUpdatePayments: (id: string, payments: PaymentSplit) => void;
@@ -14,6 +16,7 @@ type Props = {
 
 type PeriodValue = '2h' | '6h' | '24h' | 'hoje' | 'tudo';
 type TotalOption = 'received' | 'pix' | 'cartao' | 'dinheiro' | 'orders' | 'deliveryFees';
+type CashTab = 'turno' | 'registro';
 
 /** Início da janela de tempo escolhida, em ms. */
 function periodStart(period: PeriodValue): number {
@@ -54,22 +57,74 @@ function formatPayments(payments: PaymentSplit): string {
   return payments.map(p => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
 }
 
+/** Busca tolerante: ignora acento e caixa. */
+function normalize(value: string): string {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
+/** "2026-09-02" no fuso local — formato que o <input type="date"> usa. */
+function toDateInput(ms: number): string {
+  const date = new Date(ms);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Um lançamento casa com o termo digitado?
+ * Procura em nome, telefone, identificação da comanda e valor — o admin
+ * digita "ana", "99999", "45" ou "45,90" e acha o mesmo pedido.
+ */
+function matchesSearch(entry: CashEntry, term: string): boolean {
+  const needle = normalize(term).trim();
+  if (!needle) return true;
+
+  const digits = needle.replace(/\D/g, '');
+  const phoneDigits = (entry.phone ?? '').replace(/\D/g, '');
+
+  const haystack = [
+    entry.customerName,
+    entry.label,
+    entry.phone ?? '',
+    SOURCE_LABEL[entry.source],
+    brl(entry.total),
+    entry.total.toFixed(2),
+    entry.total.toFixed(2).replace('.', ','),
+  ]
+    .map(normalize)
+    .join(' | ');
+
+  if (haystack.includes(needle)) return true;
+  return digits.length >= 3 && phoneDigits.includes(digits);
+}
+
 /**
  * Fechamento de caixa.
  *
- * Junta mesa, retirada e delivery numa lista só e responde as perguntas que
- * o recepcionista faz no fim do turno: quanto entrou, por qual forma de
- * pagamento, o que ainda está pendente e — quando o entregador é pago por
- * entrega — quanto do valor é taxa de entrega a acertar com ele.
+ * Duas sub-abas com responsabilidades distintas:
+ *   turno    — o que está aberto agora: conciliação e fechamento;
+ *   registro — auditoria do que já foi pago, inclusive de turnos anteriores,
+ *              com busca livre e extrato por data.
  */
-export function CashRegister({ entries, courierPaidPerDelivery, onUpdatePayments, onCloseRegister }: Props) {
+export function CashRegister({
+  entries,
+  archive = [],
+  courierPaidPerDelivery,
+  onUpdatePayments,
+  onCloseRegister,
+}: Props) {
   const copy = demo.preview;
 
+  const [tab, setTab] = useState<CashTab>('turno');
   const [period, setPeriod] = useState<PeriodValue>('24h');
   const [source, setSource] = useState<'todos' | OrderSource>('todos');
   const [paymentFilter, setPaymentFilter] = useState<'todos' | PaymentMethod>('todos');
   const [selectedTotalOption, setSelectedTotalOption] = useState<TotalOption>('received');
   const [closedMessage, setClosedMessage] = useState<string | null>(null);
+
+  /* ---- Registro: busca livre e extrato por data ---- */
+  const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
   /* ---- Edit modal ---- */
   const [editingEntry, setEditingEntry] = useState<CashEntry | null>(null);
@@ -115,7 +170,7 @@ export function CashRegister({ entries, courierPaidPerDelivery, onUpdatePayments
   const editRemaining = Math.max(0, editTotal - editSplitsTotal);
   const editIsValid = Math.abs(editRemaining) < 0.01 && editSplits.length > 0 && editSplits.every(p => p.amount > 0);
 
-  /* ---- Filtering ---- */
+  /* ---- Filtros do turno ---- */
   const filtered = useMemo(() => {
     const start = periodStart(period);
 
@@ -156,11 +211,106 @@ export function CashRegister({ entries, courierPaidPerDelivery, onUpdatePayments
     return { received, orders, deliveryFees, pending, byPayment };
   }, [valid]);
 
+  /* ---- Registro: histórico de tudo que já foi pago ---- */
+
+  /**
+   * Turno atual + turnos arquivados. Um pedido pode existir nos dois lados
+   * durante o instante do fechamento, por isso a deduplicação por id.
+   */
+  const history = useMemo(() => {
+    const seen = new Set<string>();
+
+    return [...archive, ...entries]
+      .filter((entry) => entry.paymentStatus === 'concluido' && entry.orderStatus !== 'cancelado')
+      .filter((entry) => {
+        if (seen.has(entry.id)) return false;
+        seen.add(entry.id);
+        return true;
+      })
+      .sort((a, b) => (b.closedAt ?? b.createdAt) - (a.closedAt ?? a.createdAt));
+  }, [archive, entries]);
+
+  const historyFiltered = useMemo(() => {
+    const start = periodStart(period);
+
+    return history
+      .filter((entry) => {
+        const when = entry.closedAt ?? entry.createdAt;
+        // A data escolhida manda: vira o extrato daquele dia e ignora o período.
+        if (dateFilter) return toDateInput(when) === dateFilter;
+        return when >= start;
+      })
+      .filter((entry) => (source === 'todos' ? true : entry.source === source))
+      .filter((entry) => {
+        if (paymentFilter === 'todos') return true;
+        return entry.payments.some(p => p.method === paymentFilter);
+      })
+      .filter((entry) => matchesSearch(entry, search));
+  }, [history, period, dateFilter, source, paymentFilter, search]);
+
+  const historyTotal = useMemo(
+    () => historyFiltered.reduce((sum, entry) => sum + entry.total, 0),
+    [historyFiltered]
+  );
+
+  const hasRegistroFilter = Boolean(search.trim() || dateFilter || source !== 'todos' || paymentFilter !== 'todos');
+
+  function clearRegistroFilters() {
+    setSearch('');
+    setDateFilter('');
+    setSource('todos');
+    setPaymentFilter('todos');
+  }
+
   function handleClose() {
     onCloseRegister(totals.received);
     setClosedMessage(copy.cashClosed(brl(totals.received)));
     window.setTimeout(() => setClosedMessage(null), 4000);
   }
+
+  /** Os três selects são os mesmos nas duas sub-abas. */
+  const filterControls = (
+    <div className="cash-filters">
+      <label className="cash-filter">
+        <span>{copy.cashFilterPeriod}</span>
+        <select
+          value={period}
+          onChange={(event) => setPeriod(event.target.value as PeriodValue)}
+          disabled={tab === 'registro' && Boolean(dateFilter)}
+        >
+          {copy.cashPeriods.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="cash-filter">
+        <span>{copy.cashFilterSource}</span>
+        <select value={source} onChange={(event) => setSource(event.target.value as 'todos' | OrderSource)}>
+          <option value="todos">{copy.cashFilterAll}</option>
+          {copy.cashSources.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="cash-filter">
+        <span>{copy.cashFilterPayment}</span>
+        <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'todos' | PaymentMethod)}>
+          <option value="todos">{copy.cashFilterAll}</option>
+          {copy.cashPayments.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
 
   return (
     <div className="phone__body" style={{ position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, width: '90%', maxWidth: 'none', margin: '0 auto', overflow: 'hidden', padding: 0 }}>
@@ -170,212 +320,322 @@ export function CashRegister({ entries, courierPaidPerDelivery, onUpdatePayments
         {copy.cashTitle}
       </p>
 
-      <p className="cat-hint">{copy.cashHint}</p>
-
-      {/* ----------------------------- Filtros ----------------------------- */}
-      <div className="cash-filters">
-        <label className="cash-filter">
-          <span>{copy.cashFilterPeriod}</span>
-          <select value={period} onChange={(event) => setPeriod(event.target.value as PeriodValue)}>
-            {copy.cashPeriods.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="cash-filter">
-          <span>{copy.cashFilterSource}</span>
-          <select value={source} onChange={(event) => setSource(event.target.value as 'todos' | OrderSource)}>
-            <option value="todos">{copy.cashFilterAll}</option>
-            {copy.cashSources.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="cash-filter">
-          <span>{copy.cashFilterPayment}</span>
-          <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'todos' | PaymentMethod)}>
-            <option value="todos">{copy.cashFilterAll}</option>
-            {copy.cashPayments.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* --------------------------- Sub-abas --------------------------- */}
+      <div className="cash-tabs" role="tablist" aria-label="Seções do caixa">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'turno'}
+          className={tab === 'turno' ? 'is-active' : ''}
+          onClick={() => setTab('turno')}
+        >
+          Turno
+          {totals.pending > 0 && <span className="cash-tabs__dot" aria-hidden="true" />}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'registro'}
+          className={tab === 'registro' ? 'is-active' : ''}
+          onClick={() => setTab('registro')}
+        >
+          Registro
+          <span className="cash-tabs__count">{history.length}</span>
+        </button>
       </div>
 
-      {/* --------------------------- Lançamentos --------------------------- */}
-      {filtered.length === 0 ? (
-        <div className="phone__empty">
-          <span>🧾</span>
-          <p>{copy.cashEmpty}</p>
-        </div>
-      ) : (
-        <ul className="cash-list">
-          {filtered.map((entry) => (
-            <li key={entry.id} className={`cash-entry is-${entry.orderStatus}`}>
-              <header className="cash-entry__head">
-                <span className={`cash-entry__source is-${entry.source}`}>{SOURCE_LABEL[entry.source]}</span>
-                <strong>{entry.label}</strong>
-                <span className="cash-entry__time">
-                  {new Date(entry.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </header>
+      {tab === 'turno' && (
+        <>
+          <p className="cat-hint">{copy.cashHint}</p>
 
-              <p className="cash-entry__client">{entry.customerName}</p>
+          {filterControls}
 
-              <ul className="cash-entry__items">
-                {entry.items.map((item, index) => (
-                  <li key={`${item.name}-${index}`}>
-                    <span>{item.name}</span>
-                    <span>{brl(item.price)}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* --------------------------- Lançamentos --------------------------- */}
+          {filtered.length === 0 ? (
+            <div className="phone__empty">
+              <span>🧾</span>
+              <p>{copy.cashEmpty}</p>
+            </div>
+          ) : (
+            <ul className="cash-list">
+              {filtered.map((entry) => (
+                <li key={entry.id} className={`cash-entry is-${entry.orderStatus}`}>
+                  <header className="cash-entry__head">
+                    <span className={`cash-entry__source is-${entry.source}`}>{SOURCE_LABEL[entry.source]}</span>
+                    <strong>{entry.label}</strong>
+                    <span className="cash-entry__time">
+                      {new Date(entry.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </header>
 
-              <div className="cash-entry__values">
-                {entry.serviceFee > 0 && (
-                  <span>
-                    {copy.serviceFee}: <strong>{brl(entry.serviceFee)}</strong>
-                  </span>
-                )}
-                {entry.deliveryFee > 0 && (
-                  <span>
-                    Entrega: <strong>{brl(entry.deliveryFee)}</strong>
-                  </span>
-                )}
-                <span className="cash-entry__total">{brl(entry.total)}</span>
-              </div>
+                  <p className="cash-entry__client">{entry.customerName}</p>
 
-              <div className="cash-entry__status">
-                <span className={`cash-badge is-order-${entry.orderStatus}`}>
-                  {copy.cashOrderStatus[entry.orderStatus]}
-                </span>
-                <span className={`cash-badge is-pay-${entry.paymentStatus}`}>
-                  {entry.paymentStatus === 'concluido' ? formatPayments(entry.payments) : 'Pagamento pendente'}
-                </span>
-              </div>
+                  <ul className="cash-entry__items">
+                    {entry.items.map((item, index) => (
+                      <li key={`${item.name}-${index}`}>
+                        <span>{item.name}</span>
+                        <span>{brl(item.price)}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-              {/* Botão Editar — sempre disponível para ajustar pagamento */}
-              {entry.orderStatus !== 'cancelado' && (
-                <button
-                  type="button"
-                  onClick={() => openEditModal(entry)}
-                  style={{
-                    marginTop: '8px',
-                    padding: '6px 12px',
-                    fontSize: '0.8rem',
-                    background: 'none',
-                    border: '1px solid #94a3b8',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    color: '#64748b',
-                    width: '100%',
-                  }}
-                >
-                  ✏️ Editar pagamento
+                  <div className="cash-entry__values">
+                    {entry.serviceFee > 0 && (
+                      <span>
+                        {copy.serviceFee}: <strong>{brl(entry.serviceFee)}</strong>
+                      </span>
+                    )}
+                    {entry.deliveryFee > 0 && (
+                      <span>
+                        Entrega: <strong>{brl(entry.deliveryFee)}</strong>
+                      </span>
+                    )}
+                    <span className="cash-entry__total">{brl(entry.total)}</span>
+                  </div>
+
+                  <div className="cash-entry__status">
+                    <span className={`cash-badge is-order-${entry.orderStatus}`}>
+                      {copy.cashOrderStatus[entry.orderStatus]}
+                    </span>
+                    <span className={`cash-badge is-pay-${entry.paymentStatus}`}>
+                      {entry.paymentStatus === 'concluido' ? formatPayments(entry.payments) : 'Pagamento pendente'}
+                    </span>
+                  </div>
+
+                  {/* Botão Editar — sempre disponível para ajustar pagamento */}
+                  {entry.orderStatus !== 'cancelado' && (
+                    <button type="button" className="cash-entry__edit" onClick={() => openEditModal(entry)}>
+                      ✏️ Editar pagamento
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      {tab === 'registro' && (
+        <>
+          <p className="cat-hint">
+            Histórico de tudo que já foi pago, inclusive de turnos fechados. Busque por cliente, telefone ou valor.
+          </p>
+
+          {/* ---------------------- Busca e extrato por data ---------------------- */}
+          <div className="cash-search">
+            <label className="cash-search__field">
+              <span aria-hidden="true">🔎</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Cliente, telefone ou valor"
+                aria-label="Buscar no registro do caixa"
+              />
+              {search && (
+                <button type="button" className="cash-search__clear" onClick={() => setSearch('')} aria-label="Limpar busca">
+                  ✕
                 </button>
               )}
-            </li>
-          ))}
-        </ul>
+            </label>
+
+            <label className="cash-filter cash-search__date">
+              <span>Extrato do dia</span>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+                max={toDateInput(Date.now())}
+                aria-label="Extrato de um dia específico"
+              />
+            </label>
+          </div>
+
+          {filterControls}
+
+          {hasRegistroFilter && (
+            <button type="button" className="cash-search__reset" onClick={clearRegistroFilters}>
+              Limpar filtros
+            </button>
+          )}
+
+          {historyFiltered.length === 0 ? (
+            <div className="phone__empty">
+              <span>🗂️</span>
+              <p>
+                {history.length === 0
+                  ? 'Nenhum pedido pago ainda. O registro se enche conforme o caixa recebe.'
+                  : 'Nenhum pedido encontrado com esses filtros.'}
+              </p>
+            </div>
+          ) : (
+            <ul className="cash-list">
+              {historyFiltered.map((entry) => {
+                const when = entry.closedAt ?? entry.createdAt;
+
+                return (
+                  <li key={entry.id} className="cash-entry is-feito">
+                    <header className="cash-entry__head">
+                      <span className={`cash-entry__source is-${entry.source}`}>{SOURCE_LABEL[entry.source]}</span>
+                      <strong>{entry.label}</strong>
+                      <span className="cash-entry__time">
+                        {new Date(when).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        {' · '}
+                        {new Date(when).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </header>
+
+                    <p className="cash-entry__client">
+                      {entry.customerName}
+                      {entry.phone && <span className="cash-entry__phone"> · {entry.phone}</span>}
+                    </p>
+
+                    <div className="cash-entry__values">
+                      {entry.deliveryFee > 0 && (
+                        <span>
+                          Entrega: <strong>{brl(entry.deliveryFee)}</strong>
+                        </span>
+                      )}
+                      {entry.serviceFee > 0 && (
+                        <span>
+                          {copy.serviceFee}: <strong>{brl(entry.serviceFee)}</strong>
+                        </span>
+                      )}
+                      <span className="cash-entry__total">{brl(entry.total)}</span>
+                    </div>
+
+                    <div className="cash-entry__status">
+                      <span className="cash-badge is-pay-concluido">{formatPayments(entry.payments)}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
 
       {/* ------------------------------ Totais ----------------------------- */}
       </div>
 
-      <section className="cash-totals" style={{ 
-        marginTop: 'auto',
-        flexShrink: 0,
-        zIndex: 50,
-        boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h4 style={{ margin: 0 }}>{copy.cashTotals}</h4>
-          <select
-            value={selectedTotalOption}
-            onChange={(e) => setSelectedTotalOption(e.target.value as TotalOption)}
-            style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: '#fff', color: '#000', fontSize: '0.85rem' }}
-          >
-            <option value="received">{copy.cashTotalGeneral}</option>
-            <option value="pix">PIX</option>
-            <option value="cartao">Cartão</option>
-            <option value="dinheiro">Dinheiro</option>
-            {courierPaidPerDelivery && (
-              <>
-                <option value="orders">{copy.cashTotalOrders}</option>
-                <option value="deliveryFees">{copy.cashTotalDelivery}</option>
-              </>
-            )}
-          </select>
-        </div>
-
-        <div className="cash-totals__grid">
-          {selectedTotalOption === 'received' && (
-            <div className="cash-total is-main">
-              <span>{copy.cashTotalGeneral}</span>
-              <strong>{brl(totals.received)}</strong>
-            </div>
-          )}
-          {selectedTotalOption === 'pix' && (
-            <div className="cash-total">
-              <span>PIX</span>
-              <strong>{brl(totals.byPayment.pix)}</strong>
-            </div>
-          )}
-          {selectedTotalOption === 'cartao' && (
-            <div className="cash-total">
-              <span>Cartão</span>
-              <strong>{brl(totals.byPayment.cartao)}</strong>
-            </div>
-          )}
-          {selectedTotalOption === 'dinheiro' && (
-            <div className="cash-total">
-              <span>Dinheiro</span>
-              <strong>{brl(totals.byPayment.dinheiro)}</strong>
-            </div>
-          )}
-          {courierPaidPerDelivery && selectedTotalOption === 'orders' && (
-            <div className="cash-total">
-              <span>{copy.cashTotalOrders}</span>
-              <strong>{brl(totals.orders)}</strong>
-            </div>
-          )}
-          {courierPaidPerDelivery && selectedTotalOption === 'deliveryFees' && (
-            <div className="cash-total is-courier">
-              <span>{copy.cashTotalDelivery}</span>
-              <strong>{brl(totals.deliveryFees)}</strong>
-            </div>
-          )}
-        </div>
-
-        {courierPaidPerDelivery && selectedTotalOption === 'deliveryFees' && <p className="cash-note">🛵 {copy.cashCourierNote}</p>}
-        {selectedTotalOption === 'pix' && <p className="cash-note">📱 {copy.cashPixNote}</p>}
-
-        {totals.pending > 0 && (
-          <div className="cash-total is-pending">
-            <span>{copy.cashTotalPending}</span>
-            <strong>{brl(totals.pending)}</strong>
+      {tab === 'turno' && (
+        <section className="cash-totals" style={{
+          marginTop: 'auto',
+          flexShrink: 0,
+          zIndex: 50,
+          boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)'
+        }}>
+          <div className="cash-totals__head">
+            <h4>{copy.cashTotals}</h4>
+            <select
+              value={selectedTotalOption}
+              onChange={(e) => setSelectedTotalOption(e.target.value as TotalOption)}
+              className="cash-totals__pick"
+            >
+              <option value="received">{copy.cashTotalGeneral}</option>
+              <option value="pix">PIX</option>
+              <option value="cartao">Cartão</option>
+              <option value="dinheiro">Dinheiro</option>
+              {courierPaidPerDelivery && (
+                <>
+                  <option value="orders">{copy.cashTotalOrders}</option>
+                  <option value="deliveryFees">{copy.cashTotalDelivery}</option>
+                </>
+              )}
+            </select>
           </div>
-        )}
 
-        <button
-          type="button"
-          className="phone__sheet-btn is-primary is-block"
-          onClick={handleClose}
-          disabled={paid.length === 0}
-        >
-          {copy.cashClose} · {brl(totals.received)}
-        </button>
+          <div className="cash-totals__grid">
+            {selectedTotalOption === 'received' && (
+              <div className="cash-total is-main">
+                <span>{copy.cashTotalGeneral}</span>
+                <strong>{brl(totals.received)}</strong>
+              </div>
+            )}
+            {selectedTotalOption === 'pix' && (
+              <div className="cash-total">
+                <span>PIX</span>
+                <strong>{brl(totals.byPayment.pix)}</strong>
+              </div>
+            )}
+            {selectedTotalOption === 'cartao' && (
+              <div className="cash-total">
+                <span>Cartão</span>
+                <strong>{brl(totals.byPayment.cartao)}</strong>
+              </div>
+            )}
+            {selectedTotalOption === 'dinheiro' && (
+              <div className="cash-total">
+                <span>Dinheiro</span>
+                <strong>{brl(totals.byPayment.dinheiro)}</strong>
+              </div>
+            )}
+            {courierPaidPerDelivery && selectedTotalOption === 'orders' && (
+              <div className="cash-total">
+                <span>{copy.cashTotalOrders}</span>
+                <strong>{brl(totals.orders)}</strong>
+              </div>
+            )}
+            {courierPaidPerDelivery && selectedTotalOption === 'deliveryFees' && (
+              <div className="cash-total is-courier">
+                <span>{copy.cashTotalDelivery}</span>
+                <strong>{brl(totals.deliveryFees)}</strong>
+              </div>
+            )}
+          </div>
 
-        {closedMessage && <p className="phone__flash">{closedMessage}</p>}
-      </section>
+          {courierPaidPerDelivery && selectedTotalOption === 'deliveryFees' && <p className="cash-note">🛵 {copy.cashCourierNote}</p>}
+          {selectedTotalOption === 'pix' && <p className="cash-note">📱 {copy.cashPixNote}</p>}
+
+          {totals.pending > 0 && (
+            <div className="cash-total is-pending">
+              <span>{copy.cashTotalPending}</span>
+              <strong>{brl(totals.pending)}</strong>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="phone__sheet-btn is-primary is-block"
+            onClick={handleClose}
+            disabled={paid.length === 0}
+          >
+            {copy.cashClose} · {brl(totals.received)}
+          </button>
+
+          {closedMessage && <p className="phone__flash">{closedMessage}</p>}
+        </section>
+      )}
+
+      {tab === 'registro' && (
+        <section className="cash-totals" style={{
+          marginTop: 'auto',
+          flexShrink: 0,
+          zIndex: 50,
+          boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)'
+        }}>
+          <div className="cash-totals__head">
+            <h4>
+              {dateFilter
+                ? `Extrato de ${new Date(`${dateFilter}T12:00:00`).toLocaleDateString('pt-BR')}`
+                : 'Total encontrado'}
+            </h4>
+          </div>
+
+          <div className="cash-totals__grid">
+            <div className="cash-total is-main">
+              <span>Somatório</span>
+              <strong>{brl(historyTotal)}</strong>
+            </div>
+            <div className="cash-total">
+              <span>Pedidos</span>
+              <strong>{historyFiltered.length}</strong>
+            </div>
+          </div>
+
+          <p className="cash-note">🗂️ Somente leitura — o registro serve para auditoria.</p>
+        </section>
+      )}
 
       {/* ========================= Modal de Edição ========================= */}
       {editingEntry && (

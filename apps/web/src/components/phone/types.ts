@@ -205,6 +205,8 @@ export type CashEntry = {
   /** "Mesa 03", "Retirada #12" ou "Entrega #1042". */
   label: string;
   customerName: string;
+  /** Telefone do cliente, quando informado. Usado na busca do Registro. */
+  phone?: string;
   items: OrderItem[];
   /** Soma dos itens. */
   subtotal: number;

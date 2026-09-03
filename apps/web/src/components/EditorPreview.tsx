@@ -114,6 +114,8 @@ export function EditorPreview({
   const [takeouts, setTakeouts] = useState<TakeoutOrder[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryOrder[]>(initialDeliveries);
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
+  /** Turnos ja fechados. Alimenta a sub-aba "Registro" do Caixa. */
+  const [cashArchive, setCashArchive] = useState<CashEntry[]>([]);
 
   const interactive = Boolean(onTablesChange);
   const onBrand = readableText(brandColor);
@@ -236,6 +238,7 @@ export function EditorPreview({
         source: openTable ? 'mesa' : 'retirada',
         label: ticket.title,
         customerName: openTakeout?.customerName ?? 'Consumo no salão',
+        phone: openTakeout?.phone,
         items: ticket.items,
         subtotal,
         serviceFee,
@@ -269,6 +272,7 @@ export function EditorPreview({
           source: openTable ? 'mesa' : 'retirada',
           label: ticket.title,
           customerName: openTakeout?.customerName ?? 'Consumo no salão',
+          phone: openTakeout?.phone,
           items: ticket.items,
           subtotal,
           serviceFee: 0,
@@ -348,6 +352,7 @@ export function EditorPreview({
           source: 'delivery',
           label: `Entrega #${order.code}`,
           customerName: order.customerName,
+          phone: order.phone,
           items: order.items,
           subtotal: itemsTotal,
           serviceFee: 0,
@@ -396,7 +401,13 @@ export function EditorPreview({
   }
 
   async function handleCloseRegister() {
-    setCashEntries((list) => list.filter((entry) => entry.paymentStatus !== 'concluido'));
+    setCashEntries((list) => {
+      const closed = list.filter((entry) => entry.paymentStatus === 'concluido');
+      // O turno sai da tela, mas continua auditavel no Registro.
+      if (closed.length > 0) setCashArchive((archive) => [...closed, ...archive]);
+      return list.filter((entry) => entry.paymentStatus !== 'concluido');
+    });
+
     if (onCloseRegister) {
       await onCloseRegister();
     }
@@ -527,6 +538,7 @@ export function EditorPreview({
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <CashRegister
               entries={cashEntries}
+              archive={cashArchive}
               courierPaidPerDelivery={courierPaidPerDelivery}
               onUpdatePayments={handleUpdateCashPayments}
               onCloseRegister={handleCloseRegister}
