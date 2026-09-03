@@ -61,8 +61,11 @@ export function ServiceView({
         <p className="cat-hint">{copy.takeoutHint}</p>
 
         {interactive && (
-          <form className="takeout-form" onSubmit={handleCreate}>
-            <label className="takeout-form__field">
+          <form
+            className="takeout-form mx-auto flex w-full max-w-sm flex-col gap-3"
+            onSubmit={handleCreate}
+          >
+            <label className="takeout-form__field w-full">
               <span>{copy.takeoutNameLabel}</span>
               <input
                 type="text"
@@ -71,7 +74,7 @@ export function ServiceView({
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <label className="takeout-form__field">
+            <label className="takeout-form__field w-full">
               <span>{copy.takeoutPhoneLabel}</span>
               <input
                 type="tel"
@@ -81,7 +84,11 @@ export function ServiceView({
                 onChange={(event) => setPhone(maskPhone(event.target.value))}
               />
             </label>
-            <button type="submit" className="takeout-form__submit" disabled={name.trim().length < 2}>
+            <button
+              type="submit"
+              className="takeout-form__submit w-full"
+              disabled={name.trim().length < 2}
+            >
               + {copy.takeoutCreate}
             </button>
           </form>

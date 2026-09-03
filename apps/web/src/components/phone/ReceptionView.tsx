@@ -84,8 +84,8 @@ function ReceptionOrderItem({
         </p>
       )}
 
-      <div className="takeout-form" style={{ marginTop: 12 }}>
-        <label className="takeout-form__field">
+      <div className="takeout-form mx-auto flex w-full max-w-sm flex-col gap-3" style={{ marginTop: 12 }}>
+        <label className="takeout-form__field w-full">
           <span>Taxa de entrega (R$)</span>
           <input
             type="text"
@@ -95,7 +95,7 @@ function ReceptionOrderItem({
             placeholder="0,00"
           />
         </label>
-        <button type="button" className="takeout-form__submit" onClick={handleAccept}>
+        <button type="button" className="takeout-form__submit w-full" onClick={handleAccept}>
           Despachar
         </button>
       </div>
