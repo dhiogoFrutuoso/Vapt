@@ -1,20 +1,18 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // Escopo deliberadamente restrito: so o arquivo que de fato usa classes
-  // Tailwind (AdminPage) entra no scan. Nenhuma outra pagina do site usa
-  // essas classes, entao nada muda em Landing/Editor/Auth mesmo com o
-  // import global do CSS gerado.
-  content: ['./index.html', './src/pages/AdminPage.tsx'],
-  // preflight desligado de proposito: o resto do site tem seu proprio
-  // reset em base.css. Ligar o preflight do Tailwind re-normalizaria
-  // margens/tipografia/botoes em TODAS as paginas, nao so na /admin.
+  content: [
+    './index.html',
+    './src/pages/AdminPage.tsx',
+    './src/pages/EditorPage.tsx',
+    './src/components/EditorPreview.tsx',
+    './src/components/phone/**/*.tsx',
+  ],
   corePlugins: {
     preflight: false,
   },
   theme: {
     extend: {
       colors: {
-        // Paleta Vapt: off-white/creme + chumbo + laranja de marca.
         cream: {
           50: '#FDFCFB',
           100: '#FAF8F5',
@@ -35,7 +33,6 @@ export default {
         '4xl': '2rem',
       },
       boxShadow: {
-        // Sombras difusas e amplas ("soft shadow"), sem borda dura.
         soft: '0 10px 30px -4px rgba(17, 17, 17, 0.06)',
         'soft-lg': '0 24px 60px -12px rgba(17, 17, 17, 0.12)',
         'soft-xl': '0 32px 80px -16px rgba(17, 17, 17, 0.16)',

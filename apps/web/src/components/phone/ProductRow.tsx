@@ -11,11 +11,6 @@ type Props = {
   onRemove: (productName: string) => void;
 };
 
-/**
- * Item do cardápio na visão do cliente.
- * Extraído para um componente próprio porque a mesma linha aparece em três
- * lugares (destaques, categoria aberta e busca) — antes era copiada e colada.
- */
 export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: Props) {
   const copy = demo.preview;
 
@@ -25,12 +20,12 @@ export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: 
         <div className="phone__item-text">
           <strong>
             {product.name}
-            {product.isPromo && <span style={{ backgroundColor: '#FF6B2C', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', fontWeight: 800, verticalAlign: 'middle', letterSpacing: '0.02em' }}>OFERTA</span>}
+            {product.isPromo && <span className="cash-badge is-order-feito" style={{ marginLeft: 6 }}>Oferta</span>}
           </strong>
           {product.description && <p>{product.description}</p>}
           <span className="phone__price">
             {product.originalPrice != null && product.originalPrice > product.price && (
-              <s style={{ opacity: 0.5, fontSize: '0.85em', marginRight: '6px', fontWeight: 500 }}>{brl(product.originalPrice)}</s>
+              <s style={{ opacity: 0.5, fontSize: '0.85em', marginRight: 6, fontWeight: 500 }}>{brl(product.originalPrice)}</s>
             )}
             {brl(product.price)}
           </span>
@@ -49,12 +44,26 @@ export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: 
 
       {interactive &&
         (product.pricingType === 'weight' ? (
-          <div className="phone__stepper" style={{ gap: '4px' }}>
-            <input type="number" step="0.001" min="0.001" placeholder="Kg" id={`kg-${product.name}`} style={{ width: '60px', textAlign: 'center', border: '1px solid #ccc', borderRadius: '4px' }} />
-            <button type="button" onClick={() => {
-              let el = document.getElementById(`kg-${product.name}`) as HTMLInputElement;
-              if(el && el.value) onAdd(product, parseFloat(el.value));
-            }} style={{ background: 'var(--ep-primary, #FF6B2C)', color: '#fff', padding: '4px 8px', borderRadius: '4px' }}>Add</button>
+          <div className="phone__stepper">
+            <input
+              type="number"
+              step="0.001"
+              min="0.001"
+              placeholder="Kg"
+              id={`kg-${product.name}`}
+              className="studio-input"
+              style={{ minHeight: 36, padding: '4px 8px', textAlign: 'center' }}
+            />
+            <span />
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById(`kg-${product.name}`) as HTMLInputElement;
+                if (el && el.value) onAdd(product, parseFloat(el.value));
+              }}
+            >
+              +
+            </button>
           </div>
         ) : quantity === 0 ? (
           <button type="button" className="phone__add-btn" onClick={() => onAdd(product)}>
@@ -77,7 +86,6 @@ export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: 
   );
 }
 
-/** Conta quantas vezes um produto aparece numa lista de itens (carrinho ou comanda). */
 export function countInList(items: OrderItem[], productName: string): number {
   return items.filter((item) => item.name === productName).length;
 }

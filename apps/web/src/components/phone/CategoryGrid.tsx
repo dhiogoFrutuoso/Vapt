@@ -6,24 +6,19 @@ type Props = {
   categories: CategoryItem[];
   products: PreviewProduct[];
   onSelect: (category: CategoryItem) => void;
-  /** Variação compacta, usada dentro da comanda da equipe. */
   compact?: boolean;
 };
 
-/**
- * Hub de categorias: a grade que o cliente (e o garçom) vê antes de entrar
- * numa categoria. É o mesmo componente nos dois lugares de propósito —
- * a navegação precisa ser idêntica em qualquer aba do aplicativo.
- */
 export function CategoryGrid({ categories, products, onSelect, compact = false }: Props) {
   const copy = demo.preview;
 
   return (
     <div className={`cat-grid ${compact ? 'cat-grid--compact' : ''}`}>
       {categories.map((category) => {
-        const count = category.itemCount !== undefined 
-          ? category.itemCount 
-          : products.filter((product) => (product.category || copy.uncategorized) === category.name).length;
+        const count =
+          category.itemCount !== undefined
+            ? category.itemCount
+            : products.filter((product) => (product.category || copy.uncategorized) === category.name).length;
 
         return (
           <button

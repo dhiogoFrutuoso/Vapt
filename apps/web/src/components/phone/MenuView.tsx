@@ -22,16 +22,6 @@ type Props = {
   logoUrl?: string | null;
 };
 
-/**
- * Aba "Cliente": o cardápio como o cliente final vê.
- *
- * Navegação em dois níveis (drill-down):
- *   1. hub  -> Destaques + grade de categorias
- *   2. categoria aberta -> cabeçalho com o nome, botão de voltar e os produtos
- *
- * O botão de voltar fica FIXO no topo da lista, com aparência de botão de verdade:
- * na versão anterior ele era um texto sem contraste e ficava invisível no tema claro.
- */
 export function MenuView({
   products,
   promotions = [],
@@ -51,15 +41,14 @@ export function MenuView({
   const showcaseTotal = products.reduce((sum, item) => sum + item.price, 0);
 
   const featured = products.filter((product) => product.isFeatured);
-  
-  const activePromotions = promotions.filter(p => p.active);
-  
+
+  const activePromotions = promotions.filter((p) => p.active);
+
   let categoryProducts: PreviewProduct[] = [];
   if (selectedCategory) {
     if (selectedCategory.name === 'Combos e Promoções') {
-      categoryProducts = activePromotions.map(promo => {
-        const targetProd = promo.targetProductId ? products.find(p => p.id === promo.targetProductId) : null;
-        // Se a promoção tiver targetProduct, pegamos a imagem/icon dele. Se não (tipo combo genérico), pode ficar null.
+      categoryProducts = activePromotions.map((promo) => {
+        const targetProd = promo.targetProductId ? products.find((p) => p.id === promo.targetProductId) : null;
         return {
           id: promo._id,
           name: promo.name,
@@ -69,33 +58,34 @@ export function MenuView({
           imageUrl: targetProd?.imageUrl || null,
           iconName: targetProd?.iconName || 'Star',
           category: 'Combos e Promoções',
-          isPromo: true
+          isPromo: true,
         };
       });
     } else {
-      categoryProducts = products.filter((product) => (product.category || copy.uncategorized) === selectedCategory.name);
+      categoryProducts = products.filter(
+        (product) => (product.category || copy.uncategorized) === selectedCategory.name
+      );
     }
   }
 
   const displayCategories = [...categories];
   if (activePromotions.length > 0) {
-    // Busca a primeira imagem disponível entre as promoções ativas para ser a thumbnail
     let firstImage = null;
     for (const p of activePromotions) {
       if (p.targetProductId) {
-        const prod = products.find(prod => prod.id === p.targetProductId);
+        const prod = products.find((item) => item.id === p.targetProductId);
         if (prod?.imageUrl) {
           firstImage = prod.imageUrl;
           break;
         }
       }
     }
-    
+
     displayCategories.unshift({
       _id: 'promo-cat-dyn',
       name: 'Combos e Promoções',
       image: firstImage,
-      itemCount: activePromotions.length
+      itemCount: activePromotions.length,
     });
   }
 
@@ -117,7 +107,6 @@ export function MenuView({
         )}
 
         {selectedCategory ? (
-          /* ------------------- Nível 2: categoria aberta ------------------- */
           <section className="cat-view">
             <button type="button" className="cat-back" onClick={() => setSelectedCategory(null)}>
               <span aria-hidden="true">←</span> {copy.categoryBack}
@@ -155,75 +144,43 @@ export function MenuView({
             )}
           </section>
         ) : (
-          /* --------------------- Nível 1: hub do cardápio ------------------- */
           <>
             {activePromotions.length > 0 && (
               <section className="cat-section">
                 <div className="phone__section-title">
-                  <span style={{ color: 'var(--ep-primary, #FF6B2C)' }}>🔥 Promocionais</span>
+                  <span>Promocionais</span>
                   <span className="phone__section-count">{activePromotions.length}</span>
                 </div>
 
                 <ul className="phone__list">
                   {activePromotions.map((promo, index) => {
-                    const originalTotal = promo.type === 'discount'
-                      ? (products.find(p => p.id === promo.targetProductId)?.price || 0)
-                      : promo.comboItems.reduce((sum, id) => sum + (products.find(p => p.id === id)?.price || 0), 0);
-                    
-                    const pct = originalTotal > 0 ? Math.round(((originalTotal - promo.promotionalPrice) / originalTotal) * 100) : 0;
-                    
-                    // Create a mock product so we can use ProductRow
+                    const originalTotal =
+                      promo.type === 'discount'
+                        ? products.find((p) => p.id === promo.targetProductId)?.price || 0
+                        : promo.comboItems.reduce(
+                            (sum, id) => sum + (products.find((p) => p.id === id)?.price || 0),
+                            0
+                          );
+
                     const mockProduct: PreviewProduct = {
                       id: promo._id,
                       name: promo.name,
-                      description: promo.description || (promo.type === 'combo' ? 'Combo Especial' : 'Desconto Único'),
+                      description: promo.description || (promo.type === 'combo' ? 'Combo especial' : 'Desconto único'),
                       price: promo.promotionalPrice,
+                      originalPrice: originalTotal > promo.promotionalPrice ? originalTotal : undefined,
                       iconName: promo.type === 'combo' ? 'package' : 'tag',
+                      isPromo: true,
                     };
 
                     return (
-                      <li className="phone__item" key={promo._id || `promo-${index}`}>
-                        <div className="phone__item-main">
-                          <div className="phone__item-text" style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                              <strong style={{ color: 'var(--ep-primary, #FF6B2C)' }}>{promo.name}</strong>
-                              {pct > 0 && (
-                                <span style={{
-                                  backgroundColor: 'var(--ep-primary, #FF6B2C)', color: '#fff',
-                                  fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 800
-                                }}>
-                                  -{pct}% OFF
-                                </span>
-                              )}
-                            </div>
-                            {mockProduct.description && <p>{mockProduct.description}</p>}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                              {originalTotal > promo.promotionalPrice && (
-                                <span style={{ textDecoration: 'line-through', opacity: 0.6, fontSize: '0.85rem' }}>
-                                  {brl(originalTotal)}
-                                </span>
-                              )}
-                              <span className="phone__price" style={{ color: 'var(--ep-primary, #FF6B2C)', fontSize: '1.1rem' }}>
-                                {brl(promo.promotionalPrice)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {interactive &&
-                          (countInList(cart, mockProduct.name) === 0 ? (
-                            <button type="button" className="phone__add-btn" onClick={() => onAddToCart(mockProduct)}>
-                              <span aria-hidden="true">+</span> {copy.addToCart}
-                            </button>
-                          ) : (
-                            <div className="phone__stepper">
-                              <button type="button" onClick={() => onRemoveFromCart(mockProduct.name)} aria-label={`Tirar um ${mockProduct.name}`}>−</button>
-                              <span><strong>{countInList(cart, mockProduct.name)}</strong> {copy.addedToCart}</span>
-                              <button type="button" onClick={() => onAddToCart(mockProduct)} aria-label={`Adicionar mais um ${mockProduct.name}`}>+</button>
-                            </div>
-                          ))
-                        }
-                      </li>
+                      <ProductRow
+                        key={promo._id || `promo-${index}`}
+                        product={mockProduct}
+                        quantity={countInList(cart, mockProduct.name)}
+                        interactive={interactive}
+                        onAdd={onAddToCart}
+                        onRemove={onRemoveFromCart}
+                      />
                     );
                   })}
                 </ul>
@@ -233,7 +190,7 @@ export function MenuView({
             {featured.length > 0 && (
               <section className="cat-section">
                 <div className="phone__section-title">
-                  <span>⭐ {copy.featuredTitle}</span>
+                  <span>{copy.featuredTitle}</span>
                   <span className="phone__section-count">{copy.categoryCount(featured.length)}</span>
                 </div>
 
@@ -267,9 +224,9 @@ export function MenuView({
         )}
       </div>
 
-      {/* ------------------------- Barra da sacola ------------------------- */}
       {interactive
-        ? !isCheckoutOpen && cart.length > 0 && (
+        ? !isCheckoutOpen &&
+          cart.length > 0 && (
             <div className={`phone__cartbar ${expanded ? 'is-expanded' : ''}`}>
               {expanded && (
                 <ul className="phone__cartbar-items">
@@ -278,7 +235,6 @@ export function MenuView({
                       <span>{item.name}</span>
                       <span className="phone__cartbar-right">
                         {brl(item.price)}
-                        {/* O cliente precisa poder tirar o que colocou sem esvaziar tudo. */}
                         <button
                           type="button"
                           className="phone__cartbar-remove"

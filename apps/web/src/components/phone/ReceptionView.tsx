@@ -9,7 +9,7 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = { pix: 'PIX', cartao: 'Cart
 
 function formatPayments(payments: PaymentSplit): string {
   if (payments.length === 0) return 'Pendente';
-  return payments.map(p => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
+  return payments.map((p) => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
 }
 
 interface ReceptionViewProps {
@@ -18,7 +18,17 @@ interface ReceptionViewProps {
   onReject: (id: string) => void;
 }
 
-function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrder, onAccept: ReceptionViewProps['onAccept'], onReject: ReceptionViewProps['onReject'], confirm: ReturnType<typeof useConfirm>['confirm'] }) {
+function ReceptionOrderItem({
+  d,
+  onAccept,
+  onReject,
+  confirm,
+}: {
+  d: DeliveryOrder;
+  onAccept: ReceptionViewProps['onAccept'];
+  onReject: ReceptionViewProps['onReject'];
+  confirm: ReturnType<typeof useConfirm>['confirm'];
+}) {
   const [fee, setFee] = useState('');
 
   function handleAccept() {
@@ -35,13 +45,11 @@ function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrd
     <li className="phone__delivery is-novo" style={{ listStyle: 'none' }}>
       <header>
         <strong>#{d.code}</strong>
-        <span className="phone__delivery-badge is-novo">
-          Novo
-        </span>
+        <span className="phone__delivery-badge is-novo">Novo</span>
       </header>
 
       <p className="phone__delivery-client">
-        {d.customerName} • {d.timeLabel} • {d.distanceLabel}
+        {d.customerName} · {d.timeLabel} · {d.distanceLabel}
       </p>
 
       <ul className="phone__delivery-items">
@@ -55,14 +63,12 @@ function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrd
 
       <div className="phone__delivery-pay">
         <strong>{brl(d.total)}</strong>
-        <span>
-          {formatPayments(d.payments)}
-        </span>
+        <span>{formatPayments(d.payments)}</span>
       </div>
 
       <div className="phone__delivery-address">
         <span className="phone__delivery-mode">
-          {d.address.mode === 'gps' ? `📍 ${demo.preview.deliveryGps}` : '📍 Endereço informado'}
+          {d.address.mode === 'gps' ? demo.preview.deliveryGps : 'Endereço informado'}
         </span>
         <strong>{addressLabel(d.address)}</strong>
         {d.address.mode === 'manual' && d.address.district && (
@@ -78,34 +84,25 @@ function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrd
         </p>
       )}
 
-      {/* AÇÕES DA RECEPÇÃO */}
-      <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '12px' }}>
-        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
-          Taxa de Entrega Calculada (R$):
-        </label>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input 
-            type="text" 
+      <div className="takeout-form" style={{ marginTop: 12 }}>
+        <label className="takeout-form__field">
+          <span>Taxa de entrega (R$)</span>
+          <input
+            type="text"
             inputMode="decimal"
-            value={fee} 
-            onChange={e => setFee(e.target.value)}
+            value={fee}
+            onChange={(e) => setFee(e.target.value)}
             placeholder="0,00"
-            style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '1rem', outline: 'none', color: '#000', backgroundColor: '#fff' }}
           />
-          <button 
-            type="button"
-            className="phone__sheet-btn is-primary"
-            onClick={handleAccept}
-            style={{ margin: 0, padding: '0 20px', borderRadius: '6px' }}
-          >
-            Despachar
-          </button>
-        </div>
+        </label>
+        <button type="button" className="takeout-form__submit" onClick={handleAccept}>
+          Despachar
+        </button>
       </div>
 
-      <div className="phone__delivery-actions" style={{ marginTop: '12px' }}>
-        <a className="phone__sheet-btn" href={mapsUrl(d.address)} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e2e8f0', color: '#334155' }}>
-          🗺️ Abrir Mapa
+      <div className="phone__delivery-actions" style={{ marginTop: 12 }}>
+        <a className="phone__sheet-btn" href={mapsUrl(d.address)} target="_blank" rel="noreferrer">
+          Abrir mapa
         </a>
         <button
           type="button"
@@ -116,10 +113,9 @@ function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrd
               message: 'Tem certeza que deseja recusar e cancelar este pedido?',
               confirmText: 'Recusar',
               isDestructive: true,
-              onConfirm: () => onReject(d.id)
+              onConfirm: () => onReject(d.id),
             });
           }}
-          style={{ backgroundColor: '#fee2e2', color: '#ef4444' }}
         >
           Recusar
         </button>
@@ -130,26 +126,25 @@ function ReceptionOrderItem({ d, onAccept, onReject, confirm }: { d: DeliveryOrd
 
 export function ReceptionView({ deliveries, onAccept, onReject }: ReceptionViewProps) {
   const { confirm, ConfirmElement } = useConfirm();
-  const novos = deliveries.filter(d => d.status === 'novo');
+  const novos = deliveries.filter((d) => d.status === 'novo');
 
   return (
-    <div className="phone__body">
-      <p className="phone__role">🎧 Recepção</p>
-      
+    <div className="phone__body" style={{ flex: '0 0 auto', paddingBottom: 8 }}>
+      <p className="phone__role">Recepção · novos pedidos</p>
+
       <div className="phone__section-title">
-        Novos Pedidos
+        Novos pedidos
         <span className="phone__section-count">{novos.length}</span>
       </div>
 
       {novos.length === 0 ? (
         <div className="phone__empty">
-          <span aria-hidden="true">🎧</span>
-          <strong>Nenhum pedido novo</strong>
-          <p>Os pedidos feitos pelo cliente cairão aqui para você calcular a taxa e despachar.</p>
+          <strong>Fila limpa</strong>
+          <p>Os pedidos do cliente caem aqui para você calcular a taxa e despachar.</p>
         </div>
       ) : (
         <ul className="phone__deliveries">
-          {novos.map(d => (
+          {novos.map((d) => (
             <ReceptionOrderItem key={d.id} d={d} onAccept={onAccept} onReject={onReject} confirm={confirm} />
           ))}
         </ul>

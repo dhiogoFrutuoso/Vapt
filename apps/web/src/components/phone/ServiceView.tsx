@@ -11,7 +11,6 @@ type Props = {
   onOpenTable: (table: PreviewTable) => void;
   onOpenTakeout: (takeout: TakeoutOrder) => void;
   onCreateTakeout: (customerName: string, phone: string) => void;
-  /** Troca de status feita à mão pelo recepcionista. */
   onSetTableStatus: (id: string, status: TableStatus) => void;
   onSetTakeoutStatus: (id: string, status: TableStatus) => void;
   onCancelTakeout: (id: string) => void;
@@ -23,18 +22,6 @@ const STATUS_OPTIONS: Array<{ value: TableStatus; label: string }> = [
   { value: 'pagamento', label: 'Fechando' },
 ];
 
-/**
- * Aba "Equipe" — sub-aba Atendimento.
- *
- * Duas partes, na ordem que o balcão usa:
- *   1. RETIRADA: o recepcionista abre um pedido com o nome do cliente e ele
- *      vira um card igual ao de mesa;
- *   2. MESAS: o mapa do salão.
- *
- * O status continua se resolvendo sozinho ao tocar no card (livre -> ocupada),
- * mas agora também dá para forçar na mão pelo seletor de cada card — o salão
- * real tem exceções que o automático não cobre.
- */
 export function ServiceView({
   tables,
   takeouts,
@@ -66,10 +53,9 @@ export function ServiceView({
         {copy.roleStrip.salao.text}
       </p>
 
-      {/* ----------------------- 1. Retirada no balcão --------------------- */}
       <section className="svc-block">
         <div className="phone__section-title">
-          <span>🛍️ {copy.takeoutTitle}</span>
+          <span>{copy.takeoutTitle}</span>
           <span className="phone__section-count">{takeouts.length}</span>
         </div>
         <p className="cat-hint">{copy.takeoutHint}</p>
@@ -157,10 +143,9 @@ export function ServiceView({
         )}
       </section>
 
-      {/* --------------------------- 2. Mesas ----------------------------- */}
       <section className="svc-block">
         <div className="phone__section-title">
-          <span>🪑 {copy.tablesTitle}</span>
+          <span>{copy.tablesTitle}</span>
           <span className="phone__section-count">
             {tables.length} {tables.length === 1 ? 'mesa' : 'mesas'}
           </span>
