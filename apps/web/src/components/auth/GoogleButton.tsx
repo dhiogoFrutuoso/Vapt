@@ -1,4 +1,3 @@
-import { apiUrl } from '../../lib/api';
 
 /**
  * Botão "Continuar com o Google" + separador "ou".
@@ -50,9 +49,24 @@ function GoogleLogo() {
 }
 
 export function GoogleButton({ label = 'Continuar com o Google', plan = null, disabled = false }: Props) {
+  /*
+   * Caminho RELATIVO de proposito — este e o unico lugar do app que ignora
+   * VITE_API_URL.
+   *
+   * O OAuth so fecha se o inicio e o callback acontecerem na MESMA origem: o
+   * cookie `vapt_oauth_state` e gravado por quem atende /auth/google e
+   * conferido por quem atende /auth/google/callback. Com VITE_API_URL
+   * absoluto, o inicio iria para o dominio da API e gravaria o cookie la,
+   * enquanto o callback (registrado no Console do Google no dominio do front)
+   * procuraria o cookie aqui e nao acharia — que e exatamente o
+   * "state invalido" que aparece na tela.
+   *
+   * Relativo, o /api/* e resolvido pelo proxy do Vite em dev e pelo rewrite
+   * do vercel.json em producao. Nos dois casos, mesma origem nas duas pontas.
+   */
   const href = plan
-    ? `${apiUrl('/auth/google')}?plano=${encodeURIComponent(plan)}`
-    : apiUrl('/auth/google');
+    ? `/api/auth/google?plano=${encodeURIComponent(plan)}`
+    : '/api/auth/google';
 
   return (
     <>
