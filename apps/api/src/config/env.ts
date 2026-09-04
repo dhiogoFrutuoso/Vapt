@@ -26,6 +26,12 @@ function optional(key: string): string | undefined {
 const isProd = process.env.NODE_ENV === 'production';
 
 /**
+ * Painel do lojista. Tem de ser resolvido antes do objeto `env` porque o
+ * redirect do Google depende dele (ver comentario em `google.redirectUri`).
+ */
+const webUrl = (process.env.WEB_APP_URL ?? 'http://localhost:5173').replace(/\/$/, '');
+
+/**
  * O wa.me so aceita digitos. Numeros no .env costumam vir formatados
  * ("+55 88 99613-1836"): limpamos e garantimos o DDI 55.
  */
@@ -93,16 +99,21 @@ export const env = {
   google: {
     clientId: optional('GOOGLE_CLIENT_ID'),
     clientSecret: optional('GOOGLE_CLIENT_SECRET'),
-    redirectUri:
-      optional('GOOGLE_REDIRECT_URI') ??
-      `${(process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}`).replace(/\/$/, '')}/api/auth/google/callback`,
+    /*
+     * O callback aponta para o dominio do FRONT, nao para o da API — e o
+     * rewrite `/api/*` do front repassa a chamada. Isso nao e detalhe de
+     * roteamento: o cookie de sessao e gravado no dominio que o navegador
+     * chamou. Apontando para a API, o cookie nasceria em outro dominio e o
+     * painel voltaria deslogado depois do consentimento.
+     */
+    redirectUri: optional('GOOGLE_REDIRECT_URI') ?? `${webUrl}/api/auth/google/callback`,
     get enabled() {
       return Boolean(this.clientId && this.clientSecret);
     },
   },
 
   /** Painel do lojista: destino do redirect depois do consentimento do Google. */
-  webUrl: (process.env.WEB_APP_URL ?? 'http://localhost:5173').replace(/\/$/, ''),
+  webUrl,
 
   /** Autenticacao por JWT em cookie httpOnly (o token tambem volta no corpo, para clientes de API). */
   auth: {
