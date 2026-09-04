@@ -210,7 +210,7 @@ export function RegisterPage() {
       }
     >
       {step === 0 && (
-        <GoogleButton label="Cadastrar com o Google" plan={plan} disabled={submitting} />
+        <GoogleButton plan={plan} disabled={submitting} />
       )}
 
       <ol className="auth__steps" aria-label="Etapas do cadastro">

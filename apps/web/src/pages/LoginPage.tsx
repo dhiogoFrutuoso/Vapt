@@ -96,7 +96,7 @@ export function LoginPage() {
       {googleError && !error && <p className="alert alert--error">{googleError}</p>}
 
       {/* Caminho rápido primeiro: quem tem Google resolve em um clique. */}
-      <GoogleButton label="Entrar com o Google" plan={plan} disabled={submitting} />
+      <GoogleButton plan={plan} disabled={submitting} />
 
       <form className="auth__form" onSubmit={handleSubmit} noValidate>
         <div className={`field ${fieldErrors.identifier ? 'has-error' : ''}`}>
