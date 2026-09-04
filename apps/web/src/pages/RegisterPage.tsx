@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/auth/AuthLayout';
+import { GoogleButton } from '../components/auth/GoogleButton';
 import { auth } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
@@ -208,6 +209,10 @@ export function RegisterPage() {
         </>
       }
     >
+      {step === 0 && (
+        <GoogleButton label="Cadastrar com o Google" plan={plan} disabled={submitting} />
+      )}
+
       <ol className="auth__steps" aria-label="Etapas do cadastro">
         {copy.steps.map((label, index) => (
           <li key={label} className={`${index === step ? 'is-active' : ''} ${index < step ? 'is-done' : ''}`}>

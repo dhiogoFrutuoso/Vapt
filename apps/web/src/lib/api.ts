@@ -2,6 +2,17 @@
 
 const BASE_URL = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/$/, '');
 
+/**
+ * URL absoluta (ou relativa a este host) de um endpoint da API.
+ *
+ * Existe para os fluxos que NAO passam por fetch: o login com Google e uma
+ * navegacao de pagina inteira (`window.location.href`), porque o cookie de
+ * sessao precisa ser gravado pelo proprio navegador ao voltar do Google.
+ */
+export function apiUrl(path: string): string {
+  return `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 export function getImageUrl(id: string | null | undefined): string | null {
   if (!id) return null;
   return `${BASE_URL}/images/${id}`;
