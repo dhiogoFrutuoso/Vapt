@@ -62,12 +62,28 @@ const userSchema = new Schema(
     },
     /** Nome de exibicao (o nome da pessoa ou do restaurante). */
     displayName: { type: String, trim: true, maxlength: 80, default: '' },
+    /**
+     * Conta criada pelo Google nao tem senha. `required` vira funcao: so
+     * exige hash quando NAO ha googleId. Quem entrou pelo Google pode definir
+     * uma senha depois — dai passa a ter os dois caminhos de login.
+     */
     passwordHash: {
       type: String,
-      required: true,
+      required: function (this: { googleId?: string | null }) {
+        return !this.googleId;
+      },
       select: false,
     },
-    address: { type: addressSchema, required: true },
+    /**
+     * Mesma logica do endereco: no primeiro acesso pelo Google ainda nao
+     * temos os dados da loja. O onboarding preenche antes de liberar o painel.
+     */
+    address: {
+      type: addressSchema,
+      required: function (this: { googleId?: string | null }) {
+        return !this.googleId;
+      },
+    },
     photo: { type: Schema.Types.ObjectId, ref: 'Image', default: null },
     phone: { type: String, trim: true, maxlength: 30, default: '' },
     role: { type: String, enum: ['owner', 'admin'], default: 'owner' },
@@ -77,6 +93,27 @@ const userSchema = new Schema(
     planStartDate: { type: Date, default: null },
     planEndDate: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },
+
+    /* ---------------------- Login com Google ---------------------- */
+
+    /** `sub` do Google: identificador estavel, nao muda se o e-mail mudar. */
+    googleId: { type: String, default: null, unique: true, sparse: true, index: true },
+    /**
+     * Como esta conta consegue entrar hoje:
+     *   local  -> so senha
+     *   google -> so Google
+     *   both   -> os dois (conta local que vinculou o Google, ou o inverso)
+     */
+    authProvider: { type: String, enum: ['local', 'google', 'both'], default: 'local' },
+    /**
+     * Foto vinda do Google (URL externa do googleusercontent).
+     * Fica separada de `photo`, que aponta para a colecao Image: se o dono
+     * subir uma foto propria depois, ela tem precedencia e esta continua aqui
+     * como fallback, sem precisar baixar nada.
+     */
+    avatarUrl: { type: String, trim: true, maxlength: 400, default: '' },
+    /** Falso ate o lojista completar os dados da loja na tela de onboarding. */
+    onboardingCompleted: { type: Boolean, default: true },
   },
   {
     timestamps: true,

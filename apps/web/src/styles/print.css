@@ -1,0 +1,258 @@
+/* ==================================================================
+   Vapt — Impressão térmica (bobina 58mm e 80mm)
+   ------------------------------------------------------------------
+   Fundação para expedição via web, pensada para rodar no Chrome em
+   `--kiosk-printing` (imprime direto, sem caixa de diálogo).
+
+   Regras que ditam este arquivo:
+
+   1. Impressora térmica não tem tinta colorida nem meio-tom. Tudo é
+      preto no branco, sem sombra, sem fundo cinza: fundo cinza sai
+      como um borrão ou não sai.
+   2. A largura útil é menor que a bobina — 58mm imprime ~48mm, 80mm
+      imprime ~72mm. Usar a medida cheia corta a borda direita.
+   3. Fonte monoespaçada, porque alinhar preço em coluna com fonte
+      proporcional é loteria.
+   4. `@page { margin: 0 }` some com o cabeçalho/rodapé do navegador
+      (URL, data, número da página), que numa comanda é lixo.
+   ================================================================== */
+
+/* A comanda só existe para a impressora: fora dela, invisível. */
+.print-ticket {
+  display: none;
+}
+
+@media print {
+  /* ---------------- Só a comanda sobrevive ao papel ---------------- */
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-ticket,
+  .print-ticket * {
+    visibility: visible !important;
+  }
+
+  .print-ticket {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+
+  /* Menus, botões e qualquer coisa marcada como tela ficam de fora. */
+  .no-print,
+  .studio-root,
+  .phone__tabs,
+  nav,
+  header.site-header,
+  footer {
+    display: none !important;
+  }
+
+  html,
+  body {
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Cinza vira borrão na térmica: tudo preto puro, sem fundo. */
+  .print-ticket * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  @page {
+    margin: 0;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Corpo da comanda
+   ------------------------------------------------------------------ */
+.print-ticket {
+  box-sizing: border-box;
+  padding: 3mm 2mm;
+  /* Courier tem métrica previsível em qualquer driver térmico. */
+  font-family: 'Courier New', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #000;
+  background: #fff;
+}
+
+.print-ticket * {
+  box-sizing: border-box;
+}
+
+/* --- Larguras de bobina: a útil, não a nominal -------------------- */
+.print-ticket--58 {
+  width: 48mm;
+  font-size: 10px;
+}
+
+.print-ticket--80 {
+  width: 72mm;
+  font-size: 11px;
+}
+
+@media print {
+  .print-ticket--58 {
+    width: 48mm;
+  }
+
+  .print-ticket--80 {
+    width: 72mm;
+  }
+}
+
+/* --------------------------- Cabeçalho ---------------------------- */
+.print-ticket__store {
+  margin: 0 0 1mm;
+  font-size: 1.25em;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Tipo do pedido em destaque: é a primeira coisa que a expedição lê. */
+.print-ticket__type {
+  margin: 0 0 2mm;
+  padding: 1mm 0;
+  border-top: 1px dashed #000;
+  border-bottom: 1px dashed #000;
+  font-size: 1.35em;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.print-ticket__client {
+  margin: 0 0 1mm;
+  font-size: 1.15em;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.print-ticket__meta {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.print-ticket__meta dt {
+  display: inline;
+  font-weight: 700;
+}
+
+.print-ticket__meta dd {
+  display: inline;
+  margin: 0 0 0 1mm;
+}
+
+.print-ticket__meta div {
+  margin-bottom: 0.5mm;
+}
+
+/* Separador em texto: linha CSS fina some em impressora ruim. */
+.print-ticket__rule {
+  margin: 2mm 0;
+  border: 0;
+  border-top: 1px dashed #000;
+}
+
+/* ----------------------- Itens por saguão ------------------------- */
+.print-ticket__station {
+  margin: 0 0 1mm;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 1px solid #000;
+}
+
+.print-ticket__items {
+  margin: 0 0 2mm;
+  padding: 0;
+  list-style: none;
+}
+
+.print-ticket__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5mm;
+  margin-bottom: 0.8mm;
+}
+
+.print-ticket__qty {
+  flex: 0 0 auto;
+  min-width: 6mm;
+  font-weight: 700;
+}
+
+.print-ticket__name {
+  flex: 1 1 auto;
+  word-break: break-word;
+}
+
+.print-ticket__price {
+  flex: 0 0 auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Peça de combo recuada: mostra que pertence ao item de cima. */
+.print-ticket__item--part {
+  padding-left: 4mm;
+}
+
+.print-ticket__combo {
+  margin: 0 0 0.5mm;
+  font-weight: 700;
+}
+
+.print-ticket__note {
+  margin: 0 0 1mm 6mm;
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+/* ------------------------------ Total ------------------------------ */
+.print-ticket__totals {
+  margin-top: 2mm;
+  padding-top: 1mm;
+  border-top: 1px dashed #000;
+}
+
+.print-ticket__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+}
+
+.print-ticket__line--total {
+  margin-top: 1mm;
+  padding-top: 1mm;
+  border-top: 1px solid #000;
+  font-size: 1.3em;
+  font-weight: 700;
+}
+
+.print-ticket__footer {
+  margin-top: 3mm;
+  text-align: center;
+  font-size: 0.85em;
+}
+
+/*
+ * Avanço final de papel: sem esta folga a guilhotina corta em cima da
+ * última linha. Vazio de propósito — o que importa é a altura.
+ */
+.print-ticket__feed {
+  height: 8mm;
+}

@@ -59,7 +59,8 @@ const loginSchema = z.object({
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-function cookieOptions(): CookieOptions {
+/** Exportado para o fluxo do Google emitir a sessao exatamente igual a local. */
+export function authCookieOptions(): CookieOptions {
   return {
     httpOnly: true,
     sameSite: env.isProd ? 'none' : 'lax',
@@ -161,7 +162,7 @@ export const register = async (req: Request, res: Response) => {
                   }
 
                   const token = signAccessToken({ sub: String(user._id), role: 'owner' });
-                  res.cookie(env.auth.cookieName, token, cookieOptions());
+                  res.cookie(env.auth.cookieName, token, authCookieOptions());
 
                   res.status(201).json({
                     ok: true,
@@ -221,7 +222,7 @@ export const login = async (req: Request, res: Response) => {
                   await user.save();
 
                   const token = signAccessToken({ sub: String(user._id), role: user.role as 'owner' | 'admin' });
-                  res.cookie(env.auth.cookieName, token, cookieOptions());
+                  res.cookie(env.auth.cookieName, token, authCookieOptions());
 
                   res.json({
                     ok: true,
@@ -258,7 +259,7 @@ export const login = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
           try {
-            res.clearCookie(env.auth.cookieName, { ...cookieOptions(), maxAge: undefined });
+            res.clearCookie(env.auth.cookieName, { ...authCookieOptions(), maxAge: undefined });
                   res.json({ ok: true, data: null, message: 'Sessao encerrada.' });
 
           } catch (error: any) {

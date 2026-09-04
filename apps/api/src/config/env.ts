@@ -82,6 +82,28 @@ export const env = {
     .map((o) => o.trim())
     .filter(Boolean),
 
+  /**
+   * Login com Google (OAuth 2.0).
+   *
+   * `optional()` derruba os valores de exemplo do .env.example, entao
+   * `enabled` so fica true com credenciais de verdade. Com ele false a API
+   * sobe normalmente e apenas o login por senha responde — nada quebra por
+   * falta de configuracao.
+   */
+  google: {
+    clientId: optional('GOOGLE_CLIENT_ID'),
+    clientSecret: optional('GOOGLE_CLIENT_SECRET'),
+    redirectUri:
+      optional('GOOGLE_REDIRECT_URI') ??
+      `${(process.env.PUBLIC_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}`).replace(/\/$/, '')}/api/auth/google/callback`,
+    get enabled() {
+      return Boolean(this.clientId && this.clientSecret);
+    },
+  },
+
+  /** Painel do lojista: destino do redirect depois do consentimento do Google. */
+  webUrl: (process.env.WEB_APP_URL ?? 'http://localhost:5173').replace(/\/$/, ''),
+
   /** Autenticacao por JWT em cookie httpOnly (o token tambem volta no corpo, para clientes de API). */
   auth: {
     jwtSecret: resolveJwtSecret(),

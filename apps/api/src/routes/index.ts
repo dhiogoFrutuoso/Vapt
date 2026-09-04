@@ -19,6 +19,11 @@ import {
   register,
   updateMe,
 } from '../controllers/auth.controller.js';
+import {
+  googleCallback,
+  googleStart,
+  googleStatus,
+} from '../controllers/googleAuth.controller.js';
 import { imageMeta, serveImage } from '../controllers/images.controller.js';
 import {
   createApp,
@@ -83,6 +88,14 @@ router.post('/auth/login', authLimiter, login);
 router.post('/auth/logout', logout);
 router.get('/auth/check-username', checkUsername);
 router.get('/auth/me', requireAuth, me);
+
+/* --- Google OAuth 2.0 ---
+   Sao navegacoes do navegador (302), nao chamadas XHR: por isso GET e sem
+   authLimiter no callback — o Google e quem dispara, e um 429 ali deixaria o
+   lojista preso numa tela de erro do proprio Google. */
+router.get('/auth/google/status', googleStatus);
+router.get('/auth/google', authLimiter, googleStart);
+router.get('/auth/google/callback', googleCallback);
 router.patch('/auth/me', requireAuth, updateMe);
 
 /* ------------------------ Aplicativos ----------------------------- */

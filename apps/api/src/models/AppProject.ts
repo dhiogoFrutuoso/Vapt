@@ -142,6 +142,50 @@ const diningSchema = new Schema(
   { _id: false }
 );
 
+/**
+ * Tracking white-label: as chaves de marketing sao DO LOJISTA, nao da Vapt.
+ *
+ * O app publico injeta estas tags no <head> para que ele acompanhe as
+ * proprias conversoes na conta dele. Guardamos apenas os IDs publicos — os
+ * mesmos que ficariam visiveis no HTML de qualquer site — nunca tokens de
+ * API ou segredos de conversao.
+ *
+ * Os `match` recusam o formato errado na porta de entrada: e barato aqui e
+ * caro depois, porque uma tag mal formada falha silenciosamente no navegador
+ * e o lojista passa semanas achando que esta medindo.
+ */
+const trackingSchema = new Schema(
+  {
+    /** Meta/Facebook Pixel: so digitos, 15 a 16 no padrao atual. */
+    facebookPixelId: {
+      type: String,
+      trim: true,
+      maxlength: 32,
+      default: '',
+      match: [/^$|^[0-9]{10,20}$/, 'O ID do Pixel da Meta deve conter apenas numeros.'],
+    },
+    /** GA4 no formato G-XXXXXXXXXX. */
+    googleAnalyticsId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 24,
+      default: '',
+      match: [/^$|^G-[A-Z0-9]{6,14}$/, 'O ID do GA4 deve comecar com "G-".'],
+    },
+    /** Google Tag Manager no formato GTM-XXXXXXX. */
+    googleTagManagerId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 24,
+      default: '',
+      match: [/^$|^GTM-[A-Z0-9]{5,12}$/, 'O ID do GTM deve comecar com "GTM-".'],
+    },
+  },
+  { _id: false }
+);
+
 const appProjectSchema = new Schema(
   {
     owner: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -162,6 +206,8 @@ const appProjectSchema = new Schema(
     promotions: { type: [promotionSchema], default: [] },
     tables: { type: [tableSchema], default: [] },
     stations: { type: [stationSchema], default: [] },
+    /** Chaves de marketing do proprio lojista (Pixel, GA4, GTM). */
+    tracking: { type: trackingSchema, default: () => ({}) },
     roles: { type: [roleSchema], default: [] },
     employees: { type: [employeeSchema], default: [] },
     status: {

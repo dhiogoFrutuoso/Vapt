@@ -728,8 +728,15 @@ export const requestPlan = async (req: Request, res: Response) => {
                   
                   await app.save();
 
+                  /*
+                   * Conta criada pelo Google so ganha endereco no onboarding.
+                   * Ate la o campo pode estar vazio, e a mensagem do WhatsApp
+                   * precisa sair mesmo assim — sem endereco, nao quebrada.
+                   */
                   const address = user.address;
-                  const addressString = `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ''}, ${address.district}, ${address.city} - ${address.state}`;
+                  const addressString = address
+                    ? `${address.street}, ${address.number}${address.complement ? ` - ${address.complement}` : ''}, ${address.district}, ${address.city} - ${address.state}`
+                    : 'Não informado';
 
                   const message = `Olá, quero ativar o VaptApp!
   
