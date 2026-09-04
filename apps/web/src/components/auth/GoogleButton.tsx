@@ -1,26 +1,20 @@
-import { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 
 /**
  * Botão "Continuar com o Google" + separador "ou".
  *
- * Três decisões que não são óbvias:
+ * Renderiza SEMPRE. A versão anterior consultava `/auth/google/status` e se
+ * escondia quando a resposta não vinha — o que parecia prudente e na prática
+ * apagava o botão: em produção o `vercel.json` do front reescreve `/(.*)` para
+ * `index.html`, então a chamada de status devolvia HTML, o `response.json()`
+ * estourava, o catch marcava "desabilitado" e ninguém nunca via o botão.
+ * Um `<a href>` estático não precisa de permissão de ninguém para existir.
  *
- * 1. É uma âncora (`<a href>`), não um `<button>` com JavaScript.
- *    O OAuth termina com o Google redirecionando o navegador de volta para a
- *    nossa API, que grava o cookie de sessão nessa resposta. Precisa ser uma
- *    navegação de página inteira: num `fetch` o redirect seria seguido em
- *    background e o cookie nunca chegaria ao documento — o login "funcionaria"
- *    sem logar ninguém. Como âncora, ainda funciona sem JS e aceita abrir em
- *    outra aba pelo menu de contexto.
- *
- * 2. Só aparece quando a API confirma que há credencial configurada
- *    (`/auth/google/status`). Numa instalação sem as chaves do Google, mostrar
- *    o botão levaria o lojista a um 503 sem explicação nenhuma.
- *
- * 3. O botão é branco, não laranja. As diretrizes de marca do Google exigem
- *    fundo claro com o "G" colorido intocado; pintá-lo com a cor do Vapt
- *    violaria a regra e deixaria o logo ilegível.
+ * Continua sendo âncora, e não `<button>` com JavaScript: o OAuth termina com
+ * o Google redirecionando o navegador de volta para a nossa API, que grava o
+ * cookie de sessão nessa resposta. Isso exige navegação de página inteira —
+ * num `fetch` o redirect seria seguido em background e o cookie nunca chegaria
+ * ao documento. Como âncora ainda funciona sem JS e aceita abrir em nova aba.
  */
 
 type Props = {
@@ -56,29 +50,6 @@ function GoogleLogo() {
 }
 
 export function GoogleButton({ label = 'Continuar com o Google', plan = null, disabled = false }: Props) {
-  /** `null` = ainda perguntando à API. Evita o botão piscar e sumir. */
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-
-    fetch(apiUrl('/auth/google/status'), { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload) => {
-        if (alive) setEnabled(payload?.data?.enabled === true);
-      })
-      .catch(() => {
-        // API fora do ar: o login por senha continua na tela, este some.
-        if (alive) setEnabled(false);
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  if (enabled !== true) return null;
-
   const href = plan
     ? `${apiUrl('/auth/google')}?plano=${encodeURIComponent(plan)}`
     : apiUrl('/auth/google');
@@ -89,16 +60,14 @@ export function GoogleButton({ label = 'Continuar com o Google', plan = null, di
         href={disabled ? undefined : href}
         aria-disabled={disabled || undefined}
         className={[
-          'flex w-full items-center justify-center gap-3 rounded-full',
-          // `border-solid` e obrigatorio aqui: com preflight desligado o
-          // Tailwind nao reseta border-style, que fica `none` — e borda com
-          // style `none` computa largura 0 por mais que a classe declare 1px.
-          'border border-solid border-gray-200 bg-white px-5 py-3',
-          'text-[0.95rem] font-bold text-gray-700 no-underline',
-          'shadow-[0_6px_18px_-8px_rgba(17,17,17,0.18)]',
-          'transition-colors duration-200 ease-smooth',
-          'hover:bg-gray-50 focus-visible:outline focus-visible:outline-2',
-          'focus-visible:outline-offset-2 focus-visible:outline-brand',
+          'flex w-full items-center justify-center gap-2 rounded-full py-2',
+          // `border-solid` e obrigatorio: o projeto roda com preflight
+          // desligado, entao o Tailwind nao reseta border-style. Sem isto ele
+          // fica `none` e a borda computa 0px por mais que a classe declare 1px.
+          'border border-solid border-gray-300 bg-white px-5',
+          'font-medium text-gray-700 no-underline',
+          'transition-colors hover:bg-gray-50',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
           disabled ? 'pointer-events-none opacity-60' : '',
         ].join(' ')}
       >
@@ -107,7 +76,7 @@ export function GoogleButton({ label = 'Continuar com o Google', plan = null, di
       </a>
 
       {/* Separador entre o login social e o tradicional. */}
-      <div className="my-5 flex items-center gap-3" role="separator" aria-label="ou">
+      <div className="my-4 flex items-center gap-3" role="separator" aria-label="ou">
         <span className="h-px flex-1 bg-gray-200" aria-hidden="true" />
         <span className="text-sm text-gray-400">ou</span>
         <span className="h-px flex-1 bg-gray-200" aria-hidden="true" />
