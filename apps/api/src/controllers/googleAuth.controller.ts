@@ -207,7 +207,14 @@ export const googleCallback = asyncHandler(async (req: Request, res: Response) =
 
   /* --- 2) Conta local com o mesmo e-mail: vincula ------------------ */
   if (!user) {
-    const byEmail = await User.findOne({ email });
+    /*
+     * `+passwordHash` e obrigatorio aqui. O campo tem `select: false`, entao
+     * um findOne comum devolve o documento SEM ele — e a checagem abaixo
+     * concluia "nao tem senha" para toda conta local, gravando
+     * authProvider 'google' numa conta que na verdade tem os dois caminhos
+     * de login. O registro passava a mentir sobre como o dono entra.
+     */
+    const byEmail = await User.findOne({ email }).select('+passwordHash');
 
     if (byEmail) {
       byEmail.set({
