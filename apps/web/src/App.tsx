@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
+import { AccountPage } from './pages/AccountPage';
 import { AdminPage } from './pages/AdminPage';
 import { PlanSelectionPage } from './pages/PlanSelectionPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -64,6 +65,14 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/painel/conta"
+        element={
+          <ProtectedRoute>
+            <AccountPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/painel/app/:id"
         element={

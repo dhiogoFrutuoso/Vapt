@@ -18,6 +18,7 @@ import {
   me,
   register,
   updateMe,
+  updatePassword,
 } from '../controllers/auth.controller.js';
 import {
   googleCallback,
@@ -97,6 +98,8 @@ router.get('/auth/google/status', googleStatus);
 router.get('/auth/google', authLimiter, googleStart);
 router.get('/auth/google/callback', googleCallback);
 router.patch('/auth/me', requireAuth, updateMe);
+/* Troca de senha: authLimiter porque exige a senha atual e e alvo de forca bruta. */
+router.patch('/auth/password', requireAuth, authLimiter, updatePassword);
 
 /* ------------------------ Aplicativos ----------------------------- */
 

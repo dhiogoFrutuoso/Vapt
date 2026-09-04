@@ -8,6 +8,7 @@ export default {
     './src/components/phone/**/*.tsx',
     // Telas de autenticacao: sem isto as utilitarias usadas no botao do
     // Google e no separador nao chegam a ser geradas no CSS final.
+    './src/pages/AccountPage.tsx',
     './src/pages/LoginPage.tsx',
     './src/pages/RegisterPage.tsx',
     './src/components/auth/**/*.tsx',

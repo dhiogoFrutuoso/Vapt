@@ -19,7 +19,8 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+/** Exportado para permitir montar a arvore com uma sessao simulada. */
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);

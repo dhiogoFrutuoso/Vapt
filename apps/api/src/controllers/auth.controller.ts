@@ -49,6 +49,14 @@ const registerSchema = z.object({
   }),
 });
 
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, 'Informe a senha atual.').max(72),
+  newPassword: z
+    .string()
+    .min(8, 'A nova senha precisa de ao menos 8 caracteres.')
+    .max(72, 'A senha pode ter no maximo 72 caracteres.'),
+});
+
 const loginSchema = z.object({
   /** Aceita e-mail ou nome de usuario no mesmo campo. */
   identifier: z.string().trim().min(3, 'Informe seu e-mail ou nome de usuario.').max(160),
@@ -85,6 +93,11 @@ function publicUser(user: {
   createdAt?: Date;
   lastLoginAt?: Date | null;
   plan?: string | null;
+  authProvider?: string;
+  avatarUrl?: string;
+  onboardingCompleted?: boolean;
+  /** So chega aqui quando a consulta pediu `+passwordHash`. Nunca e devolvido. */
+  passwordHash?: string | null;
 }) {
   return {
     id: String(user._id),
@@ -100,6 +113,23 @@ function publicUser(user: {
     createdAt: user.createdAt ?? null,
     lastLoginAt: user.lastLoginAt ?? null,
     plan: user.plan ?? null,
+    authProvider: user.authProvider ?? 'local',
+    /**
+     * Foto do Google como fallback: se o dono subiu avatar proprio, `photoUrl`
+     * tem precedencia e este campo fica so como reserva.
+     */
+    avatarUrl: user.avatarUrl ?? null,
+    onboardingCompleted: user.onboardingCompleted !== false,
+    /**
+     * Booleano derivado — o hash NUNCA sai daqui. E o que diz ao front se deve
+     * mostrar o card de troca de senha. Quando a consulta nao trouxe o hash,
+     * caimos no provedor; `authProvider` sozinho ja se provou pouco confiavel
+     * (uma conta com senha chegou a ficar marcada como 'google').
+     */
+    hasPassword:
+      user.passwordHash !== undefined && user.passwordHash !== null
+        ? Boolean(user.passwordHash)
+        : (user.authProvider ?? 'local') !== 'google',
   };
 }
 
@@ -291,7 +321,8 @@ export const logout = async (req: Request, res: Response) => {
 
 export const me = async (req: Request, res: Response) => {
           try {
-            const user = await User.findById(req.user?.id).lean();
+            // `+passwordHash` alimenta `hasPassword` no publicUser; o hash nao sai na resposta.
+            const user = await User.findById(req.user?.id).select('+passwordHash').lean();
                   if (!user) throw new HttpError(401, 'Sessao invalida.');
 
                   res.json({ ok: true, data: { user: publicUser(user) } });
@@ -384,6 +415,53 @@ export const updateMe = async (req: Request, res: Response) => {
             return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
           }
         };
+
+/* ------------------------------------------------------------------ */
+/* PATCH /api/auth/password                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Troca de senha do proprio usuario logado.
+ *
+ * Exige a senha atual mesmo havendo sessao valida: cookie sequestrado ou
+ * maquina destravada nao devem bastar para trocar a credencial permanente.
+ *
+ * Conta so-Google nao tem senha para conferir — nesse caso respondemos 400
+ * explicando, em vez de deixar a comparacao falhar como "senha errada".
+ */
+export const updatePassword = asyncHandler(async (req: Request, res: Response) => {
+  const body = passwordSchema.parse(req.body);
+
+  const user = await User.findById(req.user?.id).select('+passwordHash');
+  if (!user) throw new HttpError(401, 'Sessao invalida.');
+
+  if (!user.passwordHash) {
+    throw new HttpError(
+      400,
+      'Esta conta entra pelo Google e ainda nao tem senha. Use "Entrar com o Google".'
+    );
+  }
+
+  const matches = await user.comparePassword(body.currentPassword);
+  if (!matches) {
+    throw new HttpError(400, 'A senha atual esta incorreta.', [
+      { field: 'currentPassword', message: 'Senha atual incorreta.' },
+    ]);
+  }
+
+  if (body.currentPassword === body.newPassword) {
+    throw new HttpError(400, 'A nova senha precisa ser diferente da atual.', [
+      { field: 'newPassword', message: 'Escolha uma senha diferente da atual.' },
+    ]);
+  }
+
+  user.passwordHash = await hashPassword(body.newPassword);
+  // Conta que entrou pelo Google e agora define senha passa a ter os dois caminhos.
+  if (user.googleId) user.authProvider = 'both';
+  await user.save();
+
+  res.json({ ok: true, data: null, message: 'Senha atualizada.' });
+});
 
 /* ------------------------------------------------------------------ */
 /* GET /api/auth/check-username?value=...                              */

@@ -382,17 +382,23 @@ export function DashboardPage() {
           </Link>
 
           <div className="dash__user" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div className="dash__avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {user.photoUrl ? (
-                <img src={user.photoUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ fontWeight: 'bold', color: '#64748b' }}>{(user.displayName || user.username || '?').charAt(0).toUpperCase()}</span>
-              )}
-            </div>
-            <div className="dash__user-text" style={{ display: 'flex', flexDirection: 'column' }}>
-              <strong style={{ fontSize: '0.9rem', color: '#111' }}>{user.displayName || user.username || 'Usuário'}</strong>
-              <span style={{ fontSize: '0.75rem', color: '#666' }}>@{user.username || user.email.split('@')[0]}</span>
-            </div>
+            <Link
+              to="/painel/conta"
+              title="Minha Conta"
+              style={{ display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}
+            >
+              <div className="dash__avatar" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {user.photoUrl || user.avatarUrl ? (
+                  <img src={user.photoUrl || user.avatarUrl || ''} alt="Avatar" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontWeight: 'bold', color: '#64748b' }}>{(user.displayName || user.username || '?').charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="dash__user-text" style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: '0.9rem', color: '#111' }}>{user.displayName || user.username || 'Usuário'}</strong>
+                <span style={{ fontSize: '0.75rem', color: '#666' }}>@{user.username || user.email.split('@')[0]}</span>
+              </div>
+            </Link>
             {user?.isAdmin && (
               <Link to="/admin" style={{ padding: '6px 12px', backgroundColor: '#f1f5f9', color: '#0f172a', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Shield size={14} /> Admin

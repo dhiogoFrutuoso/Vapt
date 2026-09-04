@@ -123,6 +123,13 @@ export type AuthUser = {
   planEndDate?: string | null;
   createdAt: string | null;
   lastLoginAt: string | null;
+  /** 'local' | 'google' | 'both' — como esta conta consegue entrar. */
+  authProvider?: 'local' | 'google' | 'both';
+  /** Foto vinda do Google. `photoUrl` (avatar proprio) tem precedencia. */
+  avatarUrl?: string | null;
+  /** Derivado na API. Decide se o card de troca de senha aparece. */
+  hasPassword?: boolean;
+  onboardingCompleted?: boolean;
 };
 
 export type RegisterInput = {
@@ -372,6 +379,9 @@ export const api = {
       `/auth/check-username?value=${encodeURIComponent(value)}`
     ),
   updateMe: (input: Partial<AuthUser>) => request<{ user: AuthUser }>('/auth/me', { method: 'PATCH', body: JSON.stringify(input) }),
+
+  updatePassword: (input: { currentPassword: string; newPassword: string }) =>
+    request<null>('/auth/password', { method: 'PATCH', body: JSON.stringify(input) }),
 
   /* Apps */
   getApps: (targetUserId?: string) => {
