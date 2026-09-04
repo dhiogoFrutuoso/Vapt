@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { CookieOptions, Request, Response } from 'express';
-import { OAuth2Client } from 'google-auth-library';
+import { OAuth2Client, type TokenPayload as GoogleIdTokenPayload } from 'google-auth-library';
 import { env } from '../config/env.js';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
@@ -145,17 +145,44 @@ export const googleCallback = asyncHandler(async (req: Request, res: Response) =
     return redirectToWeb(res, '/login', { erro: 'google_state_invalido' });
   }
 
-  const { tokens } = await oauth.getToken(code);
-  if (!tokens.id_token) {
-    return redirectToWeb(res, '/login', { erro: 'google_sem_identidade' });
+  /*
+   * Estas duas chamadas saem para a rede e sao as que mais falham em
+   * producao — quase sempre por `redirect_uri` divergente do cadastrado no
+   * Console, credencial trocada entre ambientes ou code ja usado. Sem o
+   * try/catch elas subiam como excecao e viravam um 500 generico, sem pista
+   * nenhuma para quem esta na tela nem para quem le o log.
+   */
+  let idToken: string;
+
+  try {
+    const { tokens } = await oauth.getToken(code);
+    if (!tokens.id_token) {
+      return redirectToWeb(res, '/login', { erro: 'google_sem_identidade' });
+    }
+    idToken = tokens.id_token;
+  } catch (error) {
+    console.error('[google] troca do code falhou.', {
+      redirectUri: env.google.redirectUri,
+      motivo: error instanceof Error ? error.message : String(error),
+    });
+    return redirectToWeb(res, '/login', { erro: 'google_token_falhou' });
   }
 
-  const ticket = await oauth.verifyIdToken({
-    idToken: tokens.id_token,
-    audience: env.google.clientId as string,
-  });
+  let payload: GoogleIdTokenPayload | undefined;
 
-  const payload = ticket.getPayload();
+  try {
+    const ticket = await oauth.verifyIdToken({
+      idToken,
+      audience: env.google.clientId as string,
+    });
+    payload = ticket.getPayload();
+  } catch (error) {
+    console.error('[google] id_token invalido.', {
+      motivo: error instanceof Error ? error.message : String(error),
+    });
+    return redirectToWeb(res, '/login', { erro: 'google_identidade_invalida' });
+  }
+
   const googleId = payload?.sub;
   const email = payload?.email?.toLowerCase().trim();
 

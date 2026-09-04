@@ -1,8 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { HttpError } from '../utils/httpError.js';
-import fs from 'fs';
-import path from 'path';
 import { env } from '../config/env.js';
 
 export function notFoundHandler(_req: Request, res: Response) {
@@ -31,13 +29,16 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return res.status(409).json({ ok: false, error: 'Registro duplicado' });
   }
 
-  console.error('[error]', err);
-  try {
-    fs.appendFileSync('api_error.log', new Date().toISOString() + ' ' + (err instanceof Error ? err.stack : String(err)) + '\n');
-  } catch (e) {
-    console.error('Falha ao escrever log de erro', e);
-  }
-  
+  /*
+   * Log so no stdout. A versao anterior tambem gravava em `api_error.log`,
+   * o que e impossivel em serverless: o filesystem e somente leitura e o
+   * appendFileSync estourava EROFS DENTRO do tratador de erro. O efeito era
+   * pior do que perder o arquivo — o EROFS enchia o log e enterrava a causa
+   * original, deixando todo 500 indistinguivel. Na Vercel, stdout ja e o
+   * destino certo: aparece em Deployments > Logs.
+   */
+  console.error('[error]', err instanceof Error ? (err.stack ?? err.message) : err);
+
   if (env.isProd) {
     return res.status(500).json({ ok: false, error: 'Erro interno no servidor' });
   }

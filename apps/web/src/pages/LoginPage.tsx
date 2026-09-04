@@ -20,6 +20,9 @@ const GOOGLE_ERRORS: Record<string, string> = {
   google_sem_codigo: 'O Google não concluiu a autorização. Tente novamente.',
   google_state_invalido: 'A sessão de login expirou por segurança. Comece de novo, por favor.',
   google_sem_identidade: 'O Google não devolveu seus dados. Tente novamente em instantes.',
+  google_token_falhou:
+    'O Google recusou a autorização. Isso costuma ser o endereço de retorno cadastrado no Console divergindo do que a aplicação envia.',
+  google_identidade_invalida: 'Não conseguimos validar a resposta do Google. Tente novamente.',
   google_sem_email: 'Não conseguimos ler o e-mail da sua conta Google.',
   google_email_nao_verificado:
     'Este e-mail ainda não foi verificado pelo Google. Confirme-o e tente de novo.',
