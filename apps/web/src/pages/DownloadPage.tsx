@@ -21,18 +21,32 @@ import toast from 'react-hot-toast';
  */
 
 /*
- * Endereços dos instaladores.
+ * Endereços dos instaladores, hospedados como assets de um GitHub Release.
  *
- * Ficam em variável de ambiente e não no código porque o arquivo é grande
- * demais para o repositório e muda a cada release: publicar uma versão nova
- * passa a ser trocar a URL, sem tocar no código nem refazer o deploy do site.
- *
- * Vazias, os botões avisam em vez de levar a um 404 — que é a pior versão
- * possível deste problema, porque o lojista não descobre que o link quebrou:
- * ele acha que o app não existe.
+ * Ficam em variável de ambiente e não no código porque os binários não moram
+ * no repositório: o .exe tem ~78 MB e, uma vez commitado, ficaria no
+ * histórico do Git para sempre. Publicar uma versão nova passa a ser criar um
+ * release — sem tocar no código e sem refazer o deploy do site, já que a URL
+ * usa `/releases/latest/download/`, que sempre resolve para o mais recente.
  */
 const EXE_URL = import.meta.env.VITE_EXE_URL ?? '';
 const APK_URL = import.meta.env.VITE_APK_URL ?? '';
+
+/**
+ * A URL foi realmente configurada?
+ *
+ * Não basta checar se está vazia. O `.env.example` traz a URL de exemplo com
+ * `SEU_USUARIO` e `SEU_REPOSITORIO`, e copiar o arquivo sem editá-lo é o erro
+ * mais provável de todos — o botão ficaria clicável apontando para um
+ * repositório inexistente, e o lojista receberia um 404 do GitHub sem
+ * entender o que aconteceu. Melhor mostrar "Em breve".
+ */
+function configurada(url: string): boolean {
+  const limpa = url.trim();
+  if (!limpa) return false;
+  if (limpa.includes('SEU_USUARIO') || limpa.includes('SEU_REPOSITORIO')) return false;
+  return /^https?:\/\//.test(limpa);
+}
 
 const CARD =
   'flex h-full flex-col rounded-3xl bg-white p-6 shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]';
@@ -58,11 +72,20 @@ function detectPlatform(): Platform {
 /**
  * Botão de download de um instalador.
  *
- * O `download` sozinho não basta: ele só força o salvamento quando o arquivo
- * está na MESMA origem da página. Servido por um storage externo (S3, R2,
- * Blob), o navegador ignora o atributo e obedece ao `Content-Disposition` que
- * o servidor mandar. Por isso o `target="_blank"`: se o storage decidir abrir
- * em vez de baixar, ao menos não descarta a página do painel.
+ * SOBRE `download` E `target="_blank"` JUNTOS
+ * ------------------------------------------
+ * O atributo `download` só funciona quando o arquivo está na MESMA origem da
+ * página. O GitHub é outra origem, então o navegador ignora o atributo e
+ * obedece ao `Content-Disposition` que o servidor mandar — o GitHub manda
+ * `attachment`, e o download acontece.
+ *
+ * O `download` fica assim mesmo, porque não custa nada e passa a valer se um
+ * dia os arquivos forem servidos pelo próprio domínio.
+ *
+ * Quem realmente protege a navegação é o `target="_blank"`: se algum dia o
+ * `Content-Disposition` vier errado, o arquivo abre numa aba nova em vez de
+ * substituir a página do painel. Com `noreferrer` junto, para não vazar a URL
+ * interna de onde o lojista veio.
  */
 function BotaoInstalador({
   url,
@@ -73,7 +96,7 @@ function BotaoInstalador({
   rotulo: string;
   arquivo: string;
 }) {
-  if (!url) {
+  if (!configurada(url)) {
     return (
       <button type="button" className={PILL} disabled title="Instalador ainda não publicado">
         Em breve
@@ -152,7 +175,7 @@ export function DownloadPage() {
               — o instalador ainda não tem assinatura digital.
             </p>
 
-            <BotaoInstalador url={EXE_URL} rotulo="Baixar para Windows" arquivo="Vapt-Setup.exe" />
+            <BotaoInstalador url={EXE_URL} rotulo="Baixar para Windows" arquivo="vapt-setup.exe" />
           </section>
 
           {/* ------------------------------ Android ----------------------------- */}
@@ -168,7 +191,7 @@ export function DownloadPage() {
               apps fora da Play Store.
             </p>
 
-            <BotaoInstalador url={APK_URL} rotulo="Baixar .apk" arquivo="Vapt-Equipe.apk" />
+            <BotaoInstalador url={APK_URL} rotulo="Baixar .apk" arquivo="vapt.apk" />
           </section>
 
           {/* -------------------------------- iOS ------------------------------- */}

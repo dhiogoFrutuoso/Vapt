@@ -123,5 +123,15 @@ apps/api/uploads/
 .agents/
 skills-lock.json
 
-# Binarios prontos para upload no release (nao versionados)
-publicar/
+# ==============================================================================
+# Binários nativos (.exe / .apk)
+# ==============================================================================
+# Executável de ~78 MB não entra no histórico do Git. Uma vez commitado, ele
+# fica lá para sempre: todo `git clone` passa a baixá-lo mesmo depois de
+# removido, e cada versão nova soma outros 78 MB. Os binários vão para o
+# GitHub Releases; `builds/` é só a área de passagem antes do upload.
+#
+# A pasta em si é versionada (pelo README, que documenta o fluxo); o que ela
+# recebe, não.
+builds/*
+!builds/README.md
