@@ -615,3 +615,81 @@
   gap: 4px;
   margin-top: 7px;
 }
+
+/* ==================================================================
+   VITRINE DA LANDING — o app oficial dentro do chassi do celular
+   ------------------------------------------------------------------
+   O "Teste Rapido" da home passou a renderizar o mesmo EditorPreview
+   de /painel/app/:id. Aqui so ajustamos o encaixe: o EditorPreview
+   traz moldura propria (borda, raio e sombra) que sobraria dentro do
+   bezel, e a barra de 6 abas precisa caber numa tela estreita.
+   ================================================================== */
+.phone__screen--app {
+  /* Mais alto que a tela antiga de 3 abas: agora ha 6 e uma barra
+     inferior fixa. O conteudo rola por dentro, o chassi nao cresce. */
+  height: 520px;
+  padding: 0;
+}
+
+.phone__screen--app .editor-preview {
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+/* `min-height: 0` e o que permite a area de conteudo encolher abaixo do
+   proprio conteudo e, com isso, rolar por dentro em vez de esticar. */
+.phone__screen--app .editor-preview__screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
+ * O notch e absoluto sobre o topo do chassi. O cabecalho antigo tinha uma
+ * barra de status que o empurrava para baixo; o cabecalho novo comeca colado
+ * no topo e o nome da loja ficava escondido atras do notch. O respiro abaixo
+ * e a altura do notch mais folga.
+ */
+.phone__screen--app .editor-preview .phone__header {
+  flex-shrink: 0;
+  padding-top: 26px;
+}
+
+.phone__screen--app .editor-preview .phone__body,
+.phone__screen--app .editor-preview .phone__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: none;
+  margin: 0;
+  padding: 12px 12px 16px;
+}
+
+/* Barra inferior travada no rodape do chassi. */
+.phone__screen--app .editor-preview .phone__tabs {
+  flex-shrink: 0;
+  margin-top: auto;
+  border-radius: 0;
+}
+
+/* --- 6 abas numa tela de vitrine: aperta sem deixar vazar ---------- */
+.phone__screen--app .editor-preview .phone__tabs button {
+  padding: 4px 0;
+  font-size: 8px;
+  letter-spacing: -0.02em;
+}
+
+.phone__screen--app .editor-preview .phone__tabs button svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* O chassi ganha alguns pixels: com 6 rotulos, 262px cortaria "Entregador". */
+.phone {
+  max-width: 300px;
+}
