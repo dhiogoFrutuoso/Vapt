@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/db.js';
 import { env } from './config/env.js';
@@ -20,7 +21,24 @@ async function bootstrap() {
     console.warn('[storage] Cloudinary nao configurado. Para producao, preencha CLOUDINARY_* no .env.');
   }
 
-  const server = app.listen(env.port, () => {
+  /*
+   * Servidor HTTP explicito, em vez de `app.listen`: o Socket.io precisa
+   * anexar ao mesmo servidor para dividir a porta com o Express. Com
+   * `app.listen` nao ha referencia ao servidor para passar ao socket.
+   */
+  const server = createServer(app);
+
+  /*
+   * Import dinamico: o socket.io so e carregado no processo persistente.
+   *
+   * No topo do arquivo, ele entrava no grafo de modulos tambem em serverless,
+   * onde nunca sera usado — carregando socket.io, engine.io e ws a cada cold
+   * start, atrasando o boot sem servir para nada.
+   */
+  const { initRealtime } = await import('./realtime/io.js');
+  initRealtime(server);
+
+  server.listen(env.port, () => {
     console.log(`[boot] VaptApp API rodando em http://localhost:${env.port}/api (${env.nodeEnv})`);
   });
 
@@ -50,9 +68,14 @@ async function bootstrap() {
 
 if (process.env.NODE_ENV !== 'production') {
   void bootstrap();
-} else {
-  // Conecta ao DB quando instanciado (Cold Start) na Vercel
-  connectDatabase().catch(console.error);
 }
+/*
+ * Em producao (Vercel) NAO conectamos aqui.
+ *
+ * A versao anterior fazia `connectDatabase().catch(console.error)` no carregamento
+ * do modulo, sem await — uma corrida: se a requisicao chegasse antes de a conexao
+ * subir, a consulta bufferizava e estourava. Agora quem garante a conexao e o
+ * middleware `ensureDatabase` em app.ts, que aguarda de verdade.
+ */
 
 export default app;

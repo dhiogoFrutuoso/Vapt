@@ -36,6 +36,12 @@ import {
   deviceUpdateProfile,
 } from '../controllers/deviceAuth.controller.js';
 import { imageMeta, serveImage } from '../controllers/images.controller.js';
+import {
+  blockEmployee,
+  listEmployees,
+  regenerateEmployeeCode,
+  unblockEmployee,
+} from '../controllers/employees.controller.js';
 import { createMagicLink, getPublicApp } from '../controllers/publicApp.controller.js';
 import { consumeMagicLink } from '../controllers/magicLink.controller.js';
 import {
@@ -174,7 +180,12 @@ router.post('/apps/:id/roles', requireAuth, writeLimiter, addRole);
 router.patch('/apps/:id/roles/:roleId', requireAuth, writeLimiter, updateRole);
 router.delete('/apps/:id/roles/:roleId', requireAuth, writeLimiter, removeRole);
 
+router.get('/apps/:id/employees', requireAuth, listEmployees);
 router.post('/apps/:id/employees', requireAuth, writeLimiter, addEmployee);
+/* Bloqueio e codigo: writeLimiter porque derrubam sessao e emitem credencial. */
+router.post('/apps/:id/employees/:empId/block', requireAuth, writeLimiter, blockEmployee);
+router.post('/apps/:id/employees/:empId/unblock', requireAuth, writeLimiter, unblockEmployee);
+router.post('/apps/:id/employees/:empId/regenerate-code', requireAuth, writeLimiter, regenerateEmployeeCode);
 router.patch('/apps/:id/employees/:empId', requireAuth, writeLimiter, updateEmployee);
 router.delete('/apps/:id/employees/:empId', requireAuth, writeLimiter, removeEmployee);
 

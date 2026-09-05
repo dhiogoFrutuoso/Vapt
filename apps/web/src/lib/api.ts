@@ -143,6 +143,22 @@ export type RegisterInput = {
   photo: string;
 };
 
+export type EmployeeDetail = {
+  id: string;
+  name: string;
+  roleId: string;
+  roleName: string;
+  permissions: string[];
+  accessCode: string | null;
+  blocked: boolean;
+  blockedAt: string | null;
+  onboardingCompleted: boolean;
+  lastLoginAt: string | null;
+  createdAt: string | null;
+  profile: { phone: string; cpf: string; birthDate: string | null };
+  devices: Array<{ deviceName: string; platform: string; lastUsedAt: string }>;
+};
+
 export type ForgotPasswordInput = { email: string };
 
 export type ResetPasswordInput = {
@@ -392,6 +408,29 @@ export const api = {
 
   updatePassword: (input: { currentPassword: string; newPassword: string }) =>
     request<null>('/auth/password', { method: 'PATCH', body: JSON.stringify(input) }),
+
+  /* ------------------------- Equipe do restaurante ------------------------ */
+
+  listEmployees: (appId: string) =>
+    request<{ employees: EmployeeDetail[] }>(`/apps/${appId}/employees`),
+
+  blockEmployee: (appId: string, empId: string) =>
+    request<{ blocked: boolean; sessoesEncerradas: number }>(
+      `/apps/${appId}/employees/${empId}/block`,
+      { method: 'POST' }
+    ),
+
+  unblockEmployee: (appId: string, empId: string) =>
+    request<{ blocked: boolean; accessCode: string }>(
+      `/apps/${appId}/employees/${empId}/unblock`,
+      { method: 'POST' }
+    ),
+
+  regenerateEmployeeCode: (appId: string, empId: string) =>
+    request<{ accessCode: string; sessoesEncerradas: number }>(
+      `/apps/${appId}/employees/${empId}/regenerate-code`,
+      { method: 'POST' }
+    ),
 
   forgotPassword: (input: ForgotPasswordInput) =>
     request<{ expiresInMinutes: number }>('/auth/forgot-password', {

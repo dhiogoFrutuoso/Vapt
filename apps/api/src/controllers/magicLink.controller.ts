@@ -5,6 +5,7 @@ import { AppProject } from '../models/AppProject.js';
 import { MagicLinkUse } from '../models/MagicLinkUse.js';
 import { Order } from '../models/Order.js';
 import { MAGIC_TTL_MINUTES, verifyMagicToken } from '../utils/magicLink.js';
+import { emitNewOrder } from '../realtime/io.js';
 
 /**
  * `GET /api/parse?payload=...`
@@ -123,6 +124,19 @@ export const consumeMagicLink = asyncHandler(async (req: Request, res: Response)
     }
     throw error;
   }
+
+  /*
+   * Push DEPOIS de o pedido estar gravado e o uso unico registrado. Emitir
+   * antes faria a cozinha ver um card que ainda poderia ser desfeito pela
+   * corrida de dois cliques.
+   */
+  emitNewOrder(String(app._id), {
+    orderId: String(pedido._id),
+    code: pedido.code,
+    customerName: pedido.customerName,
+    status: pedido.status,
+    source: 'magic_link',
+  });
 
   return paraPainel(res, { pedido: 'criado', id: String(pedido._id), codigo: pedido.code });
 });

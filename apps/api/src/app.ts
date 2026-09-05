@@ -9,6 +9,7 @@ import { env } from './config/env.js';
 import { router } from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { apiLimiter } from './middlewares/rateLimiter.js';
+import { ensureDatabase } from './config/db.js';
 
 export function createApp() {
   const app = express();
@@ -83,7 +84,29 @@ export function createApp() {
     })
   );
 
-  app.use('/api', apiLimiter, router);
+  /*
+   * Conexao com o banco garantida ANTES de qualquer rota.
+   *
+   * Em serverless a funcao acorda fria e a conexao pode nao estar pronta
+   * quando a primeira requisicao chega. Sem este await, a consulta bufferizava
+   * e morria com "buffering timed out after 10000ms" — um 500 que apontava
+   * para a colecao consultada em vez de para a conexao.
+   *
+   * Fica DEPOIS do rate limit: requisicao bloqueada por limite nao deve
+   * acordar o banco.
+   */
+  app.use('/api', apiLimiter, async (_req, res, next) => {
+    try {
+      await ensureDatabase();
+      next();
+    } catch (erro) {
+      console.error('[db] Falha ao conectar antes da rota.', erro);
+      res.status(503).json({
+        ok: false,
+        error: 'Servico indisponivel no momento. Tente novamente em instantes.',
+      });
+    }
+  }, router);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

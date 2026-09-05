@@ -3,9 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { auth, site } from '../data/content';
 import { useAuth } from '../context/AuthContext';
+import { EmployeeList } from '../components/settings/EmployeeList';
 import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
-import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, KeySquare, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users } from 'lucide-react';
+import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
 export function DashboardPage() {
@@ -386,24 +387,6 @@ export function DashboardPage() {
     } finally {
       setIsAddingEmp(false);
     }
-  }
-
-  async function handleRemoveEmployee(empId: string) {
-    if (!fullApp) return;
-    confirm({
-      title: 'Remover Funcionário',
-      message: 'Remover o acesso deste funcionário permanentemente?',
-      confirmText: 'Remover',
-      isDestructive: true,
-      onConfirm: async () => {
-        try {
-          await api.removeEmployee(fullApp._id, empId);
-          setFullApp({ ...fullApp, employees: fullApp.employees.filter((e: any) => e._id !== empId) });
-        } catch(err) {
-          toast.error('Erro ao remover funcionário');
-        }
-      }
-    });
   }
 
   if (!user) return null;
@@ -978,26 +961,10 @@ export function DashboardPage() {
                           </div>
                         </form>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {fullApp.employees?.length > 0 ? fullApp.employees.map((emp: any) => {
-                            const role = fullApp.roles?.find((r: any) => r._id === emp.roleId);
-                            return (
-                              <div key={emp._id} style={{ padding: '14px', backgroundColor: '#fff', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                  <div>
-                                    <strong style={{ display: 'block', fontSize: '1rem', color: '#111', fontWeight: '700' }}>{emp.name}</strong>
-                                    <span style={{ fontSize: '0.85rem', color: '#666' }}>{role ? role.name : 'Sem função'}</span>
-                                  </div>
-                                  <button onClick={() => handleRemoveEmployee(emp._id)} style={{ background: '#fff', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '8px' }}><Trash2 size={16} /></button>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#FAFAFA', padding: '10px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.03)' }}>
-                                  <KeySquare size={18} color="#666" />
-                                  <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '3px', color: '#111' }}>{emp.accessCode}</span>
-                                </div>
-                              </div>
-                            );
-                          }) : <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Nenhum funcionário adicionado.</p>}
-                        </div>
+                        {/* Lista com detalhes, bloqueio e exclusao. Extraida
+                            para componente proprio: aqui dentro seriam mais
+                            200 linhas num arquivo que ja passa de 1.000. */}
+                        <EmployeeList appId={settingsAppId} onChanged={() => void openSettings(settingsAppId)} />
                       </div>
 
                       {/* Saguões (praças de preparo da cozinha) */}

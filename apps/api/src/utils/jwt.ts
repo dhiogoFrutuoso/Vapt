@@ -30,7 +30,17 @@ export function verifyAccessToken(token: string): TokenPayload | null {
 
     return { sub: String(sub), role };
   } catch (error) {
-    console.error('[JWT Error]:', error);
+    /*
+     * Token invalido ou expirado e evento ESPERADO, nao falha do servidor:
+     * acontece a cada sessao que vence e a cada conexao de socket com
+     * credencial errada. Antes isso saia como `console.error` com a pilha
+     * inteira — em producao, dezenas de rastros por minuto que parecem
+     * incidente e escondem os erros de verdade.
+     *
+     * Fica em `warn`, com a mensagem e sem a pilha.
+     */
+    const motivo = error instanceof Error ? error.message : String(error);
+    console.warn(`[jwt] Token recusado: ${motivo}`);
     return null;
   }
 }
