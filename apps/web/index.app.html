@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- `viewport-fit=cover` + `user-scalable=no`: dentro de uma WebView, o
+         duplo toque que daria zoom no navegador so desalinha a interface, e o
+         recorte da tela do iPhone precisa do `cover` para o rodape encostar
+         na borda. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#F95D2A" />
+    <title>Vapt — App da equipe</title>
+    <link rel="icon" type="image/png" href="./vapt-logo.png" />
+    <!-- As fontes vem embutidas no CSS do bundle: um aplicativo aberto no
+         salao pode estar sem internet boa, e buscar fonte no Google faria a
+         tela de login piscar sem tipografia ate a rede responder. -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.app.tsx"></script>
+  </body>
+</html>

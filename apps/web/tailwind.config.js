@@ -4,6 +4,10 @@ import typography from '@tailwindcss/typography';
 export default {
   content: [
     './index.html',
+    // Entrada do aplicativo nativo: sem estas duas linhas o Tailwind nao
+    // varre o bundle do APK e o app instala sem estilo nenhum.
+    './index.app.html',
+    './src/main.app.tsx',
     './src/pages/AdminPage.tsx',
     './src/pages/EditorPage.tsx',
     './src/components/EditorPreview.tsx',

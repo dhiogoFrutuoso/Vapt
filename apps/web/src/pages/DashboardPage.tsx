@@ -9,6 +9,76 @@ import { useConfirm } from '../components/ConfirmModal';
 import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
+/*
+ * Estilos das secoes novas de configuracao.
+ *
+ * Ficam no escopo do modulo, nao dentro do componente: sao objetos constantes,
+ * e recria-los a cada render daria um objeto novo por campo a cada tecla
+ * digitada no formulario.
+ *
+ * O resto desta tela usa estilo embutido, entao seguir o mesmo padrao mantem a
+ * pagina coerente — misturar Tailwind aqui exigiria ainda registrar o arquivo
+ * no `content` do tailwind.config, que hoje nao o inclui.
+ */
+const campoTexto: React.CSSProperties = {
+  width: '100%',
+  padding: '14px',
+  borderRadius: '12px',
+  border: '1px solid rgba(0,0,0,0.1)',
+  fontSize: '0.95rem',
+  outline: 'none',
+  boxSizing: 'border-box',
+  backgroundColor: '#fff',
+};
+
+const campoRotulo: React.CSSProperties = {
+  display: 'block',
+  marginBottom: '8px',
+  fontWeight: 600,
+  color: '#333',
+  fontSize: '0.9rem',
+};
+
+const campoAjuda: React.CSSProperties = {
+  margin: '6px 0 0 0',
+  fontSize: '0.78rem',
+  color: '#64748b',
+  lineHeight: 1.4,
+};
+
+const secaoTitulo: React.CSSProperties = {
+  margin: '0 0 1rem 0',
+  fontSize: '0.95rem',
+  fontWeight: 700,
+  color: '#333',
+};
+
+const campoChave: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: '12px',
+  cursor: 'pointer',
+};
+
+const caixaMarcar: React.CSSProperties = {
+  width: '18px',
+  height: '18px',
+  cursor: 'pointer',
+  flexShrink: 0,
+  marginTop: '2px',
+};
+
+const chaveTitulo: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.9rem',
+  color: '#333',
+};
+
+const chaveAjuda: React.CSSProperties = {
+  fontSize: '0.8rem',
+  color: '#64748b',
+};
+
 export function DashboardPage() {
   const copy = auth.dashboard;
   const { user, logout } = useAuth();
@@ -71,6 +141,17 @@ export function DashboardPage() {
   const [fullApp, setFullApp] = useState<AppProjectFull | null>(null);
   const [loadingSettings, setLoadingSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'geral' | 'equipe'>('geral');
+
+  /*
+   * Aplicativo de TESTE e uma previa e nada alem disso: o dono edita a
+   * aparencia e ve como ficaria. Ele NAO tem cardapio publico, app da equipe
+   * nem download, e por isso as configuracoes desses recursos somem daqui.
+   *
+   * Nao e enfeite: divulgar o link de um app de teste geraria pedido real que
+   * ninguem receberia, e cadastrar funcionario num app sem aplicativo entrega
+   * um codigo de acesso que nao abre lugar nenhum.
+   */
+  const settingsIsOficial = (fullApp?.appPlanType ?? '').startsWith('OFICIAL');
   const [savingSettings, setSavingSettings] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,6 +162,23 @@ export function DashboardPage() {
   const [formLogoUrl, setFormLogoUrl] = useState<string | null>(null);
   const [formLogoBase64, setFormLogoBase64] = useState<string | null>(null);
   const [formWhatsapp, setFormWhatsapp] = useState('');
+
+  /*
+   * Aparencia, entrega e salao. O schema e a API ja aceitavam estes campos —
+   * faltava a tela. `fee` e o caso mais grave da lista: o cardapio do cliente
+   * soma a taxa de entrega no total, e sem este campo ela ficava presa em
+   * zero, sem nenhum lugar no painel onde muda-la.
+   */
+  const [formSecondaryColor, setFormSecondaryColor] = useState('#111827');
+  const [formTheme, setFormTheme] = useState<'claro' | 'escuro'>('claro');
+  const [formDeliveryEnabled, setFormDeliveryEnabled] = useState(true);
+  const [formFee, setFormFee] = useState(0);
+  const [formMinOrder, setFormMinOrder] = useState(0);
+  const [formEstimated, setFormEstimated] = useState(35);
+  const [formChannel, setFormChannel] = useState<'whatsapp' | 'painel' | 'ambos'>('ambos');
+  const [formCourierPaid, setFormCourierPaid] = useState(false);
+  const [formCommissionOn, setFormCommissionOn] = useState(false);
+  const [formCommissionPct, setFormCommissionPct] = useState(10);
 
   // Form State for "Equipe" (Roles)
   const [newRoleName, setNewRoleName] = useState('');
@@ -241,6 +339,21 @@ export function DashboardPage() {
       setFormLogoUrl(getImageUrl(data.brand?.logo));
       setFormLogoBase64(null);
       setFormWhatsapp(data.delivery?.whatsapp || '');
+      setFormSecondaryColor(data.brand?.secondaryColor || '#111827');
+      setFormTheme((data.brand?.theme as 'claro' | 'escuro') || 'claro');
+      /*
+       * `??` e nao `||` nos numeros e nos booleanos: com `||`, uma taxa de
+       * entrega salva como 0 (frete gratis) voltaria para a tela como o
+       * padrao, e "entrega desativada" nunca conseguiria ficar desativada.
+       */
+      setFormDeliveryEnabled(data.delivery?.enabled ?? true);
+      setFormFee(data.delivery?.fee ?? 0);
+      setFormMinOrder(data.delivery?.minOrder ?? 0);
+      setFormEstimated(data.delivery?.estimatedMinutes ?? 35);
+      setFormChannel((data.delivery?.channel as 'whatsapp' | 'painel' | 'ambos') || 'ambos');
+      setFormCourierPaid(data.delivery?.courierPaidPerDelivery ?? false);
+      setFormCommissionOn(data.dining?.isWaiterCommissionEnabled ?? false);
+      setFormCommissionPct(data.dining?.waiterCommissionPercentage ?? 10);
       if (data.roles?.length > 0) {
         setNewEmpRoleId(data.roles[0]._id);
       }
@@ -264,11 +377,24 @@ export function DashboardPage() {
           ...fullApp.brand,
           tagline: formTagline,
           primaryColor: formPrimaryColor,
+          secondaryColor: formSecondaryColor,
+          theme: formTheme,
         },
         delivery: {
           ...fullApp.delivery,
-          whatsapp: formWhatsapp
-        }
+          whatsapp: formWhatsapp,
+          enabled: formDeliveryEnabled,
+          fee: formFee,
+          minOrder: formMinOrder,
+          estimatedMinutes: formEstimated,
+          channel: formChannel,
+          courierPaidPerDelivery: formCourierPaid,
+        },
+        dining: {
+          ...fullApp.dining,
+          isWaiterCommissionEnabled: formCommissionOn,
+          waiterCommissionPercentage: formCommissionPct,
+        },
       };
       if (formLogoBase64) {
         updates.brand!.logoBase64 = formLogoBase64;
@@ -794,56 +920,72 @@ export function DashboardPage() {
                   >
                     <Edit3 size={18} /> Aparência e Contato
                   </button>
-                  <button 
-                    onClick={() => setSettingsTab('equipe')}
-                    style={{ padding: '1.2rem 0', background: 'none', border: 'none', borderBottom: settingsTab === 'equipe' ? '3px solid #F95D2A' : '3px solid transparent', color: settingsTab === 'equipe' ? '#F95D2A' : '#666', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
-                  >
-                    <Users size={18} /> Equipe e Acessos
-                  </button>
+                  {settingsIsOficial && (
+                    <button 
+                      onClick={() => setSettingsTab('equipe')}
+                      style={{ padding: '1.2rem 0', background: 'none', border: 'none', borderBottom: settingsTab === 'equipe' ? '3px solid #F95D2A' : '3px solid transparent', color: settingsTab === 'equipe' ? '#F95D2A' : '#666', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                    >
+                      <Users size={18} /> Equipe e Acessos
+                    </button>
+                  )}
                 </div>
 
                 {/* Links do cardapio publico e do app da equipe.
                     Ficam FORA das abas de propósito: o dono entra aqui para
                     pegar o link e mandar no WhatsApp, e nao deveria ter de
-                    adivinhar em qual aba ele mora. */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', backgroundColor: '#FFF8F6' }}>
-                  <a
-                    href={`/cliente/${fullApp.slug || settingsAppId}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#F95D2A', color: '#fff', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}
-                  >
-                    <Store size={16} /> Abrir aba do Cliente
-                  </a>
+                    adivinhar em qual aba ele mora.
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const url = `${window.location.origin}/cliente/${fullApp.slug || settingsAppId}`;
-                      void navigator.clipboard
-                        .writeText(url)
-                        .then(() => toast.success('Link do cardápio copiado.'))
-                        .catch(() => toast.error('Não foi possível copiar o link.'));
-                    }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#fff', color: '#333', border: '1px solid rgba(0,0,0,0.08)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
-                  >
-                    <Copy size={16} /> Copiar link do cardápio
-                  </button>
+                    Só existem no plano OFICIAL. Num app de teste nao ha
+                    cardapio no ar nem aplicativo instalado: o link levaria a
+                    uma pagina que nao abre e o APK a um login que nao entra. */}
+                {settingsIsOficial ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', backgroundColor: '#FFF8F6' }}>
+                    <a
+                      href={`/cliente/${fullApp.slug || settingsAppId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#F95D2A', color: '#fff', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}
+                    >
+                      <Store size={16} /> Abrir aba do Cliente
+                    </a>
 
-                  <a
-                    href="/apk"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#fff', color: '#333', border: '1px solid rgba(0,0,0,0.08)', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}
-                  >
-                    <Smartphone size={16} /> App da equipe
-                  </a>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = `${window.location.origin}/cliente/${fullApp.slug || settingsAppId}`;
+                        void navigator.clipboard
+                          .writeText(url)
+                          .then(() => toast.success('Link do cardápio copiado.'))
+                          .catch(() => toast.error('Não foi possível copiar o link.'));
+                      }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#fff', color: '#333', border: '1px solid rgba(0,0,0,0.08)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+                    >
+                      <Copy size={16} /> Copiar link do cardápio
+                    </button>
+
+                    <a
+                      href="/apk"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#fff', color: '#333', border: '1px solid rgba(0,0,0,0.08)', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}
+                    >
+                      <Smartphone size={16} /> App da equipe
+                    </a>
+                  </div>
+                ) : (
+                  /* Uma linha de texto, sem link nem botao. O dono precisa
+                     saber POR QUE a barra sumiu — senao parece defeito. */
+                  <p style={{ margin: 0, padding: '0.9rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', backgroundColor: '#FAFAFA', color: '#64748b', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                    Este é um aplicativo de <strong>teste</strong>: serve para você montar e visualizar
+                    como ficaria. O cardápio do cliente, o app da equipe e o download são liberados no
+                    plano oficial.
+                  </p>
+                )}
 
                 {/* Tab Content */}
                 <div style={{ padding: '1.5rem', overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
                   
-                  {settingsTab === 'geral' && (
+                  {(settingsTab === 'geral' || !settingsIsOficial) && (
                     <form onSubmit={handleSaveGeneral}>
                       <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
                         <div style={{ flexShrink: 0 }}>
@@ -885,6 +1027,104 @@ export function DashboardPage() {
                         </div>
                       </div>
 
+                      {/* ---------------------- Aparência ---------------------- */}
+                      <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
+                        <h3 style={secaoTitulo}>Aparência</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                          <div>
+                            <label style={campoRotulo}>Cor secundária</label>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                              <input type="color" value={formSecondaryColor} onChange={e => setFormSecondaryColor(e.target.value)} style={{ width: '52px', height: '52px', padding: 0, borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
+                              <input type="text" value={formSecondaryColor} onChange={e => setFormSecondaryColor(e.target.value.toUpperCase())} style={{ ...campoTexto, flex: 1, textTransform: 'uppercase' }} />
+                            </div>
+                            <p style={campoAjuda}>Usada em textos e botões de apoio do cardápio.</p>
+                          </div>
+
+                          <div>
+                            <label style={campoRotulo}>Tema do cardápio</label>
+                            <select value={formTheme} onChange={e => setFormTheme(e.target.value as 'claro' | 'escuro')} style={campoTexto}>
+                              <option value="claro">Claro</option>
+                              <option value="escuro">Escuro</option>
+                            </select>
+                            <p style={campoAjuda}>Fundo da página que o cliente abre.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ----------------------- Entrega ----------------------- */}
+                      <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
+                        <h3 style={secaoTitulo}>Entrega</h3>
+
+                        <label style={campoChave}>
+                          <input type="checkbox" checked={formDeliveryEnabled} onChange={e => setFormDeliveryEnabled(e.target.checked)} style={caixaMarcar} />
+                          <span>
+                            <strong style={chaveTitulo}>Aceitar pedidos com entrega</strong>
+                            <span style={chaveAjuda}>Desmarcado, o cardápio só oferece retirada no balcão.</span>
+                          </span>
+                        </label>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', opacity: formDeliveryEnabled ? 1 : 0.45 }}>
+                          <div>
+                            <label style={campoRotulo}>Taxa de entrega (R$)</label>
+                            {/* Troca vírgula por ponto antes do Number: um campo de
+                                dinheiro que rejeita "8,50" faz o dono achar que o
+                                sistema travou. */}
+                            <input type="number" min={0} max={999} step="0.01" disabled={!formDeliveryEnabled} value={formFee} onChange={e => setFormFee(Number(e.target.value.replace(',', '.')) || 0)} style={campoTexto} />
+                            <p style={campoAjuda}>Somada ao total do cliente. Zero = frete grátis.</p>
+                          </div>
+
+                          <div>
+                            <label style={campoRotulo}>Pedido mínimo (R$)</label>
+                            <input type="number" min={0} max={9999} step="0.01" disabled={!formDeliveryEnabled} value={formMinOrder} onChange={e => setFormMinOrder(Number(e.target.value.replace(',', '.')) || 0)} style={campoTexto} />
+                            <p style={campoAjuda}>Zero para não exigir mínimo.</p>
+                          </div>
+
+                          <div>
+                            <label style={campoRotulo}>Tempo estimado (min)</label>
+                            <input type="number" min={5} max={240} disabled={!formDeliveryEnabled} value={formEstimated} onChange={e => setFormEstimated(Number(e.target.value) || 35)} style={campoTexto} />
+                            <p style={campoAjuda}>Entre 5 e 240 minutos.</p>
+                          </div>
+
+                          <div>
+                            <label style={campoRotulo}>Como o pedido chega</label>
+                            <select disabled={!formDeliveryEnabled} value={formChannel} onChange={e => setFormChannel(e.target.value as 'whatsapp' | 'painel' | 'ambos')} style={campoTexto}>
+                              <option value="ambos">WhatsApp e painel</option>
+                              <option value="whatsapp">Só WhatsApp</option>
+                              <option value="painel">Só painel</option>
+                            </select>
+                            <p style={campoAjuda}>Por onde a equipe recebe o pedido.</p>
+                          </div>
+                        </div>
+
+                        <label style={{ ...campoChave, marginTop: '1rem', opacity: formDeliveryEnabled ? 1 : 0.45 }}>
+                          <input type="checkbox" disabled={!formDeliveryEnabled} checked={formCourierPaid} onChange={e => setFormCourierPaid(e.target.checked)} style={caixaMarcar} />
+                          <span>
+                            <strong style={chaveTitulo}>Entregador recebe por entrega</strong>
+                            <span style={chaveAjuda}>O caixa separa a taxa em vez de somá-la ao faturamento.</span>
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* ------------------------ Salão ------------------------ */}
+                      <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
+                        <h3 style={secaoTitulo}>Salão</h3>
+
+                        <label style={campoChave}>
+                          <input type="checkbox" checked={formCommissionOn} onChange={e => setFormCommissionOn(e.target.checked)} style={caixaMarcar} />
+                          <span>
+                            <strong style={chaveTitulo}>Cobrar comissão do garçom</strong>
+                            <span style={chaveAjuda}>Acrescentada à conta da mesa no fechamento.</span>
+                          </span>
+                        </label>
+
+                        {formCommissionOn && (
+                          <div style={{ maxWidth: '220px', marginTop: '1rem' }}>
+                            <label style={campoRotulo}>Percentual (%)</label>
+                            <input type="number" min={0} max={100} value={formCommissionPct} onChange={e => setFormCommissionPct(Number(e.target.value) || 0)} style={campoTexto} />
+                          </div>
+                        )}
+                      </div>
+
                       <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem' }}>
                         <button type="submit" disabled={savingSettings} style={{ padding: '14px 28px', borderRadius: '99px', border: 'none', background: '#F95D2A', color: '#fff', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(249, 93, 42, 0.3)' }}>
                           <Save size={18} /> {savingSettings ? 'Salvando...' : 'Salvar Alterações'}
@@ -893,7 +1133,7 @@ export function DashboardPage() {
                     </form>
                   )}
 
-                  {settingsTab === 'equipe' && (
+                  {settingsIsOficial && settingsTab === 'equipe' && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-start' }}>
                       {/* Funções (Roles) */}
                       <div style={{ flex: 1, backgroundColor: '#FAFAFA', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>

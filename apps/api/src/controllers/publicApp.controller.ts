@@ -24,6 +24,29 @@ import { z } from 'zod';
 
 const imageUrl = (id: unknown) => (id ? `${env.publicUrl}/api/images/${String(id)}` : null);
 
+/**
+ * Portao do cardapio publico.
+ *
+ * O criterio e o PLANO, nao o `status`. `status` nasce `rascunho` e nada no
+ * painel o promove, entao amarrar a ele fazia TODO cardapio responder 404 —
+ * inclusive o de quem ja e cliente oficial. O plano e a decisao comercial e
+ * so ele deveria mandar aqui.
+ *
+ * Aplicativo de TESTE nao tem cardapio publico por definicao: ele existe para
+ * o dono ver como ficaria, nao para receber pedido de cliente real.
+ *
+ * `pausado` continua fechando a loja — e o dono dizendo "hoje nao atendo", e
+ * um pedido que ninguem recebe e pior do que a pagina nao abrir.
+ */
+function garantirCardapioPublico(app: Record<string, any>): void {
+  if (!String(app.appPlanType ?? '').startsWith('OFICIAL')) {
+    throw new HttpError(404, 'Este cardapio ainda nao foi publicado.');
+  }
+  if (app.status === 'pausado') {
+    throw new HttpError(404, 'Este cardapio nao esta disponivel no momento.');
+  }
+}
+
 export const getPublicApp = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
@@ -39,18 +62,12 @@ export const getPublicApp = asyncHandler(async (req: Request, res: Response) => 
    * expressa melhor a intencao do que repetir a forma inteira do schema.
    */
   const app = (await AppProject.findOne(filtro)
-    .select('name slug code businessType brand delivery categories products promotions status')
+    .select('name slug code businessType brand delivery categories products promotions status appPlanType')
     .lean()) as Record<string, any> | null;
 
   if (!app) throw new HttpError(404, 'Restaurante nao encontrado.');
 
-  /*
-   * Rascunho e pausado nao atendem cliente. Um cardapio de loja pausada
-   * geraria pedido que ninguem recebe — pior do que a pagina nao abrir.
-   */
-  if (app.status === 'pausado' || app.status === 'rascunho') {
-    throw new HttpError(404, 'Este cardapio nao esta disponivel no momento.');
-  }
+  garantirCardapioPublico(app);
 
   const brand = (app.brand ?? {}) as Record<string, unknown>;
   const delivery = (app.delivery ?? {}) as Record<string, unknown>;
@@ -159,13 +176,11 @@ export const createMagicLink = asyncHandler(async (req: Request, res: Response) 
   const filtro = mongoose.isValidObjectId(id) ? { _id: id } : { slug: String(id).toLowerCase() };
 
   const app = (await AppProject.findOne(filtro)
-    .select('_id status products delivery')
+    .select('_id status appPlanType products delivery')
     .lean()) as Record<string, any> | null;
 
   if (!app) throw new HttpError(404, 'Restaurante nao encontrado.');
-  if (app.status === 'pausado' || app.status === 'rascunho') {
-    throw new HttpError(404, 'Este cardapio nao esta disponivel no momento.');
-  }
+  garantirCardapioPublico(app);
 
   const disponiveis = new Map<string, { name: string; price: number }>();
   for (const p of app.products ?? []) {

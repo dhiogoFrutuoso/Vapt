@@ -101,9 +101,33 @@ export const env = {
       .split(',')
       .map((o) => o.trim())
       .filter(Boolean),
+    /*
+     * Origens das cascas nativas. Cada plataforma usa a sua:
+     *   iOS      -> capacitor://localhost
+     *   Android  -> https://localhost  (androidScheme: 'https', padrao do
+     *               Capacitor 6; sem esta linha o APK instala e nenhuma
+     *               chamada passa, com "erro de rede" e nada no log)
+     *   Ionic    -> ionic://localhost
+     */
     'capacitor://localhost',
+    'https://localhost',
     'ionic://localhost',
     'http://localhost',
+    /*
+     * Esquema proprio do aplicativo de desktop (Electron).
+     *
+     * O Electron abre a interface por `file://`, e nessa origem o navegador
+     * manda `Origin: null`. Liberar `null` seria o caminho curto e o errado:
+     * `null` tambem e a origem de iframe com sandbox e de alguns
+     * redirecionamentos, entao qualquer pagina hostil na internet passaria a
+     * falar com esta API.
+     *
+     * Registrando `vapt://` como esquema privilegiado no Electron, a origem
+     * passa a ser esta — um valor que so o aplicativo instalado consegue
+     * produzir, e que nenhuma pagina web alcanca.
+     */
+    'vapt://localhost',
+    'vapt://-',
   ],
 
   /**
