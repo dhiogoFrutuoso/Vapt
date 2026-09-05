@@ -2,6 +2,15 @@ import typography from '@tailwindcss/typography';
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  /*
+   * Modo escuro por CLASSE, nao por media query.
+   *
+   * A media query obedeceria so ao sistema operacional, e a preferencia aqui
+   * e do funcionario: ele precisa poder forcar claro num aparelho em modo
+   * escuro, e vice-versa. O modo automatico continua existindo — quem le a
+   * media query e o codigo das preferencias, que entao poe ou tira a classe.
+   */
+  darkMode: 'class',
   content: [
     './index.html',
     // Entrada do aplicativo nativo: sem estas duas linhas o Tailwind nao

@@ -164,18 +164,18 @@ export function DashboardPage() {
   const [formWhatsapp, setFormWhatsapp] = useState('');
 
   /*
-   * Aparencia, entrega e salao. O schema e a API ja aceitavam estes campos —
-   * faltava a tela. `fee` e o caso mais grave da lista: o cardapio do cliente
-   * soma a taxa de entrega no total, e sem este campo ela ficava presa em
-   * zero, sem nenhum lugar no painel onde muda-la.
+   * Só os interruptores estruturais.
+   *
+   * Cor secundária e tema saíram para o painel de edição, que é onde o dono
+   * desenha o aplicativo. Taxa, pedido mínimo, tempo estimado e canal saíram
+   * porque viraram decisão da Recepção, tomada por pedido: um valor fixo aqui
+   * competiria com o valor de lá, e o dono não teria como saber qual dos dois
+   * o cliente pagou.
+   *
+   * O que sobra são as duas regras que ligam ou desligam um fluxo inteiro, e
+   * essas não têm equivalente por pedido.
    */
-  const [formSecondaryColor, setFormSecondaryColor] = useState('#111827');
-  const [formTheme, setFormTheme] = useState<'claro' | 'escuro'>('claro');
   const [formDeliveryEnabled, setFormDeliveryEnabled] = useState(true);
-  const [formFee, setFormFee] = useState(0);
-  const [formMinOrder, setFormMinOrder] = useState(0);
-  const [formEstimated, setFormEstimated] = useState(35);
-  const [formChannel, setFormChannel] = useState<'whatsapp' | 'painel' | 'ambos'>('ambos');
   const [formCourierPaid, setFormCourierPaid] = useState(false);
   const [formCommissionOn, setFormCommissionOn] = useState(false);
   const [formCommissionPct, setFormCommissionPct] = useState(10);
@@ -339,18 +339,11 @@ export function DashboardPage() {
       setFormLogoUrl(getImageUrl(data.brand?.logo));
       setFormLogoBase64(null);
       setFormWhatsapp(data.delivery?.whatsapp || '');
-      setFormSecondaryColor(data.brand?.secondaryColor || '#111827');
-      setFormTheme((data.brand?.theme as 'claro' | 'escuro') || 'claro');
       /*
-       * `??` e nao `||` nos numeros e nos booleanos: com `||`, uma taxa de
-       * entrega salva como 0 (frete gratis) voltaria para a tela como o
-       * padrao, e "entrega desativada" nunca conseguiria ficar desativada.
+       * `??` e não `||` nos booleanos: com `||`, "entrega desativada" nunca
+       * conseguiria ficar desativada — o false voltaria como o padrão true.
        */
       setFormDeliveryEnabled(data.delivery?.enabled ?? true);
-      setFormFee(data.delivery?.fee ?? 0);
-      setFormMinOrder(data.delivery?.minOrder ?? 0);
-      setFormEstimated(data.delivery?.estimatedMinutes ?? 35);
-      setFormChannel((data.delivery?.channel as 'whatsapp' | 'painel' | 'ambos') || 'ambos');
       setFormCourierPaid(data.delivery?.courierPaidPerDelivery ?? false);
       setFormCommissionOn(data.dining?.isWaiterCommissionEnabled ?? false);
       setFormCommissionPct(data.dining?.waiterCommissionPercentage ?? 10);
@@ -377,17 +370,11 @@ export function DashboardPage() {
           ...fullApp.brand,
           tagline: formTagline,
           primaryColor: formPrimaryColor,
-          secondaryColor: formSecondaryColor,
-          theme: formTheme,
         },
         delivery: {
           ...fullApp.delivery,
           whatsapp: formWhatsapp,
           enabled: formDeliveryEnabled,
-          fee: formFee,
-          minOrder: formMinOrder,
-          estimatedMinutes: formEstimated,
-          channel: formChannel,
           courierPaidPerDelivery: formCourierPaid,
         },
         dining: {
@@ -1027,30 +1014,6 @@ export function DashboardPage() {
                         </div>
                       </div>
 
-                      {/* ---------------------- Aparência ---------------------- */}
-                      <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
-                        <h3 style={secaoTitulo}>Aparência</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                          <div>
-                            <label style={campoRotulo}>Cor secundária</label>
-                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                              <input type="color" value={formSecondaryColor} onChange={e => setFormSecondaryColor(e.target.value)} style={{ width: '52px', height: '52px', padding: 0, borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', cursor: 'pointer' }} />
-                              <input type="text" value={formSecondaryColor} onChange={e => setFormSecondaryColor(e.target.value.toUpperCase())} style={{ ...campoTexto, flex: 1, textTransform: 'uppercase' }} />
-                            </div>
-                            <p style={campoAjuda}>Usada em textos e botões de apoio do cardápio.</p>
-                          </div>
-
-                          <div>
-                            <label style={campoRotulo}>Tema do cardápio</label>
-                            <select value={formTheme} onChange={e => setFormTheme(e.target.value as 'claro' | 'escuro')} style={campoTexto}>
-                              <option value="claro">Claro</option>
-                              <option value="escuro">Escuro</option>
-                            </select>
-                            <p style={campoAjuda}>Fundo da página que o cliente abre.</p>
-                          </div>
-                        </div>
-                      </div>
-
                       {/* ----------------------- Entrega ----------------------- */}
                       <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
                         <h3 style={secaoTitulo}>Entrega</h3>
@@ -1063,39 +1026,6 @@ export function DashboardPage() {
                           </span>
                         </label>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem', opacity: formDeliveryEnabled ? 1 : 0.45 }}>
-                          <div>
-                            <label style={campoRotulo}>Taxa de entrega (R$)</label>
-                            {/* Troca vírgula por ponto antes do Number: um campo de
-                                dinheiro que rejeita "8,50" faz o dono achar que o
-                                sistema travou. */}
-                            <input type="number" min={0} max={999} step="0.01" disabled={!formDeliveryEnabled} value={formFee} onChange={e => setFormFee(Number(e.target.value.replace(',', '.')) || 0)} style={campoTexto} />
-                            <p style={campoAjuda}>Somada ao total do cliente. Zero = frete grátis.</p>
-                          </div>
-
-                          <div>
-                            <label style={campoRotulo}>Pedido mínimo (R$)</label>
-                            <input type="number" min={0} max={9999} step="0.01" disabled={!formDeliveryEnabled} value={formMinOrder} onChange={e => setFormMinOrder(Number(e.target.value.replace(',', '.')) || 0)} style={campoTexto} />
-                            <p style={campoAjuda}>Zero para não exigir mínimo.</p>
-                          </div>
-
-                          <div>
-                            <label style={campoRotulo}>Tempo estimado (min)</label>
-                            <input type="number" min={5} max={240} disabled={!formDeliveryEnabled} value={formEstimated} onChange={e => setFormEstimated(Number(e.target.value) || 35)} style={campoTexto} />
-                            <p style={campoAjuda}>Entre 5 e 240 minutos.</p>
-                          </div>
-
-                          <div>
-                            <label style={campoRotulo}>Como o pedido chega</label>
-                            <select disabled={!formDeliveryEnabled} value={formChannel} onChange={e => setFormChannel(e.target.value as 'whatsapp' | 'painel' | 'ambos')} style={campoTexto}>
-                              <option value="ambos">WhatsApp e painel</option>
-                              <option value="whatsapp">Só WhatsApp</option>
-                              <option value="painel">Só painel</option>
-                            </select>
-                            <p style={campoAjuda}>Por onde a equipe recebe o pedido.</p>
-                          </div>
-                        </div>
-
                         <label style={{ ...campoChave, marginTop: '1rem', opacity: formDeliveryEnabled ? 1 : 0.45 }}>
                           <input type="checkbox" disabled={!formDeliveryEnabled} checked={formCourierPaid} onChange={e => setFormCourierPaid(e.target.checked)} style={caixaMarcar} />
                           <span>
@@ -1103,6 +1033,11 @@ export function DashboardPage() {
                             <span style={chaveAjuda}>O caixa separa a taxa em vez de somá-la ao faturamento.</span>
                           </span>
                         </label>
+
+                        <p style={{ ...campoAjuda, marginTop: '1rem' }}>
+                          O valor da entrega é definido na aba <strong>Recepção</strong>, pedido a
+                          pedido — endereço perto e endereço longe não custam o mesmo.
+                        </p>
                       </div>
 
                       {/* ------------------------ Salão ------------------------ */}

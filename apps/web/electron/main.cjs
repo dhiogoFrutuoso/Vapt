@@ -7,12 +7,26 @@ const { pathToFileURL } = require('node:url');
 /**
  * Processo principal do aplicativo de desktop (.exe).
  *
+ * O arquivo e `.cjs` e nao `.js` porque o package.json declara
+ * `"type": "module"`: um `main.js` ali seria tratado como ESM e os `require`
+ * abaixo quebrariam antes da janela abrir.
+ *
  * Carrega a MESMA interface do aplicativo do celular — a pasta `dist-app`,
- * que nao contem o painel de edicao. O dono edita o aplicativo pelo site,
- * na conta dele; o .exe instalado no caixa do restaurante e do funcionario.
+ * que nao contem o painel de edicao. O dono edita o aplicativo pelo site, na
+ * conta dele; o .exe instalado no caixa do restaurante e do funcionario.
  */
 
 const RAIZ = path.join(__dirname, '..', 'dist-app');
+
+/*
+ * Proporcao de celular. A interface do app foi desenhada para uma coluna
+ * unica com barra de abas no rodape; esticada em tela cheia de monitor, os
+ * cards de pedido virariam faixas de um metro de largura com tres palavras
+ * dentro. Travar a janela e mais honesto do que criar um segundo layout que
+ * ninguem mantem.
+ */
+const LARGURA = 450;
+const ALTURA = 850;
 
 /**
  * `vapt://` em vez de `file://`.
@@ -49,12 +63,15 @@ function servirArquivos() {
      * do disco do usuario. O aplicativo so serve o que esta em `dist-app`.
      */
     const bruto = path.normalize(decodeURIComponent(url.pathname));
-    // Sem regex de propósito: uma classe de caracteres com contrabarra é um
-    // convite a erro de escape, e aqui um escape errado vira travessia de
-    // diretório. Separar pelo separador da plataforma e descartar os vazios
-    // remove a barra inicial sem ambiguidade.
+
+    /*
+     * Sem regex de proposito: uma classe de caracteres com contrabarra e um
+     * convite a erro de escape, e aqui um escape errado vira travessia de
+     * diretorio. Separar pelo separador da plataforma e descartar os vazios
+     * remove a barra inicial sem ambiguidade.
+     */
     const relativo = bruto.split(path.sep).filter(Boolean).join(path.sep);
-    const destino = path.join(RAIZ, relativo || 'index.app.html');
+    const destino = path.join(RAIZ, relativo || 'index.html');
 
     if (!destino.startsWith(RAIZ)) {
       return new Response('Nao encontrado', { status: 404 });
@@ -66,10 +83,17 @@ function servirArquivos() {
 
 function criarJanela() {
   const janela = new BrowserWindow({
-    width: 1180,
-    height: 780,
-    minWidth: 380,
-    minHeight: 600,
+    width: LARGURA,
+    height: ALTURA,
+    /*
+     * `useContentSize` mede a AREA UTIL, nao a janela inteira. Sem ele, a
+     * barra de titulo do Windows comeria uns 30px do desenho e a barra de
+     * abas do rodape ficaria cortada.
+     */
+    useContentSize: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     backgroundColor: '#FAF8F5',
     autoHideMenuBar: true,
     title: 'Vapt — App da equipe',

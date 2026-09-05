@@ -3,15 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "Aplicativo da equipe do Vapt — PDV, cozinha e recepção.",
+  "author": "Vapt",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "build:app": "vite build --config vite.app.config.ts --mode app",
+    "build:win": "npm run build:app && electron-builder --win --publish never",
+    "build:android": "npx cap sync android && cd android && .\\gradlew.bat assembleDebug",
     "app:desktop": "npm run build:app && electron .",
-    "app:exe": "npm run build:app && electron-builder --win --publish never",
-    "app:android:sync": "npm run build:app && cap sync android",
-    "app:apk": "npm run app:android:sync && cd android && gradlew.bat assembleRelease"
+    "app:apk": "npm run build:app && npm run build:android"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
@@ -43,10 +46,10 @@
     "typescript": "^5.7.3",
     "vite": "^6.0.7"
   },
-  "main": "electron/main.cjs",
   "build": {
     "appId": "com.vapt.equipe",
     "productName": "Vapt Equipe",
+    "artifactName": "Vapt-Setup-${version}.${ext}",
     "files": [
       "electron/**/*",
       "dist-app/**/*",
@@ -55,6 +58,7 @@
     "directories": {
       "output": "release"
     },
+    "electronVersion": "33.4.11",
     "win": {
       "target": [
         {
@@ -68,10 +72,10 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "perMachine": false
-    },
-    "electronVersion": "33.4.11"
-  },
-  "description": "Aplicativo da equipe do Vapt — PDV, cozinha e recepção.",
-  "author": "Vapt"
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Vapt Equipe"
+    }
+  }
 }

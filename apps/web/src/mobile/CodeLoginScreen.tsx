@@ -54,8 +54,8 @@ export function CodeLoginScreen() {
 
   return (
     <main
-      className="flex min-h-[100dvh] flex-col items-center justify-center px-6 py-10"
-      style={{ backgroundColor: '#FAF8F5' }}
+      className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#FAF8F5]
+        px-6 py-10 dark:bg-gray-950"
     >
       <div className="w-full max-w-sm">
         <header className="mb-10 text-center">
@@ -65,13 +65,13 @@ export function CodeLoginScreen() {
           >
             Vapt
           </p>
-          <p className="m-0 mt-1 text-sm text-gray-400">{VAPT_BRANDING.tagline}</p>
+          <p className="m-0 mt-1 text-sm text-gray-400 dark:text-gray-500">{VAPT_BRANDING.tagline}</p>
         </header>
 
         <form onSubmit={handleSubmit} noValidate>
           <label
             htmlFor="employee-code"
-            className="mb-2 block text-center text-[0.95rem] font-semibold text-gray-700"
+            className="mb-2 block text-center text-[0.95rem] font-semibold text-gray-700 dark:text-gray-200"
           >
             Digite o código do funcionário
           </label>
@@ -102,6 +102,7 @@ export function CodeLoginScreen() {
             className="w-full rounded-2xl border border-solid border-gray-200 bg-white px-4 py-4
               text-center text-3xl font-extrabold uppercase tracking-[0.4em] text-gray-900
               outline-none transition-colors placeholder:tracking-normal placeholder:text-gray-300
+              dark:border-white/10 dark:bg-gray-900 dark:text-gray-50 dark:placeholder:text-gray-600
               focus:border-[#F95D2A] disabled:opacity-60"
             placeholder="ABC123"
             aria-describedby={erro ? 'code-error' : undefined}
@@ -124,7 +125,7 @@ export function CodeLoginScreen() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm leading-relaxed text-gray-400">
+        <p className="mt-8 text-center text-sm leading-relaxed text-gray-400 dark:text-gray-500">
           O código é fornecido pelo responsável do restaurante e vale só neste aparelho.
         </p>
       </div>

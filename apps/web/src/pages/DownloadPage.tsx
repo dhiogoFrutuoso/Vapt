@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Apple, ArrowLeft, Check, Copy, Monitor, Share, Smartphone } from 'lucide-react';
+import { Apple, ArrowLeft, Check, Copy, Download, Monitor, Share, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 /**
@@ -9,8 +9,8 @@ import toast from 'react-hot-toast';
  * Três caminhos, e o motivo de serem diferentes não é preguiça: é como cada
  * plataforma trata instalação de software fora da loja.
  *
- *   Windows  → PWA. O app é web; instalar pelo navegador dá janela própria,
- *              ícone e atalho, sem passar por loja nenhuma.
+ *   Windows  → instalador .exe (NSIS). Baixa e instala como qualquer
+ *              programa, com atalho na área de trabalho.
  *   Android  → APK direto. O Android permite instalar fora da Play Store,
  *              desde que o usuário autorize "fontes desconhecidas".
  *   iOS      → só PWA. A Apple não permite sideload de .ipa sem conta de
@@ -20,7 +20,18 @@ import toast from 'react-hot-toast';
  *              que não existiria.
  */
 
-/** Enquanto o APK não é publicado, o botão avisa em vez de dar 404. */
+/*
+ * Endereços dos instaladores.
+ *
+ * Ficam em variável de ambiente e não no código porque o arquivo é grande
+ * demais para o repositório e muda a cada release: publicar uma versão nova
+ * passa a ser trocar a URL, sem tocar no código nem refazer o deploy do site.
+ *
+ * Vazias, os botões avisam em vez de levar a um 404 — que é a pior versão
+ * possível deste problema, porque o lojista não descobre que o link quebrou:
+ * ele acha que o app não existe.
+ */
+const EXE_URL = import.meta.env.VITE_EXE_URL ?? '';
 const APK_URL = import.meta.env.VITE_APK_URL ?? '';
 
 const CARD =
@@ -44,6 +55,40 @@ function detectPlatform(): Platform {
   return 'outro';
 }
 
+/**
+ * Botão de download de um instalador.
+ *
+ * O `download` sozinho não basta: ele só força o salvamento quando o arquivo
+ * está na MESMA origem da página. Servido por um storage externo (S3, R2,
+ * Blob), o navegador ignora o atributo e obedece ao `Content-Disposition` que
+ * o servidor mandar. Por isso o `target="_blank"`: se o storage decidir abrir
+ * em vez de baixar, ao menos não descarta a página do painel.
+ */
+function BotaoInstalador({
+  url,
+  rotulo,
+  arquivo,
+}: {
+  url: string;
+  rotulo: string;
+  arquivo: string;
+}) {
+  if (!url) {
+    return (
+      <button type="button" className={PILL} disabled title="Instalador ainda não publicado">
+        Em breve
+      </button>
+    );
+  }
+
+  return (
+    <a className={PILL} href={url} download={arquivo} target="_blank" rel="noreferrer">
+      <Download size={16} />
+      {rotulo}
+    </a>
+  );
+}
+
 export function DownloadPage() {
   const [params] = useSearchParams();
   const appId = params.get('app');
@@ -54,10 +99,14 @@ export function DownloadPage() {
     setPlatform(detectPlatform());
   }, []);
 
-  /** Endereço que a equipe abre no aparelho. */
-  const appUrl = appId
-    ? `${window.location.origin}/painel/app/${appId}`
-    : `${window.location.origin}/painel`;
+  /*
+   * Endereço que a equipe abre no iPhone.
+   *
+   * Aponta para `/mobile-view`, e não para `/painel`: quem instala no
+   * aparelho é o funcionário, e o painel é do dono. Mandar a equipe para o
+   * painel seria entregar a tela errada para a pessoa errada.
+   */
+  const appUrl = `${window.location.origin}/mobile-view`;
 
   async function copyLink() {
     try {
@@ -74,7 +123,7 @@ export function DownloadPage() {
     <main className="min-h-screen bg-[#FAF8F5] px-4 py-8 md:py-12">
       <div className="mx-auto w-full max-w-5xl">
         <Link
-          to="/painel"
+          to={appId ? `/painel/app/${appId}` : '/painel'}
           className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-gray-500 no-underline transition-colors hover:text-gray-900"
         >
           <ArrowLeft size={16} />
@@ -98,13 +147,12 @@ export function DownloadPage() {
 
             <h2 className="m-0 mt-4 text-lg font-extrabold text-gray-900">Windows</h2>
             <p className="m-0 mt-2 flex-1 text-[0.92rem] leading-relaxed text-gray-500">
-              Abre a versão web otimizada. No Chrome ou no Edge, clique no ícone de instalar na
-              barra de endereço para ganhar janela própria e atalho na área de trabalho.
+              Baixe o instalador e execute. Ele cria o atalho na área de trabalho e deixa você
+              escolher a pasta de instalação. Na primeira execução o Windows pode pedir confirmação
+              — o instalador ainda não tem assinatura digital.
             </p>
 
-            <a className={PILL} href={appUrl} target="_blank" rel="noreferrer">
-              Abrir versão web
-            </a>
+            <BotaoInstalador url={EXE_URL} rotulo="Baixar para Windows" arquivo="Vapt-Setup.exe" />
           </section>
 
           {/* ------------------------------ Android ----------------------------- */}
@@ -120,15 +168,7 @@ export function DownloadPage() {
               apps fora da Play Store.
             </p>
 
-            {APK_URL ? (
-              <a className={PILL} href={APK_URL} download>
-                Baixar .apk
-              </a>
-            ) : (
-              <button type="button" className={PILL} disabled title="Instalador ainda não publicado">
-                Em breve
-              </button>
-            )}
+            <BotaoInstalador url={APK_URL} rotulo="Baixar .apk" arquivo="Vapt-Equipe.apk" />
           </section>
 
           {/* -------------------------------- iOS ------------------------------- */}
@@ -175,9 +215,10 @@ export function DownloadPage() {
         </div>
 
         <p className="mt-8 rounded-2xl bg-white p-5 text-[0.9rem] leading-relaxed text-gray-500 shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]">
-          <strong className="text-gray-900">Atualizações:</strong> o app carrega a interface direto
-          do servidor. Toda melhoria publicada aparece no aparelho da equipe assim que o app é
-          aberto de novo — ninguém precisa reinstalar nada.
+          <strong className="text-gray-900">Atualizações:</strong> o aplicativo do Android carrega a
+          interface direto do servidor, então toda melhoria publicada aparece no aparelho da equipe
+          na próxima abertura. A versão de Windows traz a interface embutida no instalador — ela só
+          muda quando uma versão nova do programa é instalada.
         </p>
       </div>
     </main>

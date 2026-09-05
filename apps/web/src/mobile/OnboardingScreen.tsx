@@ -29,7 +29,7 @@ export function maskCpf(value: string): string {
 
 const LABEL = 'mb-1.5 block text-sm font-semibold text-gray-700';
 const INPUT =
-  'w-full rounded-2xl border border-solid border-gray-200 bg-white px-4 py-3.5 text-[1rem] ' +
+  'w-full rounded-2xl border border-solid border-gray-200 dark:border-white/10 bg-white px-4 py-3.5 text-[1rem] ' +
   'text-gray-900 outline-none transition-colors focus:border-[color:var(--marca)]';
 
 type Props = {
@@ -88,10 +88,10 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
     >
       <div className="mx-auto w-full max-w-sm">
         <header className="mb-8">
-          <h1 className="m-0 text-2xl font-extrabold text-gray-900">
+          <h1 className="m-0 text-2xl font-extrabold text-gray-900 dark:text-gray-50">
             {modo === 'onboarding' ? 'Complete seu cadastro' : 'Meus dados'}
           </h1>
-          <p className="m-0 mt-2 text-[0.95rem] leading-relaxed text-gray-500">
+          <p className="m-0 mt-2 text-[0.95rem] leading-relaxed text-gray-500 dark:text-gray-400 dark:text-gray-500">
             {modo === 'onboarding'
               ? `Antes de começar em ${branding.storeName}, precisamos destes dados.`
               : 'Você pode corrigir seus dados quando quiser.'}
@@ -149,7 +149,7 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
             )}
           </div>
 
-          <p className="m-0 text-sm leading-relaxed text-gray-400">
+          <p className="m-0 text-sm leading-relaxed text-gray-400 dark:text-gray-500">
             A foto de perfil é opcional e pode ser adicionada depois, em Meu Perfil.
           </p>
 
@@ -168,7 +168,7 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
               type="button"
               onClick={onCancel}
               disabled={enviando}
-              className="w-full rounded-full border border-solid border-gray-200 bg-white px-6 py-3.5
+              className="w-full rounded-full border border-solid border-gray-200 dark:border-white/10 bg-white px-6 py-3.5
                 text-[0.95rem] font-bold text-gray-600"
             >
               Cancelar

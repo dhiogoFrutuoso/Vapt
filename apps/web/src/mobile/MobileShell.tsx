@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { useDeviceAuth } from './DeviceAuthContext';
 import { OnboardingScreen } from './OnboardingScreen';
+import { PreferencesPanel } from './PreferencesPanel';
+import { usePreferences } from './PreferencesContext';
+import type { Chave as ChaveTexto } from './i18n';
 
 /**
  * Casca do app depois do login.
@@ -21,17 +24,22 @@ import { OnboardingScreen } from './OnboardingScreen';
  * O RBAC é de fachada aqui, e de verdade na API: esconder a aba evita o erro
  * honesto de quem tocaria no lugar errado, mas quem forjar a requisição
  * esbarra no `requirePermission` do servidor.
+ *
+ * As cores escuras vêm de `dark:`, ligado pela classe `dark` que as
+ * preferências do funcionário põem no `<html>`. A cor da MARCA fica de fora
+ * disso de propósito: ela é do restaurante e não muda com o tema — o que muda
+ * é o fundo sobre o qual ela aparece.
  */
 
 /** Ordem fixa: é o fluxo do pedido, do cliente até a entrega. */
 const ABAS = [
-  { chave: 'cliente', rotulo: 'Cliente', Icone: UserIcon },
-  { chave: 'recepcao', rotulo: 'Recepção', Icone: ConciergeBell },
-  { chave: 'salao', rotulo: 'Salão', Icone: UtensilsCrossed },
-  { chave: 'cozinha', rotulo: 'Cozinha', Icone: ChefHat },
-  { chave: 'caixa', rotulo: 'Caixa', Icone: Wallet },
-  { chave: 'entregador', rotulo: 'Entregador', Icone: Bike },
-] as const;
+  { chave: 'cliente', texto: 'abas.cliente', Icone: UserIcon },
+  { chave: 'recepcao', texto: 'abas.recepcao', Icone: ConciergeBell },
+  { chave: 'salao', texto: 'abas.salao', Icone: UtensilsCrossed },
+  { chave: 'cozinha', texto: 'abas.cozinha', Icone: ChefHat },
+  { chave: 'caixa', texto: 'abas.caixa', Icone: Wallet },
+  { chave: 'entregador', texto: 'abas.entregador', Icone: Bike },
+] as const satisfies ReadonlyArray<{ chave: string; texto: ChaveTexto; Icone: typeof Bike }>;
 
 type Chave = (typeof ABAS)[number]['chave'] | 'perfil';
 
@@ -42,8 +50,13 @@ function iniciais(nome: string): string {
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
+const CARTAO =
+  'rounded-3xl bg-white shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)] ' +
+  'dark:bg-gray-900 dark:shadow-none dark:ring-1 dark:ring-white/10';
+
 export function MobileShell() {
   const { employee, branding, logout } = useDeviceAuth();
+  const { idioma, t } = usePreferences();
   const [editando, setEditando] = useState(false);
   const [saindo, setSaindo] = useState(false);
 
@@ -64,7 +77,7 @@ export function MobileShell() {
     setSaindo(true);
     try {
       await logout();
-      toast.success('Você saiu da conta.');
+      toast.success(t('perfil.saiu'));
     } finally {
       setSaindo(false);
     }
@@ -72,8 +85,8 @@ export function MobileShell() {
 
   return (
     <div
-      className="flex h-[100dvh] flex-col overflow-hidden"
-      style={{ backgroundColor: '#FAF8F5', ['--marca' as string]: marca }}
+      className="flex h-[100dvh] flex-col overflow-hidden bg-[#FAF8F5] dark:bg-gray-950"
+      style={{ ['--marca' as string]: marca }}
     >
       {/* ----------------------------- Cabeçalho ---------------------------- */}
       <header
@@ -107,7 +120,7 @@ export function MobileShell() {
         <button
           type="button"
           onClick={() => setAtiva('perfil')}
-          aria-label="Meu perfil"
+          aria-label={t('perfil.titulo')}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-extrabold text-white"
         >
           {iniciais(employee.name)}
@@ -125,7 +138,7 @@ export function MobileShell() {
             />
           ) : (
             <section className="flex flex-col gap-4">
-              <div className="rounded-3xl bg-white p-6 text-center shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]">
+              <div className={`${CARTAO} p-6 text-center`}>
                 <div
                   className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full"
                   style={{ backgroundColor: `${marca}1A` }}
@@ -139,33 +152,37 @@ export function MobileShell() {
                   )}
                 </div>
 
-                <h1 className="m-0 mt-4 text-xl font-extrabold text-gray-900">{employee.name}</h1>
-                <p className="m-0 mt-1 text-sm text-gray-500">{employee.role}</p>
+                <h1 className="m-0 mt-4 text-xl font-extrabold text-gray-900 dark:text-gray-50">
+                  {employee.name}
+                </h1>
+                <p className="m-0 mt-1 text-sm text-gray-500 dark:text-gray-400">{employee.role}</p>
               </div>
 
-              <div className="rounded-3xl bg-white p-5 shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]">
-                <h2 className="m-0 mb-4 text-base font-extrabold text-gray-900">Meus dados</h2>
+              <div className={`${CARTAO} p-5`}>
+                <h2 className="m-0 mb-4 text-base font-extrabold text-gray-900 dark:text-gray-50">
+                  {t('perfil.dados')}
+                </h2>
 
                 <dl className="m-0 flex flex-col gap-3 text-[0.95rem]">
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-gray-500">Telefone</dt>
-                    <dd className="m-0 font-semibold text-gray-900">
+                    <dt className="text-gray-500 dark:text-gray-400">{t('perfil.telefone')}</dt>
+                    <dd className="m-0 font-semibold text-gray-900 dark:text-gray-100">
                       {employee.profile.phone || '—'}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-gray-500">CPF</dt>
-                    <dd className="m-0 font-semibold text-gray-900">
+                    <dt className="text-gray-500 dark:text-gray-400">{t('perfil.cpf')}</dt>
+                    <dd className="m-0 font-semibold text-gray-900 dark:text-gray-100">
                       {employee.profile.cpf
                         ? employee.profile.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
                         : '—'}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-gray-500">Nascimento</dt>
-                    <dd className="m-0 font-semibold text-gray-900">
+                    <dt className="text-gray-500 dark:text-gray-400">{t('perfil.nascimento')}</dt>
+                    <dd className="m-0 font-semibold text-gray-900 dark:text-gray-100">
                       {employee.profile.birthDate
-                        ? new Date(employee.profile.birthDate).toLocaleDateString('pt-BR')
+                        ? new Date(employee.profile.birthDate).toLocaleDateString(idioma)
                         : '—'}
                     </dd>
                   </div>
@@ -177,9 +194,11 @@ export function MobileShell() {
                   className="mt-5 w-full rounded-full px-5 py-3 text-[0.95rem] font-bold text-white"
                   style={{ backgroundColor: marca }}
                 >
-                  Editar dados
+                  {t('perfil.editar')}
                 </button>
               </div>
+
+              <PreferencesPanel marca={marca} />
 
               <button
                 type="button"
@@ -187,10 +206,11 @@ export function MobileShell() {
                 disabled={saindo}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-solid
                   border-red-200 bg-white px-6 py-3.5 text-[0.95rem] font-bold text-red-600
-                  disabled:opacity-55"
+                  disabled:opacity-55
+                  dark:border-red-500/30 dark:bg-gray-900 dark:text-red-400"
               >
                 <LogOut size={16} />
-                {saindo ? 'Saindo...' : 'Sair da conta'}
+                {saindo ? t('perfil.saindo') : t('perfil.sair')}
               </button>
             </section>
           )
@@ -203,9 +223,11 @@ export function MobileShell() {
               {abaAtual ? <abaAtual.Icone size={26} style={{ color: marca }} /> : null}
             </div>
 
-            <h2 className="m-0 mt-4 text-lg font-extrabold text-gray-900">{abaAtual?.rotulo}</h2>
-            <p className="m-0 mt-2 max-w-xs text-[0.95rem] leading-relaxed text-gray-500">
-              Sua função dá acesso a esta área. As telas de operação chegam na próxima etapa.
+            <h2 className="m-0 mt-4 text-lg font-extrabold text-gray-900 dark:text-gray-50">
+              {abaAtual ? t(abaAtual.texto) : ''}
+            </h2>
+            <p className="m-0 mt-2 max-w-xs text-[0.95rem] leading-relaxed text-gray-500 dark:text-gray-400">
+              {t('abas.aviso')}
             </p>
           </section>
         )}
@@ -214,14 +236,15 @@ export function MobileShell() {
       {/* --------------------------- Barra inferior -------------------------- */}
       {visiveis.length > 0 && (
         <nav
-          className="grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white"
+          className="grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white
+            dark:border-white/10 dark:bg-gray-900"
           style={{
             gridTemplateColumns: `repeat(${visiveis.length}, minmax(0, 1fr))`,
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}
-          aria-label="Áreas do aplicativo"
+          aria-label={t('prefs.titulo')}
         >
-          {visiveis.map(({ chave, rotulo, Icone }) => {
+          {visiveis.map(({ chave, texto, Icone }) => {
             const selecionada = ativa === chave;
             return (
               <button
@@ -229,13 +252,13 @@ export function MobileShell() {
                 type="button"
                 onClick={() => setAtiva(chave)}
                 aria-current={selecionada ? 'page' : undefined}
-                className="flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2.5"
+                className="flex min-w-0 flex-col items-center justify-center gap-1 bg-transparent px-1 py-2.5"
                 /* Inativo em cinza sólido, não em opacidade: o funcionário lê
                    a barra de relance, com o aparelho apoiado no balcão. */
                 style={{ color: selecionada ? marca : '#9CA3AF' }}
               >
                 <Icone size={20} />
-                <span className="truncate text-[10px] font-semibold leading-none">{rotulo}</span>
+                <span className="truncate text-[10px] font-semibold leading-none">{t(texto)}</span>
               </button>
             );
           })}

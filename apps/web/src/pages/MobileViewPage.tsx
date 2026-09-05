@@ -2,6 +2,7 @@ import { DeviceAuthProvider, useDeviceAuth } from '../mobile/DeviceAuthContext';
 import { CodeLoginScreen } from '../mobile/CodeLoginScreen';
 import { OnboardingScreen } from '../mobile/OnboardingScreen';
 import { MobileShell } from '../mobile/MobileShell';
+import { PreferencesProvider } from '../mobile/PreferencesContext';
 
 /**
  * `/mobile-view` — a rota que a casca do Capacitor aponta.
@@ -54,8 +55,16 @@ function MobileRouter() {
 
 export function MobileViewPage() {
   return (
-    <DeviceAuthProvider>
-      <MobileRouter />
-    </DeviceAuthProvider>
+    /*
+     * As preferencias envolvem a autenticacao, e nao o contrario: tema e
+     * escala precisam valer JA na tela de login, antes de existir sessao.
+     * Por dentro, um funcionario nao ve a preferencia do outro — a chave e
+     * do aparelho, e trocar de conta nao troca o tamanho da fonte.
+     */
+    <PreferencesProvider>
+      <DeviceAuthProvider>
+        <MobileRouter />
+      </DeviceAuthProvider>
+    </PreferencesProvider>
   );
 }
