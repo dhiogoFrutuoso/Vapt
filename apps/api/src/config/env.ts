@@ -83,10 +83,28 @@ export const env = {
     dbName: process.env.MONGODB_DB ?? 'vaptapp',
   }),
 
-  corsOrigins: (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean),
+  /**
+   * Origens liberadas no CORS.
+   *
+   * As tres ultimas sao do app nativo e entram SEMPRE, sem depender do .env:
+   *   capacitor://localhost  -> iOS (esquema padrao do Capacitor 4+)
+   *   ionic://localhost      -> iOS legado, ainda emitido por apps antigos
+   *   http://localhost       -> Android (a WebView serve os assets por http)
+   *
+   * Elas nao sao um dominio de terceiro: sao a propria WebView do nosso app,
+   * que nao tem dominio para cadastrar. Esquecer uma delas quebra o app em
+   * uma plataforma so, e o sintoma (falha de rede sem mensagem) e dificil de
+   * diagnosticar dentro da WebView.
+   */
+  corsOrigins: [
+    ...(process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+    'capacitor://localhost',
+    'ionic://localhost',
+    'http://localhost',
+  ],
 
   /**
    * Login com Google (OAuth 2.0).
@@ -114,6 +132,20 @@ export const env = {
 
   /** Painel do lojista: destino do redirect depois do consentimento do Google. */
   webUrl,
+
+  /**
+   * Sessao do app da equipe (Capacitor).
+   *
+   * O access token e curto de proposito: e ele que define em quanto tempo um
+   * bloqueio derruba o funcionario. Curto demais e round-trip constante;
+   * longo demais e o bloqueio demora. 10 minutos e o meio-termo usual.
+   */
+  mobileAuth: {
+    accessTtlSeconds: Number(process.env.MOBILE_ACCESS_TTL_SECONDS ?? 10 * 60),
+    refreshTtlDays: Number(process.env.MOBILE_REFRESH_TTL_DAYS ?? 30),
+    /** Teto de sessoes simultaneas por funcionario. Cada aparelho e uma. */
+    maxSessionsPerEmployee: Number(process.env.MOBILE_MAX_SESSIONS ?? 5),
+  },
 
   /** Autenticacao por JWT em cookie httpOnly (o token tambem volta no corpo, para clientes de API). */
   auth: {

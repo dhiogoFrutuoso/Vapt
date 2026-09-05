@@ -5,7 +5,7 @@ import { auth, site } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
-import { ChefHat, ChevronDown, Download, Edit3, Image as ImageIcon, KeySquare, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Store, TestTube, Trash2, Users } from 'lucide-react';
+import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, KeySquare, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
 export function DashboardPage() {
@@ -105,6 +105,45 @@ export function DashboardPage() {
   const [isAddingEmp, setIsAddingEmp] = useState(false);
 
   const plan = searchParams.get('plano');
+
+  /*
+   * Retorno do magic link.
+   *
+   * O restaurante clica no link do WhatsApp, a API cria o pedido e devolve o
+   * navegador para ca com o resultado na querystring. Sem esta leitura, o
+   * pedido entrava no banco e a tela nao dizia nada — o dono clicava, via o
+   * painel de sempre e nao sabia se tinha funcionado. Clicaria de novo.
+   */
+  useEffect(() => {
+    const resultado = searchParams.get('pedido');
+    if (!resultado) return;
+
+    const codigo = searchParams.get('codigo');
+
+    if (resultado === 'criado') {
+      toast.success(codigo ? `Pedido #${codigo} criado com sucesso.` : 'Pedido criado com sucesso.', {
+        duration: 5000,
+      });
+    } else if (resultado === 'duplicado') {
+      toast('Este pedido já tinha sido registrado.', { icon: 'ℹ️', duration: 5000 });
+    } else {
+      const motivos: Record<string, string> = {
+        expirado: 'O link do pedido expirou. Peça ao cliente para reenviar.',
+        assinatura: 'Este link foi alterado e não é confiável. Registre o pedido manualmente.',
+        malformado: 'Não conseguimos ler este link de pedido.',
+        sem_payload: 'O link do pedido veio incompleto.',
+        restaurante_indisponivel: 'Este aplicativo está pausado e não recebe pedidos.',
+      };
+      const motivo = searchParams.get('motivo') ?? '';
+      toast.error(motivos[motivo] ?? 'Não foi possível registrar este pedido.', { duration: 6000 });
+    }
+
+    /*
+     * Limpa a querystring. Sem isto, um F5 na pagina repetiria o aviso e o
+     * dono acharia que o pedido entrou duas vezes.
+     */
+    window.history.replaceState({}, '', '/painel');
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadApps() {
@@ -778,6 +817,44 @@ export function DashboardPage() {
                   >
                     <Users size={18} /> Equipe e Acessos
                   </button>
+                </div>
+
+                {/* Links do cardapio publico e do app da equipe.
+                    Ficam FORA das abas de propósito: o dono entra aqui para
+                    pegar o link e mandar no WhatsApp, e nao deveria ter de
+                    adivinhar em qual aba ele mora. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', backgroundColor: '#FFF8F6' }}>
+                  <a
+                    href={`/cliente/${fullApp.slug || settingsAppId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#F95D2A', color: '#fff', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}
+                  >
+                    <Store size={16} /> Abrir aba do Cliente
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/cliente/${fullApp.slug || settingsAppId}`;
+                      void navigator.clipboard
+                        .writeText(url)
+                        .then(() => toast.success('Link do cardápio copiado.'))
+                        .catch(() => toast.error('Não foi possível copiar o link.'));
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#fff', color: '#333', border: '1px solid rgba(0,0,0,0.08)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    <Copy size={16} /> Copiar link do cardápio
+                  </button>
+
+                  <a
+                    href="/apk"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '0.6rem 1rem', borderRadius: '999px', backgroundColor: '#fff', color: '#333', border: '1px solid rgba(0,0,0,0.08)', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none' }}
+                  >
+                    <Smartphone size={16} /> App da equipe
+                  </a>
                 </div>
 
                 {/* Tab Content */}

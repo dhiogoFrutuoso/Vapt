@@ -12,6 +12,10 @@ export default {
     // Google e no separador nao chegam a ser geradas no CSS final.
     './src/pages/AccountPage.tsx',
     './src/pages/DownloadPage.tsx',
+    './src/pages/MobileViewPage.tsx',
+    './src/pages/ClientMenuPage.tsx',
+    './src/pages/ApkPage.tsx',
+    './src/mobile/**/*.tsx',
     './src/pages/ForgotPasswordPage.tsx',
     './src/pages/LegalPage.tsx',
     './src/pages/NotFoundPage.tsx',

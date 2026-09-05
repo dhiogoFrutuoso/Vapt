@@ -6,6 +6,9 @@ import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
 import { AccountPage } from './pages/AccountPage';
 import { DownloadPage } from './pages/DownloadPage';
+import { MobileViewPage } from './pages/MobileViewPage';
+import { ClientMenuPage } from './pages/ClientMenuPage';
+import { ApkPage } from './pages/ApkPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { TermsPage, PrivacyPage } from './pages/LegalPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -81,6 +84,18 @@ export default function App() {
         }
       />
 
+      {/* Cardapio publico do cliente final. Sem login: e o link que o dono
+          divulga. Aceita id ou slug. */}
+      <Route path="/cliente/:id" element={<ClientMenuPage />} />
+
+      {/* Pagina de instalacao do app Android, para circular sozinha. */}
+      <Route path="/apk" element={<ApkPage />} />
+
+      {/* Casca do app da equipe (Capacitor). Fora do ProtectedRoute: a sessao
+          aqui e a do funcionario, por Bearer token, nao a do dono por cookie.
+          O :id opcional existe so por compatibilidade com a especificacao. */}
+      <Route path="/mobile-view" element={<MobileViewPage />} />
+      <Route path="/mobile-view/:id" element={<MobileViewPage />} />
       <Route
         path="/download"
         element={

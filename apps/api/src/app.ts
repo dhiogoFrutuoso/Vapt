@@ -18,16 +18,50 @@ export function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(mongoSanitize());
 
+  /*
+   * CORS estrito, com lista fixa.
+   *
+   * `env.corsOrigins` ja inclui as origens da WebView do Capacitor
+   * (capacitor://localhost, ionic://localhost, http://localhost) alem dos
+   * dominios web configurados no .env. Nao ha regex nem curinga: origem que
+   * nao esta na lista e recusada.
+   *
+   * Duas decisoes que nao sao obvias:
+   *
+   * 1. Requisicao SEM Origin passa. Nao e brecha: navegador sempre envia o
+   *    cabecalho em chamada cross-origin. Sem Origin significa mesma origem,
+   *    curl, health check da Vercel ou app nativo — e nesses casos o CORS nao
+   *    e a defesa, o token e.
+   *
+   * 2. A recusa vira 403, nao excecao. Antes, `callback(new Error(...))`
+   *    subia para o tratador de erro e virava 500 "Erro interno no servidor" —
+   *    o operador via falha do servidor onde havia configuracao errada de
+   *    origem, que e um diagnostico completamente diferente.
+   */
   app.use(
     cors({
       origin(origin, callback) {
         if (!origin || env.corsOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error(`Origem nao permitida pelo CORS: ${origin}`));
+        console.warn(`[cors] Origem recusada: ${origin}`);
+        return callback(null, false);
       },
-      // Necessario para o cookie de sessao viajar entre o front (5173) e a API (4000).
+      // O cookie de sessao do painel precisa disto. O app usa Bearer token.
       credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id'],
+      exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset'],
     })
   );
+
+  /*
+   * O `cors` acima apenas omite os cabecalhos quando recusa, e o navegador
+   * bloqueia do lado dele — mas a requisicao AINDA executa no servidor. Para
+   * origem desconhecida cortamos antes de chegar na rota.
+   */
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (!origin || env.corsOrigins.includes(origin)) return next();
+    return res.status(403).json({ ok: false, error: 'Origem nao autorizada.' });
+  });
 
   /**
    * Limite estrito de 15kb para o corpo JSON para prevenir DoS.

@@ -8,6 +8,14 @@ import type { DeliveryAddress, OrderItem, PaymentSplit, PaymentSplitItem, Paymen
 
 type Props = {
   items: OrderItem[];
+  /**
+   * Dados ja conhecidos do cliente. Vem da importacao do WhatsApp ou da
+   * edicao de um pedido existente — nos dois casos o funcionario nao deve
+   * redigitar o que o sistema ja sabe.
+   */
+  initial?: { name: string; phone: string; address: string; notes: string };
+  /** "Salvar alteracoes" no modo edicao, para o botao nao mentir. */
+  submitLabel?: string;
   onClose: () => void;
   onSubmit: (order: {
     customerName: string;
@@ -27,18 +35,49 @@ type Props = {
  * Todo campo usa id + htmlFor explícitos (em vez de label envolvendo o input) para o clique
  * cair sempre no campo certo.
  */
-export function CheckoutSheet({ items, onClose, onSubmit }: Props) {
+/**
+ * Separa "Rua das Flores, 120" em rua e numero.
+ *
+ * O endereco importado do WhatsApp chega numa linha so, mas a validacao do
+ * checkout exige rua E numero — sem separar, o funcionario importa o pedido e
+ * trava no envio com "informe rua e numero", tendo o endereco na tela.
+ *
+ * Conservador de proposito: so separa quando o texto termina em virgula (ou
+ * espaco) seguida de numero, que e a forma esmagadoramente comum. Qualquer
+ * outro formato fica inteiro na rua e a pessoa completa — melhor deixar um
+ * campo vazio do que cortar o endereco no lugar errado.
+ */
+function separarEndereco(linha: string): { street: string; number: string } {
+  const texto = linha.trim();
+  if (!texto) return { street: '', number: '' };
+
+  const m = /^(.*?)[,\s]+(\d{1,6}\s*[A-Za-z]?)$/.exec(texto);
+  if (m && m[1].trim().length >= 3) {
+    return { street: m[1].trim(), number: m[2].trim() };
+  }
+
+  return { street: texto, number: '' };
+}
+
+export function CheckoutSheet({ items, initial, submitLabel, onClose, onSubmit }: Props) {
+  const enderecoInicial = separarEndereco(initial?.address ?? '');
   const copy = demo.preview;
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
 
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [customerName, setCustomerName] = useState(initial?.name ?? '');
+  const [phone, setPhone] = useState(initial?.phone ?? '');
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [splits, setSplits] = useState<PaymentSplitItem[]>([{ method: 'pix', amount: total }]);
   const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'done'>('idle');
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manual, setManual] = useState<{ city: string; district: string; street: string; number: string; reference: string; lat?: number; lng?: number }>({ city: '', district: '', street: '', number: '', reference: '' });
+  const [manualOpen, setManualOpen] = useState(Boolean(initial?.address));
+  const [manual, setManual] = useState<{ city: string; district: string; street: string; number: string; reference: string; lat?: number; lng?: number }>({
+    city: '',
+    district: '',
+    street: enderecoInicial.street,
+    number: enderecoInicial.number,
+    reference: initial?.notes ?? '',
+  });
 
   const [error, setError] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
@@ -412,7 +451,7 @@ export function CheckoutSheet({ items, onClose, onSubmit }: Props) {
         disabled={!customerName || !phone || (!manualOpen && gpsState !== 'done') || splits.length === 0 || splitsTotal < total - 0.01}
         onClick={handleSubmit}
       >
-        {copy.checkoutSubmit}
+        {submitLabel ?? copy.checkoutSubmit}
       </button>
     </div>
     

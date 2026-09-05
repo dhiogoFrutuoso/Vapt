@@ -90,7 +90,37 @@ const employeeSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 60 },
     roleId: { type: Schema.Types.ObjectId, required: true },
-    accessCode: { type: String, required: true, maxlength: 6, minlength: 6 },
+
+    /**
+     * Credencial de acesso ao app. `uppercase` porque o funcionario digita no
+     * celular e o teclado sugere minusculas — normalizar aqui evita "codigo
+     * invalido" por causa de caixa.
+     *
+     * Pode ficar NULO: bloquear um funcionario apaga o codigo, e desbloquear
+     * gera outro. Um codigo que continuasse valendo apos o bloqueio seria uma
+     * porta aberta esperando o token expirar.
+     */
+    accessCode: { type: String, uppercase: true, trim: true, maxlength: 6, default: null },
+
+    /* --------------------- Dados do funcionario --------------------- */
+    /* Preenchidos pelo proprio funcionario no onboarding. O dono ve, mas
+       nao edita: sao dados pessoais de outra pessoa. */
+
+    phone: { type: String, trim: true, maxlength: 30, default: '' },
+    /** Guardado so com digitos. A mascara e responsabilidade da interface. */
+    cpf: { type: String, trim: true, maxlength: 11, default: '' },
+    birthDate: { type: Date, default: null },
+    /** Foto e opcional: exigir camera no primeiro acesso trava o turno. */
+    photo: { type: Schema.Types.ObjectId, ref: 'Image', default: null },
+
+    /** Falso ate o funcionario completar contato, CPF e nascimento. */
+    onboardingCompleted: { type: Boolean, default: false },
+
+    /* ------------------------- Bloqueio ---------------------------- */
+
+    blocked: { type: Boolean, default: false },
+    blockedAt: { type: Date, default: null },
+    lastLoginAt: { type: Date, default: null },
   },
   { _id: true, timestamps: true }
 );
@@ -230,6 +260,13 @@ const appProjectSchema = new Schema(
 );
 
 appProjectSchema.index({ owner: 1, updatedAt: -1 });
+
+/**
+ * Login do app: o funcionario digita SO o codigo, sem dizer o restaurante.
+ * A busca precisa varrer os subdocumentos de employees de todos os apps —
+ * sem este indice seria varredura completa da colecao a cada tentativa.
+ */
+appProjectSchema.index({ 'employees.accessCode': 1 });
 
 /** Resumo leve para a listagem "Meus Aplicativos" — sem arrastar cardapio inteiro. */
 appProjectSchema.methods.toSummary = function toSummary(this: Record<string, unknown>) {

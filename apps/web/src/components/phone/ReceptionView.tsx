@@ -24,6 +24,8 @@ function feeToInput(value: number): string {
 
 interface ReceptionViewProps {
   deliveries: DeliveryOrder[];
+  /** Manda o pedido de volta para a aba Cliente, em modo edicao. */
+  onEdit?: (id: string) => void;
   /** Taxa configurada no editor: entra pre-preenchida e vira atalho. */
   defaultFee?: number;
   onAccept: (id: string, fee: number) => void;
@@ -35,12 +37,14 @@ function ReceptionOrderItem({
   defaultFee,
   onAccept,
   onReject,
+  onEdit,
   confirm,
 }: {
   d: DeliveryOrder;
   defaultFee: number;
   onAccept: ReceptionViewProps['onAccept'];
   onReject: ReceptionViewProps['onReject'];
+  onEdit?: ReceptionViewProps['onEdit'];
   confirm: ReturnType<typeof useConfirm>['confirm'];
 }) {
   const [fee, setFee] = useState(() => feeToInput(defaultFee));
@@ -145,6 +149,11 @@ function ReceptionOrderItem({
       </div>
 
       <div className="phone__delivery-actions" style={{ marginTop: 10 }}>
+        {onEdit && (
+          <button type="button" className="phone__sheet-btn" onClick={() => onEdit(d.id)}>
+            Editar pedido
+          </button>
+        )}
         <a className="phone__sheet-btn" href={mapsUrl(d.address)} target="_blank" rel="noreferrer">
           Abrir mapa
         </a>
@@ -168,7 +177,7 @@ function ReceptionOrderItem({
   );
 }
 
-export function ReceptionView({ deliveries, defaultFee = 0, onAccept, onReject }: ReceptionViewProps) {
+export function ReceptionView({ deliveries, defaultFee = 0, onAccept, onReject, onEdit }: ReceptionViewProps) {
   const { confirm, ConfirmElement } = useConfirm();
   const novos = deliveries.filter((d) => d.status === 'novo');
   const despachados = deliveries.filter((d) => d.status === 'aceito' || d.status === 'a_caminho').length;
@@ -196,6 +205,7 @@ export function ReceptionView({ deliveries, defaultFee = 0, onAccept, onReject }
               defaultFee={defaultFee}
               onAccept={onAccept}
               onReject={onReject}
+              onEdit={onEdit}
               confirm={confirm}
             />
           ))}

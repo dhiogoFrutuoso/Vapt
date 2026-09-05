@@ -9,8 +9,10 @@ import { OrderSheet, type Ticket } from './phone/OrderSheet';
 import { DeliveryView } from './phone/DeliveryView';
 import { ReceptionView } from './phone/ReceptionView';
 import { KitchenView } from './phone/KitchenView';
+import { ImportOrderPanel } from './phone/ImportOrderPanel';
 import { IconRenderer } from './IconRenderer';
-import { NEXT_STATUS, NO_STATION, sumItems } from './phone/types';
+import { addressLabel, NEXT_STATUS, NO_STATION, sumItems } from './phone/types';
+import type { PedidoImportado } from '../lib/parseWhatsappOrder';
 import type {
   CashEntry,
   CategoryItem,
@@ -123,6 +125,22 @@ export function EditorPreview({
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   /** Turnos ja fechados. Alimenta a sub-aba "Registro" do Caixa. */
   const [cashArchive, setCashArchive] = useState<CashEntry[]>([]);
+
+  /**
+   * Pedido em edicao (aba Recepcao -> aba Cliente).
+   *
+   * Quando preenchido, finalizar ATUALIZA o pedido existente em vez de criar
+   * outro. Sem esta marca, editar geraria um pedido novo e o antigo ficaria na
+   * fila — a cozinha produziria os dois.
+   */
+  const [editandoPedidoId, setEditandoPedidoId] = useState<string | null>(null);
+  /** Dados do cliente vindos da importacao ou da edicao. */
+  const [rascunhoCliente, setRascunhoCliente] = useState<{
+    name: string;
+    phone: string;
+    address: string;
+    notes: string;
+  } | null>(null);
 
   /** Cozinha: praca selecionada e status por "comandaId::saguao". */
   const [activeStation, setActiveStation] = useState('todos');
@@ -307,6 +325,63 @@ export function EditorPreview({
     showFlash(demo.preview.orderCanceled);
   }
 
+  /**
+   * Importacao do WhatsApp: o texto lido vira carrinho.
+   *
+   * A quantidade e expandida em itens repetidos porque o carrinho do
+   * simulador e uma lista simples, um item por unidade — o mesmo formato que
+   * o cliente produz clicando duas vezes em "adicionar".
+   */
+  function handleImportarPedido(pedido: PedidoImportado) {
+    const itens: OrderItem[] = [];
+
+    for (const item of pedido.items) {
+      for (let i = 0; i < item.quantity; i += 1) {
+        // Casa com o cardapio para recuperar o saguao: sem isso o item cairia
+        // em "Sem saguao" na Cozinha e ninguem saberia quem prepara.
+        const doCardapio = products.find(
+          (p) => p.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+        );
+        itens.push({
+          name: item.name,
+          price: item.price > 0 ? item.price : (doCardapio?.price ?? 0),
+          station: doCardapio?.station,
+        });
+      }
+    }
+
+    setCart(itens);
+    setRascunhoCliente({
+      name: pedido.customerName,
+      phone: pedido.phone,
+      address: pedido.address,
+      notes: pedido.notes,
+    });
+    setEditandoPedidoId(null);
+    setView('menu');
+    showFlash(`${itens.length} ${itens.length === 1 ? 'item importado' : 'itens importados'}. Revise e confirme.`);
+  }
+
+  /**
+   * "Editar Pedido" na Recepcao: hidrata o carrinho e volta para a aba Cliente.
+   */
+  function handleEditarPedido(id: string) {
+    const pedido = deliveries.find((d) => d.id === id);
+    if (!pedido) return;
+
+    setCart(pedido.items.map((item) => ({ ...item })));
+    setRascunhoCliente({
+      name: pedido.customerName,
+      phone: pedido.phone ?? '',
+      address: pedido.address.mode === 'manual' ? addressLabel(pedido.address) : '',
+      notes: '',
+    });
+    setEditandoPedidoId(id);
+    setView('menu');
+    setCheckoutOpen(true);
+    showFlash(`Editando o pedido #${pedido.code}.`);
+  }
+
   function handleCheckout(data: {
     customerName: string;
     phone: string;
@@ -331,9 +406,40 @@ export function EditorPreview({
       distanceLabel: data.address.mode === 'gps' ? '1,2 km' : '2,4 km',
     };
 
+    /*
+     * MODO EDICAO: atualiza o pedido existente em vez de criar outro. Criar um
+     * novo deixaria o antigo na fila, e a cozinha produziria os dois.
+     */
+    if (editandoPedidoId) {
+      setDeliveries((list) =>
+        list.map((item) =>
+          item.id === editandoPedidoId
+            ? {
+                ...item,
+                customerName: data.customerName,
+                phone: data.phone,
+                items: cart,
+                payments: data.payments,
+                address: data.address,
+                total: itemsTotal + (item.deliveryFee ?? 0),
+              }
+            : item
+        )
+      );
+
+      setCart([]);
+      setCheckoutOpen(false);
+      setEditandoPedidoId(null);
+      setRascunhoCliente(null);
+      setView('recepcao');
+      showFlash('Pedido atualizado.', 3200);
+      return;
+    }
+
     setDeliveries((list) => [order, ...list]);
     setCart([]);
     setCheckoutOpen(false);
+    setRascunhoCliente(null);
     // O pedido novo cai na Recepcao, nao mais no Caixa.
     setView('recepcao');
     showFlash(demo.preview.checkoutSuccess, 3200);
@@ -570,6 +676,30 @@ export function EditorPreview({
 
         {view === 'menu' && (
           <div className="phone__content" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {/* So no painel do dono: o cliente final nao importa nada. */}
+            {interactive && (
+              <div className="import-order__wrap">
+                {editandoPedidoId && (
+                  <p className="import-order__editing">
+                    Editando um pedido existente. Ao confirmar, ele e atualizado.
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditandoPedidoId(null);
+                        setRascunhoCliente(null);
+                        setCart([]);
+                        setCheckoutOpen(false);
+                        setView('recepcao');
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </p>
+                )}
+                <ImportOrderPanel onImport={handleImportarPedido} />
+              </div>
+            )}
+
             <MenuView
               appName={storeName}
               primaryColor={brandColor}
@@ -611,6 +741,7 @@ export function EditorPreview({
             <ReceptionView
               deliveries={deliveries}
               defaultFee={deliveryFee}
+              onEdit={handleEditarPedido}
               onAccept={handleAcceptDelivery}
               onReject={handleRejectDelivery}
             />
@@ -682,7 +813,13 @@ export function EditorPreview({
         )}
 
         {view === 'menu' && checkoutOpen && cart.length > 0 && (
-          <CheckoutSheet items={cart} onClose={() => setCheckoutOpen(false)} onSubmit={handleCheckout} />
+          <CheckoutSheet
+            items={cart}
+            initial={rascunhoCliente ?? undefined}
+            submitLabel={editandoPedidoId ? 'Salvar alterações' : undefined}
+            onClose={() => setCheckoutOpen(false)}
+            onSubmit={handleCheckout}
+          />
         )}
 
         {view === 'salao' && ticket && (

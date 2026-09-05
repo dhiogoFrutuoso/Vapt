@@ -1456,3 +1456,227 @@
 .editor-preview.theme-escuro .cash-search__field input {
   color: #f3f4f6;
 }
+
+/* ==================================================================
+   IMPORTAR PEDIDO DO WHATSAPP (aba Cliente do painel)
+   ------------------------------------------------------------------
+   Aparece so no painel do dono, acima do cardapio. Comeca fechado como
+   um botao discreto: e uma ferramenta de excecao, nao o fluxo padrao,
+   e ocupar espaco permanente empurraria o cardapio para baixo.
+   ================================================================== */
+.import-order__wrap {
+  flex-shrink: 0;
+  padding: 8px 12px 0;
+}
+
+.import-order__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1.5px dashed var(--line);
+  background: var(--surface-2);
+  color: var(--ink-500);
+  font-size: 0.5rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.import-order__open:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.import-order {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1.5px solid var(--line);
+}
+
+.import-order__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.55rem;
+  font-weight: 900;
+  color: var(--ink-900);
+}
+
+.import-order__close {
+  border: 0;
+  background: none;
+  color: var(--ink-300);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+}
+
+.import-order__field {
+  width: 100%;
+  resize: vertical;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1.5px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-900);
+  font-size: 0.52rem;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.import-order__field:focus {
+  outline: none;
+  border-color: var(--brand);
+  background: #fff;
+}
+
+.import-order__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.import-order__paste,
+.import-order__submit {
+  flex: 1;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 0.5rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1.5px solid var(--line);
+}
+
+.import-order__paste {
+  background: var(--surface-2);
+  color: var(--ink-500);
+}
+
+.import-order__submit {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}
+
+.import-order__submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- Previa do que foi entendido -------------------------------- */
+.import-order__preview {
+  padding: 8px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+}
+
+.import-order__line {
+  margin: 0 0 4px;
+  font-size: 0.52rem;
+  color: var(--ink-500);
+}
+
+.import-order__items {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.import-order__items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.5rem;
+  color: var(--ink-900);
+}
+
+.import-order__total {
+  margin: 0;
+  font-size: 0.55rem;
+  color: var(--ink-900);
+}
+
+/* Avisa o que nao foi lido, em vez de fingir que entendeu tudo. */
+.import-order__warn {
+  margin: 6px 0 0;
+  padding: 5px 7px;
+  border-radius: 7px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.48rem;
+  line-height: 1.4;
+}
+
+/* --- Faixa do modo edicao ---------------------------------------- */
+.import-order__editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 7px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.5rem;
+  font-weight: 700;
+}
+
+.import-order__editing button {
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  color: #4338ca;
+  font-size: 0.5rem;
+  font-weight: 900;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ------------------- Escala no painel do editor ------------------ */
+.studio-root .editor-preview .import-order__open,
+.studio-root .editor-preview .import-order__paste,
+.studio-root .editor-preview .import-order__submit,
+.studio-root .editor-preview .import-order__editing,
+.studio-root .editor-preview .import-order__editing button {
+  font-size: 0.74rem;
+}
+
+.studio-root .editor-preview .import-order__head {
+  font-size: 0.82rem;
+}
+
+.studio-root .editor-preview .import-order__field {
+  font-size: 0.78rem;
+}
+
+.studio-root .editor-preview .import-order__line,
+.studio-root .editor-preview .import-order__items li,
+.studio-root .editor-preview .import-order__total {
+  font-size: 0.76rem;
+}
+
+.studio-root .editor-preview .import-order__warn {
+  font-size: 0.72rem;
+}
+
+/* --------------------------- Tema escuro -------------------------- */
+.editor-preview.theme-escuro .import-order,
+.editor-preview.theme-escuro .import-order__field {
+  background: #1f2937;
+  border-color: #374151;
+  color: #f3f4f6;
+}
+
+.editor-preview.theme-escuro .import-order__head,
+.editor-preview.theme-escuro .import-order__items li,
+.editor-preview.theme-escuro .import-order__total {
+  color: #f3f4f6;
+}

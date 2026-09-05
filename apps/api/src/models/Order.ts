@@ -45,6 +45,23 @@ const orderSchema = new Schema(
     changeFor: { type: Number }, // Troco para
     
     address: { type: addressSchema },
+
+    /**
+     * Observacao do cliente ("sem cebola", "ponto da carne").
+     *
+     * Faltava: `notes` existia so no ITEM, entao a observacao do pedido
+     * inteiro — que o cardapio publico coleta — era descartada em silencio
+     * pelo modo estrito do Mongoose. A cozinha nunca ficava sabendo.
+     */
+    notes: { type: String, trim: true, maxlength: 300, default: '' },
+
+    /** Origem do registro. Util para o dono saber o que veio automatizado. */
+    source: {
+      type: String,
+      enum: ['painel', 'magic_link', 'importado', 'app'],
+      default: 'painel',
+      index: true,
+    },
     
     status: { 
       type: String, 

@@ -27,7 +27,17 @@ import {
   googleStart,
   googleStatus,
 } from '../controllers/googleAuth.controller.js';
+import {
+  deviceLogin,
+  deviceLogout,
+  deviceMe,
+  deviceRefresh,
+  deviceSessions,
+  deviceUpdateProfile,
+} from '../controllers/deviceAuth.controller.js';
 import { imageMeta, serveImage } from '../controllers/images.controller.js';
+import { createMagicLink, getPublicApp } from '../controllers/publicApp.controller.js';
+import { consumeMagicLink } from '../controllers/magicLink.controller.js';
 import {
   createApp,
   listApps,
@@ -53,6 +63,7 @@ import {
 
 import { authLimiter, writeLimiter } from '../middlewares/rateLimiter.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
+import { requireDevice } from '../middlewares/requireDevice.js';
 import { upload } from '../middlewares/upload.js';
 import { adminRoutes } from './adminRoutes.js';
 
@@ -108,6 +119,35 @@ router.get('/auth/google/callback', googleCallback);
 router.patch('/auth/me', requireAuth, updateMe);
 /* Troca de senha: authLimiter porque exige a senha atual e e alvo de forca bruta. */
 router.patch('/auth/password', requireAuth, authLimiter, updatePassword);
+
+/* ---------------------- Cardapio publico --------------------------- */
+/* Sem autenticacao: e o link que o cliente final abre. A resposta e montada
+   por lista branca no controller — employees, roles e tracking nunca saem. */
+router.get('/public/apps/:id', getPublicApp);
+/* Assina o rascunho do pedido. Recebe id e quantidade; os precos vem do
+   cardapio no banco, nunca do corpo da requisicao. */
+router.post('/public/apps/:id/magic-link', writeLimiter, createMagicLink);
+
+/* Magic link: o restaurante clica no link que veio no WhatsApp e o pedido
+   entra no banco. Sem authLimiter — quem chega e o dono, uma vez por pedido,
+   e um 429 aqui perderia o pedido do cliente. A defesa e a assinatura HMAC. */
+router.get('/parse', consumeMagicLink);
+
+/* --------------------- Sessao do app da equipe --------------------- */
+/* Bearer token, nao cookie: a WebView do Capacitor roda em outra origem.
+   O login por codigo entra na Etapa 2; aqui esta o que sustenta a sessao. */
+
+/* O refresh nao usa authLimiter: um app legitimo renova a cada 10 minutos e
+   seria bloqueado junto com o atacante. A protecao aqui e a rotacao — token
+   reapresentado queima a linhagem inteira. */
+/* Login por codigo: authLimiter porque o codigo tem 6 caracteres e e alvo
+   natural de tentativa em rajada. */
+router.post('/device/login', authLimiter, deviceLogin);
+router.patch('/device/profile', requireDevice, deviceUpdateProfile);
+router.post('/device/refresh', deviceRefresh);
+router.post('/device/logout', deviceLogout);
+router.get('/device/me', requireDevice, deviceMe);
+router.get('/device/sessions', requireDevice, deviceSessions);
 
 /* ------------------------ Aplicativos ----------------------------- */
 

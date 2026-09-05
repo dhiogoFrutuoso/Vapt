@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { AppProject } from '../models/AppProject.js';
+import { generateUniqueEmployeeCode } from '../services/employeeLookup.js';
+import { revokeAllForEmployee } from '../services/deviceSession.js';
 import { User } from '../models/User.js';
 import { Image } from '../models/Image.js';
 import { HttpError } from '../utils/httpError.js';
@@ -886,14 +888,13 @@ export const removeRole = async (req: Request, res: Response) => {
 
 /* ----------------------- Employees ----------------------- */
 
-function generateAccessCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
+/*
+ * O gerador antigo vivia aqui: Math.random(), alfabeto com 0/O/1/I e sem
+ * checagem de colisao. Foi substituido por `generateUniqueEmployeeCode`, que
+ * usa crypto.randomInt e confirma que o codigo esta livre em TODA a base —
+ * necessario porque o login do app busca o funcionario so pelo codigo,
+ * atravessando todos os restaurantes.
+ */
 
 export const addEmployee = async (req: Request, res: Response) => {
           try {
@@ -903,7 +904,7 @@ export const addEmployee = async (req: Request, res: Response) => {
                   const roleExists = app.roles.id(req.body.roleId);
                   if (!roleExists) throw HttpError.badRequest('Funcao invalida');
 
-                  const accessCode = generateAccessCode();
+                  const accessCode = await generateUniqueEmployeeCode();
                   const newEmployee = { name: req.body.name, roleId: req.body.roleId, accessCode };
                   app.employees.push(newEmployee as any);
                   await app.save();
@@ -1129,6 +1130,19 @@ export const removeEmployee = async (req: Request, res: Response) => {
                   if (emp) {
                     emp.deleteOne();
                     await app.save();
+
+                    /*
+                     * Derruba as sessoes do aparelho ANTES de responder.
+                     *
+                     * Sem isto, excluir o funcionario removia o cadastro mas
+                     * deixava o app dele funcionando ate o refresh expirar —
+                     * ate 30 dias operando o restaurante como um usuario que
+                     * ja nao existe. O acesso tem de morrer junto com a conta.
+                     */
+                    const derrubadas = await revokeAllForEmployee(req.params.empId, 'admin');
+                    if (derrubadas > 0) {
+                      console.info(`[equipe] Funcionario removido. ${derrubadas} sessao(oes) encerrada(s).`);
+                    }
                   }
                   res.json({ ok: true, data: { deleted: true } });
 
