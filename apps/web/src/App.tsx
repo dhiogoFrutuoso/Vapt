@@ -1,10 +1,13 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
 import { AccountPage } from './pages/AccountPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { TermsPage, PrivacyPage } from './pages/LegalPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminPage } from './pages/AdminPage';
 import { PlanSelectionPage } from './pages/PlanSelectionPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -49,6 +52,18 @@ export default function App() {
         }
       />
       <Route
+        path="/recuperar-senha"
+        element={
+          <GuestRoute>
+            <ForgotPasswordPage />
+          </GuestRoute>
+        }
+      />
+      {/* Publicas: precisam abrir para quem esta logado e para quem nao esta,
+          inclusive em nova aba a partir do checkbox de aceite. */}
+      <Route path="/termos" element={<TermsPage />} />
+      <Route path="/privacidade" element={<PrivacyPage />} />
+      <Route
         path="/painel"
         element={
           <ProtectedRoute>
@@ -89,7 +104,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </>
   );

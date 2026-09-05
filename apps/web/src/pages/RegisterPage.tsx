@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/auth/AuthLayout';
 import { GoogleButton } from '../components/auth/GoogleButton';
+import { TermsCheckbox } from '../components/auth/TermsCheckbox';
 import { auth } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
@@ -64,6 +65,7 @@ export function RegisterPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -148,10 +150,16 @@ export function RegisterPage() {
       setFieldErrors({ photo: 'Envie uma foto de perfil.' });
       return;
     }
+    if (!accepted) {
+      setFieldErrors({ termsAccepted: 'É preciso aceitar os Termos para criar a conta.' });
+      return;
+    }
 
     setSubmitting(true);
     try {
       const formData = new FormData();
+      // A API valida `termsAccepted` como literal true; em multipart vai como string.
+      formData.append('termsAccepted', 'true');
       formData.append('email', form.email.trim().toLowerCase());
       formData.append('password', form.password);
       formData.append('username', form.username.trim());
@@ -479,6 +487,16 @@ export function RegisterPage() {
 
         {error && <p className="alert alert--error">{error}</p>}
 
+        {step === 2 && (
+          <TermsCheckbox
+            idSuffix="register"
+            checked={accepted}
+            onChange={setAccepted}
+            disabled={submitting}
+            error={fieldErrors.termsAccepted}
+          />
+        )}
+
         <div className="auth__actions">
           {step > 0 && (
             <button type="button" className="btn btn--ghost" onClick={() => setStep((s) => s - 1)}>
@@ -491,7 +509,11 @@ export function RegisterPage() {
               {copy.next} →
             </button>
           ) : (
-            <button type="submit" className="btn btn--primary btn--lg" disabled={submitting}>
+            <button
+              type="submit"
+              className="btn btn--primary btn--lg"
+              disabled={submitting || !accepted}
+            >
               {submitting ? copy.submitting : copy.submit}
             </button>
           )}

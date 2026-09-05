@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/auth/AuthLayout';
 import { GoogleButton } from '../components/auth/GoogleButton';
+import { TermsCheckbox } from '../components/auth/TermsCheckbox';
 import { auth } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../lib/api';
+import toast from 'react-hot-toast';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 
 /**
@@ -41,6 +43,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -68,16 +71,24 @@ export function LoginPage() {
       return;
     }
 
+    if (!accepted) {
+      setFieldErrors({ termsAccepted: 'É preciso aceitar os Termos para continuar.' });
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await login({ identifier: identifier.trim(), password });
+      await login({ identifier: identifier.trim(), password, termsAccepted: true });
+      toast.success('Bem-vindo de volta!');
       navigate(plan ? `/painel?plano=${encodeURIComponent(plan)}` : from, { replace: true });
     } catch (err: any) {
       if (err instanceof ApiError) {
         setError(err.message);
         setFieldErrors(err.fieldErrors());
+        toast.error(err.message);
       } else {
         setError('Não conseguimos entrar agora. Tente novamente.');
+        toast.error('Não conseguimos entrar agora. Tente novamente.');
       }
     } finally {
       setSubmitting(false);
@@ -142,9 +153,28 @@ export function LoginPage() {
           {fieldErrors.password && <small className="field__error">{fieldErrors.password}</small>}
         </div>
 
+        <Link
+          to="/recuperar-senha"
+          className="-mt-1 self-end text-sm font-semibold text-[#F95D2A] no-underline hover:underline"
+        >
+          Esqueci minha senha
+        </Link>
+
+        <TermsCheckbox
+          idSuffix="login"
+          checked={accepted}
+          onChange={setAccepted}
+          disabled={submitting}
+          error={fieldErrors.termsAccepted}
+        />
+
         {error && <p className="alert alert--error">{error}</p>}
 
-        <button type="submit" className="btn btn--primary btn--lg btn--block" disabled={submitting}>
+        <button
+          type="submit"
+          className="btn btn--primary btn--lg btn--block"
+          disabled={submitting || !accepted}
+        >
           {submitting ? copy.submitting : copy.submit}
         </button>
       </form>

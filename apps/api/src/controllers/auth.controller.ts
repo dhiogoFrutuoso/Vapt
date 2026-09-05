@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import type { CookieOptions, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
@@ -6,6 +8,7 @@ import { asyncHandler } from '../middlewares/errorHandler.js';
 import { Image } from '../models/Image.js';
 import { User, hashPassword } from '../models/User.js';
 import { toAvatarWebp } from '../services/imageProcessor.js';
+import { sendResetCodeEmail } from '../services/mailer.js';
 import { HttpError } from '../utils/httpError.js';
 import { signAccessToken } from '../utils/jwt.js';
 
@@ -24,7 +27,25 @@ const addressSchema = z.object({
   reference: z.string().trim().max(200).optional().default(''),
 });
 
+/**
+ * Aceite dos Termos.
+ *
+ * `z.literal(true)` em vez de `z.boolean()`: recusa `false`, `"true"` e a
+ * ausencia do campo. O aceite tem valor juridico, entao a validacao precisa
+ * exigir a afirmacao explicita, nao apenas um campo presente.
+ *
+ * Vem do corpo em multipart no registro (tudo chega como string), por isso o
+ * preprocess normaliza antes de comparar.
+ */
+const termsAccepted = z.preprocess(
+  (value) => (value === 'true' || value === true ? true : value),
+  z.literal(true, {
+    errorMap: () => ({ message: 'E preciso aceitar os Termos de Uso e a Politica de Privacidade.' }),
+  })
+);
+
 const registerSchema = z.object({
+  termsAccepted,
   email: z.string().trim().toLowerCase().email('E-mail invalido.').max(160),
   password: z
     .string()
@@ -61,7 +82,41 @@ const loginSchema = z.object({
   /** Aceita e-mail ou nome de usuario no mesmo campo. */
   identifier: z.string().trim().min(3, 'Informe seu e-mail ou nome de usuario.').max(160),
   password: z.string().min(1, 'Informe a senha.').max(72),
+  termsAccepted,
 });
+
+/* ------------------------------------------------------------------ */
+/* Recuperacao de senha                                                */
+/* ------------------------------------------------------------------ */
+
+const forgotSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Informe um e-mail valido.').max(160),
+});
+
+const resetSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Informe um e-mail valido.').max(160),
+  code: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{6}$/, 'O codigo tem 6 digitos.'),
+  newPassword: z
+    .string()
+    .min(8, 'A nova senha precisa de ao menos 8 caracteres.')
+    .max(72, 'A senha pode ter no maximo 72 caracteres.'),
+});
+
+/** Validade do codigo e teto de tentativas erradas antes de invalida-lo. */
+const RESET_CODE_MINUTES = 15;
+const RESET_MAX_ATTEMPTS = 5;
+
+/**
+ * Codigo de 6 digitos com `randomInt`, nao `Math.random()`.
+ * Math.random e previsivel: quem observa saidas suficientes consegue prever as
+ * proximas, e aqui o codigo e a unica barreira entre um e-mail e a conta.
+ */
+function generateResetCode(): string {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+}
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -184,6 +239,8 @@ export const register = async (req: Request, res: Response) => {
                       passwordHash,
                       address: body.address,
                       photo: image._id,
+                      // Registra QUANDO houve o aceite: e a data que se prova depois.
+                      termsAcceptedAt: new Date(),
                     });
                   } catch (error) {
                     // Nao deixa imagem orfa se a criacao do usuario falhar.
@@ -461,6 +518,109 @@ export const updatePassword = asyncHandler(async (req: Request, res: Response) =
   await user.save();
 
   res.json({ ok: true, data: null, message: 'Senha atualizada.' });
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/auth/forgot-password                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Gera o codigo de 6 digitos e envia por e-mail.
+ *
+ * Responde SEMPRE a mesma coisa, exista ou nao a conta. Diferenciar as
+ * respostas transformaria a rota num oraculo: qualquer um descobriria quais
+ * e-mails tem cadastro no Vapt. O custo e nulo para quem e dono do e-mail —
+ * ele recebe a mensagem de qualquer jeito.
+ */
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = forgotSchema.parse(req.body);
+
+  const resposta = {
+    ok: true,
+    data: { expiresInMinutes: RESET_CODE_MINUTES },
+    message: 'Se houver uma conta com este e-mail, o codigo chega em instantes.',
+  };
+
+  const user = await User.findOne({ email }).select('+passwordHash');
+  if (!user) return res.json(resposta);
+
+  /*
+   * Conta que so entra pelo Google nao tem senha para recuperar. Tambem nao
+   * contamos isso ao chamador — mesma resposta de sempre.
+   */
+  if (!user.passwordHash) {
+    console.warn(`[reset] ${email} entra so pelo Google: nada a recuperar.`);
+    return res.json(resposta);
+  }
+
+  const code = generateResetCode();
+
+  // Guardamos o HASH do codigo. Vazamento do banco nao entrega contas.
+  user.set({
+    resetPasswordCode: await bcrypt.hash(code, env.auth.bcryptRounds),
+    resetPasswordExpires: new Date(Date.now() + RESET_CODE_MINUTES * 60_000),
+    resetPasswordAttempts: 0,
+  });
+  await user.save();
+
+  await sendResetCodeEmail(user.email, code, RESET_CODE_MINUTES);
+
+  return res.json(resposta);
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/auth/reset-password                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Valida o codigo e troca a senha.
+ *
+ * Um codigo de 6 digitos tem so 10^6 combinacoes: sem limite de tentativas,
+ * um script quebra em minutos. Alem do rate limit por IP na rota, contamos as
+ * tentativas erradas no proprio documento e queimamos o codigo ao estourar —
+ * isso trava o ataque mesmo distribuido entre varios IPs.
+ */
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const body = resetSchema.parse(req.body);
+
+  const invalido = new HttpError(400, 'Codigo invalido ou expirado. Peca um novo.', [
+    { field: 'code', message: 'Codigo invalido ou expirado.' },
+  ]);
+
+  const user = await User.findOne({ email: body.email }).select(
+    '+resetPasswordCode +resetPasswordExpires +resetPasswordAttempts'
+  );
+
+  if (!user || !user.resetPasswordCode || !user.resetPasswordExpires) throw invalido;
+
+  if (user.resetPasswordExpires.getTime() < Date.now()) {
+    user.set({ resetPasswordCode: null, resetPasswordExpires: null, resetPasswordAttempts: 0 });
+    await user.save();
+    throw invalido;
+  }
+
+  if ((user.resetPasswordAttempts ?? 0) >= RESET_MAX_ATTEMPTS) {
+    user.set({ resetPasswordCode: null, resetPasswordExpires: null, resetPasswordAttempts: 0 });
+    await user.save();
+    throw new HttpError(429, 'Codigo bloqueado por tentativas erradas. Peca um novo.');
+  }
+
+  const confere = await bcrypt.compare(body.code, user.resetPasswordCode);
+
+  if (!confere) {
+    user.resetPasswordAttempts = (user.resetPasswordAttempts ?? 0) + 1;
+    await user.save();
+    throw invalido;
+  }
+
+  user.passwordHash = await hashPassword(body.newPassword);
+  // Codigo e de uso unico: some assim que cumpre a funcao.
+  user.set({ resetPasswordCode: null, resetPasswordExpires: null, resetPasswordAttempts: 0 });
+  // Quem entrou pelo Google e definiu senha agora tem os dois caminhos.
+  if (user.googleId) user.authProvider = 'both';
+  await user.save();
+
+  return res.json({ ok: true, data: null, message: 'Senha alterada. Ja pode entrar.' });
 });
 
 /* ------------------------------------------------------------------ */

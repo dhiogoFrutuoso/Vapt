@@ -1,3 +1,5 @@
+import typography from '@tailwindcss/typography';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -9,6 +11,9 @@ export default {
     // Telas de autenticacao: sem isto as utilitarias usadas no botao do
     // Google e no separador nao chegam a ser geradas no CSS final.
     './src/pages/AccountPage.tsx',
+    './src/pages/ForgotPasswordPage.tsx',
+    './src/pages/LegalPage.tsx',
+    './src/pages/NotFoundPage.tsx',
     './src/pages/LoginPage.tsx',
     './src/pages/RegisterPage.tsx',
     './src/components/auth/**/*.tsx',
@@ -53,5 +58,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [typography],
 };

@@ -143,9 +143,19 @@ export type RegisterInput = {
   photo: string;
 };
 
+export type ForgotPasswordInput = { email: string };
+
+export type ResetPasswordInput = {
+  email: string;
+  code: string;
+  newPassword: string;
+};
+
 export type LoginInput = {
   identifier: string;
   password: string;
+  /** Aceite dos Termos. A API recusa o login sem ele. */
+  termsAccepted: true;
 };
 
 export type DemoProductInput = {
@@ -382,6 +392,15 @@ export const api = {
 
   updatePassword: (input: { currentPassword: string; newPassword: string }) =>
     request<null>('/auth/password', { method: 'PATCH', body: JSON.stringify(input) }),
+
+  forgotPassword: (input: ForgotPasswordInput) =>
+    request<{ expiresInMinutes: number }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  resetPassword: (input: ResetPasswordInput) =>
+    request<null>('/auth/reset-password', { method: 'POST', body: JSON.stringify(input) }),
 
   /* Apps */
   getApps: (targetUserId?: string) => {

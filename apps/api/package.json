@@ -12,6 +12,7 @@
     "migrate:categories": "tsx src/scripts/migrateCategories.ts"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.20",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",
@@ -26,6 +27,7 @@
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
     "multer": "^2.3.0",
+    "resend": "^6.26.0",
     "sharp": "^0.35.4",
     "zod": "^3.24.1"
   },

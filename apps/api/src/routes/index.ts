@@ -13,10 +13,12 @@ import { createSupportRequest } from '../controllers/support.controller.js';
 import { getCompanyInfo } from '../controllers/company.controller.js';
 import {
   checkUsername,
+  forgotPassword,
   login,
   logout,
   me,
   register,
+  resetPassword,
   updateMe,
   updatePassword,
 } from '../controllers/auth.controller.js';
@@ -88,6 +90,12 @@ router.post('/auth/register', authLimiter, upload.single('photo'), register);
 router.post('/auth/login', authLimiter, login);
 router.post('/auth/logout', logout);
 router.get('/auth/check-username', checkUsername);
+
+/* Recuperacao de senha: authLimiter (5 tentativas / 15 min) nas duas pontas.
+   Gerar codigo em rajada vira spam no e-mail da vitima; adivinhar codigo em
+   rajada quebra 6 digitos em minutos. */
+router.post('/auth/forgot-password', authLimiter, forgotPassword);
+router.post('/auth/reset-password', authLimiter, resetPassword);
 router.get('/auth/me', requireAuth, me);
 
 /* --- Google OAuth 2.0 ---

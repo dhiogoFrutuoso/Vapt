@@ -114,6 +114,28 @@ const userSchema = new Schema(
     avatarUrl: { type: String, trim: true, maxlength: 400, default: '' },
     /** Falso ate o lojista completar os dados da loja na tela de onboarding. */
     onboardingCompleted: { type: Boolean, default: true },
+
+    /* ------------------- Consentimento juridico ------------------- */
+
+    /**
+     * Quando o usuario aceitou os Termos. Guardamos a DATA, nao um booleano:
+     * o que vale juridicamente e conseguir provar *quando* houve o aceite,
+     * e a data ainda permite pedir novo aceite quando os termos mudarem.
+     */
+    termsAcceptedAt: { type: Date, default: null },
+
+    /* -------------------- Recuperacao de senha -------------------- */
+
+    /**
+     * HASH do codigo de 6 digitos, nunca o codigo em si.
+     * Sao apenas 10^6 combinacoes: em texto puro, quem lesse o banco poderia
+     * tomar qualquer conta. `select: false` mantem o campo fora das consultas
+     * comuns, do mesmo jeito que o passwordHash.
+     */
+    resetPasswordCode: { type: String, default: null, select: false },
+    resetPasswordExpires: { type: Date, default: null, select: false },
+    /** Tentativas erradas do codigo atual. Trava o codigo antes da forca bruta. */
+    resetPasswordAttempts: { type: Number, default: 0, select: false },
   },
   {
     timestamps: true,

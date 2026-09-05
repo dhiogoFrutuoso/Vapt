@@ -170,7 +170,21 @@ export const env = {
   },
 
   rateLimit: {
-    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000),
-    max: Number(process.env.RATE_LIMIT_MAX ?? 60),
+    // Padrao de producao: 100 requisicoes por 15 minutos por IP.
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 15 * 60_000),
+    max: Number(process.env.RATE_LIMIT_MAX ?? 100),
+  },
+
+  /**
+   * Resend (e-mail transacional). Sem chave, o envio e desligado e o codigo
+   * de recuperacao aparece no log do servidor — assim o fluxo continua
+   * testavel em desenvolvimento sem depender de servico externo.
+   */
+  mail: {
+    resendApiKey: optional('RESEND_API_KEY'),
+    from: process.env.MAIL_FROM ?? 'Vapt <onboarding@resend.dev>',
+    get enabled() {
+      return Boolean(this.resendApiKey);
+    },
   },
 };
