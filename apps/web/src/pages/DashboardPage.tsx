@@ -5,7 +5,7 @@ import { auth, site } from '../data/content';
 import { useAuth } from '../context/AuthContext';
 import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
-import { Plus, Trash2, LogOut, Store, Search, LayoutDashboard, Settings, Edit3, Image as ImageIcon, Users, Shield, KeySquare, Save, Phone, Rocket, TestTube, ChevronDown, Lock, ChefHat } from 'lucide-react';
+import { ChefHat, ChevronDown, Download, Edit3, Image as ImageIcon, KeySquare, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Store, TestTube, Trash2, Users } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
 export function DashboardPage() {
@@ -498,6 +498,49 @@ export function DashboardPage() {
                       <Trash2 size={16} />
                     </button>
                   </div>
+
+                  {/* Baixar App: so faz sentido em plano OFICIAL. No TESTE fica
+                      visivel e desabilitado, para o dono entender que existe e
+                      o que destrava — esconder viraria "sumiu uma funcao". */}
+                  {(() => {
+                    const isOficial = (app.appPlanType ?? '').startsWith('OFICIAL');
+                    const base = {
+                      width: '100%',
+                      marginTop: '0.5rem',
+                      padding: '0.75rem',
+                      borderRadius: '12px',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      textDecoration: 'none',
+                      border: '1px solid transparent',
+                    } as const;
+
+                    if (!isOficial) {
+                      return (
+                        <button
+                          type="button"
+                          disabled
+                          title="Disponível nos planos oficiais"
+                          style={{ ...base, backgroundColor: '#F1F5F9', color: '#94A3B8', cursor: 'not-allowed', opacity: 0.75 }}
+                        >
+                          <Download size={16} /> Baixar App
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <Link
+                        to={`/download?app=${app.id}`}
+                        style={{ ...base, backgroundColor: '#F95D2A', color: '#fff', boxShadow: '0 6px 16px -6px rgba(249,93,42,0.55)' }}
+                      >
+                        <Download size={16} /> Baixar App
+                      </Link>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

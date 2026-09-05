@@ -5,6 +5,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EditorPage } from './pages/EditorPage';
 import { AccountPage } from './pages/AccountPage';
+import { DownloadPage } from './pages/DownloadPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { TermsPage, PrivacyPage } from './pages/LegalPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -80,6 +81,14 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/download"
+        element={
+          <ProtectedRoute>
+            <DownloadPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/painel/conta"
         element={

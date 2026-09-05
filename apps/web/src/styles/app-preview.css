@@ -693,3 +693,53 @@
 .phone {
   max-width: 300px;
 }
+
+/* ==================================================================
+   BARRA INFERIOR — contraste do item inativo
+   ------------------------------------------------------------------
+   O inativo usava branco a 72% de opacidade, herdado de quando a barra
+   ficava sobre fundo escuro. Sobre a barra clara de hoje isso vira um
+   cinza lavado: o funcionario precisa tocar para descobrir o que a aba
+   e. Aba inativa nao e aba desabilitada — ela tem de ser lida de
+   relance, com o aparelho apoiado no balcao.
+
+   Inativo: cinza solido e legivel. Ativo: cor da marca, sem depender
+   so do fundo para se distinguir.
+   ================================================================== */
+.phone__tabs button {
+  color: #9CA3AF;
+  opacity: 1;
+}
+
+.phone__tabs button svg {
+  opacity: 1;
+}
+
+.phone__tabs button.is-active {
+  color: var(--brand);
+}
+
+.phone__tabs button:not(.is-active):hover {
+  color: #4B5563;
+}
+
+/* Fundo claro do estudio e da vitrine: mesmo par de cores. */
+.studio-root .editor-preview .phone__tabs button,
+.phone__screen--app .editor-preview .phone__tabs button {
+  color: #9CA3AF;
+  opacity: 1;
+}
+
+.studio-root .editor-preview .phone__tabs button.is-active,
+.phone__screen--app .editor-preview .phone__tabs button.is-active {
+  color: var(--brand);
+}
+
+/* No tema escuro o cinza claro e que garante a leitura. */
+.editor-preview.theme-escuro .phone__tabs button {
+  color: #9CA3AF;
+}
+
+.editor-preview.theme-escuro .phone__tabs button.is-active {
+  color: #fff;
+}
