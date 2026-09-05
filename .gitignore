@@ -122,3 +122,6 @@ apps/api/uploads/
 .claude/
 .agents/
 skills-lock.json
+
+# Binarios prontos para upload no release (nao versionados)
+publicar/

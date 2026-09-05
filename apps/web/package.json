@@ -49,7 +49,7 @@
   "build": {
     "appId": "com.vapt.equipe",
     "productName": "Vapt Equipe",
-    "artifactName": "Vapt-Setup-${version}.${ext}",
+    "artifactName": "Vapt-Setup.${ext}",
     "files": [
       "electron/**/*",
       "dist-app/**/*",
