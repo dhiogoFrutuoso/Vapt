@@ -37,6 +37,7 @@ const ptBR = {
   'prefs.idioma': 'Idioma',
   'prefs.salvo': 'Preferência salva neste aparelho.',
 
+  'nav.areas': 'Áreas do aplicativo',
   'abas.cliente': 'Cliente',
   'abas.recepcao': 'Recepção',
   'abas.salao': 'Salão',
@@ -72,6 +73,7 @@ const en: Record<Chave, string> = {
   'prefs.idioma': 'Language',
   'prefs.salvo': 'Preference saved on this device.',
 
+  'nav.areas': 'App areas',
   'abas.cliente': 'Customer',
   'abas.recepcao': 'Front desk',
   'abas.salao': 'Dining room',
@@ -105,6 +107,7 @@ const es: Record<Chave, string> = {
   'prefs.idioma': 'Idioma',
   'prefs.salvo': 'Preferencia guardada en este dispositivo.',
 
+  'nav.areas': 'Áreas de la aplicación',
   'abas.cliente': 'Cliente',
   'abas.recepcao': 'Recepción',
   'abas.salao': 'Salón',

@@ -1,4 +1,4 @@
-# builds/
+# releases/
 
 Instaladores prontos para publicar. **O conteúdo desta pasta não é versionado** —
 só este arquivo é.
@@ -14,7 +14,7 @@ passagem.
 ```bash
 npm run build:win     -w apps/web    # gera o .exe (Electron + NSIS)
 npm run build:android -w apps/web    # gera o .apk (Capacitor + Gradle)
-npm run builds        -w apps/web    # copia os dois para cá com nome estável
+npm run deploy:apps        -w apps/web    # copia os dois para cá com nome estável
 ```
 
 Ou tudo de uma vez:

@@ -19,14 +19,21 @@ const { pathToFileURL } = require('node:url');
 const RAIZ = path.join(__dirname, '..', 'dist-app');
 
 /*
- * Proporcao de celular. A interface do app foi desenhada para uma coluna
- * unica com barra de abas no rodape; esticada em tela cheia de monitor, os
- * cards de pedido virariam faixas de um metro de largura com tres palavras
- * dentro. Travar a janela e mais honesto do que criar um segundo layout que
- * ninguem mantem.
+ * Dimensoes de software de desktop.
+ *
+ * A janela travada em proporcao de celular fazia sentido enquanto a interface
+ * so existia em coluna unica. Agora ela e responsiva: em tela larga a barra de
+ * abas vira uma coluna lateral e o conteudo ocupa o espaco. O caixa e a
+ * cozinha usam monitor, e obrigar um monitor a se comportar como celular
+ * desperdica a tela inteira.
+ *
+ * O minimo continua existindo para que o layout nao seja espremido abaixo do
+ * ponto em que foi desenhado.
  */
-const LARGURA = 450;
-const ALTURA = 850;
+const LARGURA = 1280;
+const ALTURA = 720;
+const LARGURA_MIN = 380;
+const ALTURA_MIN = 600;
 
 /**
  * `vapt://` em vez de `file://`.
@@ -85,15 +92,16 @@ function criarJanela() {
   const janela = new BrowserWindow({
     width: LARGURA,
     height: ALTURA,
+    minWidth: LARGURA_MIN,
+    minHeight: ALTURA_MIN,
     /*
      * `useContentSize` mede a AREA UTIL, nao a janela inteira. Sem ele, a
-     * barra de titulo do Windows comeria uns 30px do desenho e a barra de
-     * abas do rodape ficaria cortada.
+     * barra de titulo do Windows comeria uns 30px do desenho.
      */
     useContentSize: true,
-    resizable: false,
-    maximizable: false,
-    fullscreenable: false,
+    resizable: true,
+    maximizable: true,
+    fullscreenable: true,
     backgroundColor: '#FAF8F5',
     autoHideMenuBar: true,
     title: 'Vapt — App da equipe',

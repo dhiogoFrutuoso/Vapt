@@ -12,11 +12,9 @@
     "preview": "vite preview",
     "build:app": "vite build --config vite.app.config.ts --mode app",
     "build:win": "npm run build:app && electron-builder --win --publish never",
-    "build:android": "npx cap sync android && cd android && .\\gradlew.bat assembleDebug",
+    "build:android": "npx cap sync android && cd android && .\\gradlew.bat assembleDebug && cd .. && node scripts/mover-apk.mjs",
     "app:desktop": "npm run build:app && electron .",
-    "app:apk": "npm run build:app && npm run build:android",
-    "builds": "node scripts/coletar-builds.mjs",
-    "build:all": "npm run build:win && npm run build:android && npm run builds"
+    "deploy:apps": "node scripts/deploy-apps.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
@@ -58,7 +56,7 @@
       "!node_modules/**/*"
     ],
     "directories": {
-      "output": "release"
+      "output": "../../releases"
     },
     "electronVersion": "33.4.11",
     "win": {
