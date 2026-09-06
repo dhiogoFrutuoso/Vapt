@@ -70,6 +70,8 @@ export type Comando =
       items: OrderItem[];
       payments: PaymentSplit;
       address: DeliveryOrder['address'];
+      notes?: string;
+      isDelivery?: boolean;
     }
   | {
       tipo: 'pedido.atualizar';
@@ -79,6 +81,8 @@ export type Comando =
       items: OrderItem[];
       payments: PaymentSplit;
       address: DeliveryOrder['address'];
+      notes?: string;
+      isDelivery?: boolean;
     }
   | { tipo: 'pedido.aceitar'; pedidoId: string; fee: number }
   | { tipo: 'pedido.rejeitar'; pedidoId: string }
@@ -86,7 +90,16 @@ export type Comando =
   | { tipo: 'pedido.voltar'; pedidoId: string }
   | { tipo: 'pedido.cancelar'; pedidoId: string }
   | { tipo: 'caixa.pagamento'; lancamentoId: string; payments: PaymentSplit }
+  | {
+      tipo: 'caixa.editar';
+      lancamentoId: string;
+      payments?: PaymentSplit;
+      items?: OrderItem[];
+      deliveryFee?: number;
+    }
+  | { tipo: 'caixa.cancelar'; lancamentoId: string; motivo?: string }
   | { tipo: 'caixa.fechar' }
+  | { tipo: 'pedido.entregador'; pedidoId: string; employeeId: string }
   | { tipo: 'cozinha.status'; comandaId: string; saguoes: string[]; status: KitchenStatus };
 
 type Resposta = EstadoOperacao & { mensagem?: string | null };
@@ -98,7 +111,14 @@ function origemDoSocket(): string {
   return window.location.origin;
 }
 
-export function useOperation(appId: string | null, token: string | null) {
+export function useOperation(
+  appId: string | null,
+  token: string | null,
+  /** Funcionário logado, para o kill-switch saber se o evento é dele. */
+  employeeId: string | null,
+  /** Chamado quando o painel revoga esta sessão. */
+  aoRevogar?: () => void | Promise<void>
+) {
   const [estado, setEstado] = useState<EstadoOperacao>(VAZIO);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -150,6 +170,20 @@ export function useOperation(appId: string | null, token: string | null) {
       socket.on('new_order', () => void buscarRef.current());
       socket.on('order_updated', () => void buscarRef.current());
 
+      /*
+       * Kill-switch: o dono bloqueou ou excluiu este funcionário.
+       *
+       * O evento vai para a sala inteira do restaurante, então cada aparelho
+       * confere se o alvo é ele. O `deviceApi` já limpa o armazenamento e
+       * avisa a interface pelo mesmo caminho que usa quando o refresh falha —
+       * reaproveitar isso evita uma segunda porta de saída para manter.
+       */
+      socket.on('session_revoked', (dados: { employeeId?: string; motivo?: string }) => {
+        if (!dados?.employeeId || dados.employeeId !== employeeId) return;
+        console.warn('[sessao] Revogada pelo painel:', dados.motivo);
+        void aoRevogar?.();
+      });
+
       socket.on('connect_error', (e) => {
         /* Não é fatal: a sondagem abaixo cobre. Em serverless o socket nunca
            conecta, e isso é esperado — o app degrada em vez de ficar mudo. */
@@ -162,7 +196,7 @@ export function useOperation(appId: string | null, token: string | null) {
     return () => {
       socket?.close();
     };
-  }, [appId, token]);
+  }, [appId, token, employeeId, aoRevogar]);
 
   /* ------------------------------- Sondagem ------------------------------- */
 

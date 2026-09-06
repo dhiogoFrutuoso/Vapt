@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { MoneyInput } from './MoneyInput';
+import { faturamento } from './types';
 import type { CashEntry, OrderSource, PaymentMethod, PaymentSplit, PaymentSplitItem } from './types';
 
 type Props = {
@@ -11,6 +12,13 @@ type Props = {
   /** Dono marcou que o entregador recebe por entrega (sem salário fixo). */
   courierPaidPerDelivery: boolean;
   onUpdatePayments: (id: string, payments: PaymentSplit) => void;
+  /**
+   * Cancelamento de uma venda já fechada.
+   *
+   * Opcional para o simulador da landing, que não tem servidor por trás — lá
+   * o botão simplesmente não aparece.
+   */
+  onCancelEntry?: (id: string, motivo: string) => void;
   onCloseRegister: (total: number) => void;
 };
 
@@ -111,6 +119,7 @@ export function CashRegister({
   archive = [],
   courierPaidPerDelivery,
   onUpdatePayments,
+  onCancelEntry,
   onCloseRegister,
 }: Props) {
   const copy = demo.preview;
@@ -248,10 +257,18 @@ export function CashRegister({
       .filter((entry) => matchesSearch(entry, search));
   }, [history, period, dateFilter, source, paymentFilter, search]);
 
-  const historyTotal = useMemo(
-    () => historyFiltered.reduce((sum, entry) => sum + entry.total, 0),
-    [historyFiltered]
-  );
+  /*
+   * O total do Registro PULA os cancelados.
+   *
+   * Este era o furo: a aba Turno já filtrava, mas aqui o `reduce` somava tudo.
+   * Uma venda cancelada continuava aparecendo — o que é certo, para
+   * auditoria — e continuava contando no total — o que é errado, porque
+   * inflava o faturamento do dia com dinheiro que nunca entrou.
+   *
+   * A regra mora em `faturamento()`, num lugar só, para nenhuma tela futura
+   * reinventar o `reduce` e esquecer o filtro de novo.
+   */
+  const historyTotal = useMemo(() => faturamento(historyFiltered), [historyFiltered]);
 
   const hasRegistroFilter = Boolean(search.trim() || dateFilter || source !== 'todos' || paymentFilter !== 'todos');
 
@@ -402,11 +419,45 @@ export function CashRegister({
                     </span>
                   </div>
 
-                  {/* Botão Editar — sempre disponível para ajustar pagamento */}
+                  {/*
+                    Correção de venda JÁ FECHADA.
+
+                    O comércio erra: o cliente pagou PIX e o caixa marcou
+                    dinheiro. Sem isto a única saída seria um estorno falso,
+                    que suja o histórico mais do que a correção.
+                  */}
                   {entry.orderStatus !== 'cancelado' && (
-                    <button type="button" className="cash-entry__edit" onClick={() => openEditModal(entry)}>
-                      ✏️ Editar pagamento
-                    </button>
+                    <div className="cash-entry__acoes">
+                      <button type="button" className="cash-entry__edit" onClick={() => openEditModal(entry)}>
+                        ✏️ Editar pagamento
+                      </button>
+
+                      {onCancelEntry && (
+                        <button
+                          type="button"
+                          className="cash-entry__cancel"
+                          onClick={() => {
+                            const motivo = window.prompt(
+                              `Cancelar ${entry.label}? A venda continua no Registro, fora do faturamento.\n\nMotivo (opcional):`
+                            );
+                            /* `null` = fechou o diálogo. String vazia = confirmou
+                               sem escrever motivo, e isso é aceitável. */
+                            if (motivo === null) return;
+                            onCancelEntry(entry.id, motivo);
+                          }}
+                        >
+                          🚫 Cancelar venda
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Fantasma: fica visível, marcado, e fora da soma. */}
+                  {entry.orderStatus === 'cancelado' && (
+                    <p className="cash-entry__fantasma">
+                      Venda cancelada — não entra no faturamento.
+                      {entry.motivoCancelamento ? ` Motivo: ${entry.motivoCancelamento}` : ''}
+                    </p>
                   )}
                 </li>
               ))}

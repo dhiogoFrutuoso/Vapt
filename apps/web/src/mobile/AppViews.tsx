@@ -1,18 +1,15 @@
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { MenuView } from '../components/phone/MenuView';
-import { CheckoutSheet } from '../components/phone/CheckoutSheet';
+import { ClientOrderFlow, type DadosCheckout } from '../components/phone/ClientOrderFlow';
 import { ServiceView } from '../components/phone/ServiceView';
 import { CashRegister } from '../components/phone/CashRegister';
 import { OrderSheet, type Ticket } from '../components/phone/OrderSheet';
 import { DeliveryView } from '../components/phone/DeliveryView';
 import { ReceptionView } from '../components/phone/ReceptionView';
 import { KitchenView } from '../components/phone/KitchenView';
-import { ImportOrderPanel } from '../components/phone/ImportOrderPanel';
-import { addressLabel, NO_STATION, sumItems } from '../components/phone/types';
+import { addressLabel, NO_STATION, sumItems, totalEntregue } from '../components/phone/types';
 import type {
   CategoryItem,
-  DeliveryAddress,
   KitchenStatus,
   KitchenTicket,
   OrderItem,
@@ -63,6 +60,10 @@ type Props = {
   waiterCommissionRate: number;
   /** Troca de aba pedida por dentro (ex.: importar pedido leva ao Cliente). */
   onIrPara: (aba: Props['aba']) => void;
+  /** Funcionário logado, para carimbar autoria e reatribuir entregas. */
+  employeeId: string;
+  /** Equipe, para o seletor de entregador. */
+  equipe?: Array<{ id: string; name: string }>;
 };
 
 export function AppViews({
@@ -81,11 +82,12 @@ export function AppViews({
   courierPaidPerDelivery,
   waiterCommissionRate,
   onIrPara,
+  employeeId,
+  equipe = [],
 }: Props) {
   /* ------------------------- Estado local da tela ------------------------- */
 
   const [cart, setCart] = useState<OrderItem[]>([]);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [openTableId, setOpenTableId] = useState<string | null>(null);
   const [openTakeoutId, setOpenTakeoutId] = useState<string | null>(null);
   const [activeStation, setActiveStation] = useState('todos');
@@ -95,6 +97,7 @@ export function AppViews({
     phone: string;
     address: string;
     notes: string;
+    isDelivery?: boolean;
   } | null>(null);
 
   const openTable = useMemo(
@@ -155,6 +158,8 @@ export function AppViews({
       phone: pedido.phone,
       address: pedido.address,
       notes: pedido.notes,
+      /* Texto do WhatsApp com endereço = entrega; sem endereço = retirada. */
+      isDelivery: Boolean(pedido.address?.trim()),
     });
     setEditandoPedidoId(null);
     onIrPara('cliente');
@@ -168,24 +173,30 @@ export function AppViews({
     if (!pedido) return;
 
     setCart(pedido.items.map((item) => ({ ...item })));
+
+    /*
+     * O endereço volta preenchido, e EDITÁVEL.
+     *
+     * O caso real é o cliente ligando para acrescentar uma Coca-Cola. Obrigar
+     * o recepcionista a pedir o CEP de novo, com o cliente na linha, é o tipo
+     * de atrito que faz a equipe abandonar o sistema e voltar para o caderno.
+     *
+     * A observação também volta: ela costuma ser o "sem cebola" que a cozinha
+     * já leu, e perdê-la na edição produziria o prato errado.
+     */
     setRascunhoCliente({
       name: pedido.customerName,
       phone: pedido.phone ?? '',
       address: pedido.address.mode === 'manual' ? addressLabel(pedido.address) : '',
-      notes: '',
+      notes: pedido.notes ?? '',
+      isDelivery: pedido.isDelivery !== false,
     });
     setEditandoPedidoId(id);
     onIrPara('cliente');
-    setCheckoutOpen(true);
     toast(`Editando o pedido #${pedido.code}.`);
   }
 
-  async function finalizarCheckout(data: {
-    customerName: string;
-    phone: string;
-    payments: PaymentSplit;
-    address: DeliveryAddress;
-  }) {
+  async function finalizarCheckout(data: DadosCheckout) {
     /*
      * MODO EDIÇÃO atualiza o pedido existente em vez de criar outro. Criar um
      * novo deixaria o antigo na fila, e a cozinha produziria os dois.
@@ -199,6 +210,8 @@ export function AppViews({
           items: cart,
           payments: data.payments,
           address: data.address,
+          notes: data.notes,
+          isDelivery: data.isDelivery,
         }
       : {
           tipo: 'pedido.criar',
@@ -207,15 +220,60 @@ export function AppViews({
           items: cart,
           payments: data.payments,
           address: data.address,
+          notes: data.notes,
+          isDelivery: data.isDelivery,
         };
 
     await rodar(comando);
 
     setCart([]);
-    setCheckoutOpen(false);
     setEditandoPedidoId(null);
     setRascunhoCliente(null);
     onIrPara('recepcao');
+  }
+
+  /* ------------------------------- Recepção ------------------------------- */
+
+  /**
+   * Despachar: muda o status e deixa a mensagem pronta na área de transferência.
+   *
+   * O recepcionista despacha e cola no WhatsApp do cliente. Escrever a mesma
+   * frase quarenta vezes por noite é onde o erro entra — troca de nome, taxa
+   * errada, esquecer de avisar.
+   *
+   * A cópia acontece DEPOIS do comando dar certo. Copiar antes deixaria o
+   * recepcionista colando "seu pedido saiu" de um despacho que o servidor
+   * recusou por já ter sido feito por outra pessoa.
+   *
+   * A falha ao copiar não desfaz o despacho: navegador sem permissão de
+   * clipboard é chato, mas o pedido JÁ saiu, e reverter por causa disso seria
+   * pior. A tela avisa e segue.
+   */
+  async function despachar(id: string, fee: number) {
+    const pedido = estado.deliveries.find((d) => d.id === id);
+    try {
+      await executar({ tipo: 'pedido.aceitar', pedidoId: id, fee });
+    } catch (erro) {
+      toast.error(erro instanceof Error ? erro.message : 'Não foi possível despachar.');
+      return;
+    }
+
+    const nome = pedido?.customerName ?? 'cliente';
+    const taxa = fee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const mensagem =
+      pedido?.isDelivery === false
+        ? `Olá ${nome}, seu pedido está pronto para retirada no balcão! Pode vir buscar.`
+        : `Olá ${nome}, seu pedido saiu para entrega! Taxa: ${taxa}. Previsão de chegada: 30 minutos.`;
+
+    try {
+      await navigator.clipboard.writeText(mensagem);
+      toast.success('Despachado. Mensagem copiada — é só colar no WhatsApp.');
+    } catch {
+      toast.success('Pedido despachado.');
+      toast('Não consegui copiar a mensagem: o navegador bloqueou a área de transferência.', {
+        duration: 6000,
+      });
+    }
   }
 
   /* -------------------------------- Salão -------------------------------- */
@@ -344,72 +402,30 @@ export function AppViews({
 
   if (aba === 'cliente') {
     return (
-      <div className="phone__content" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div className="import-order__wrap">
-          {editandoPedidoId && (
-            <p className="import-order__editing">
-              Editando um pedido existente. Ao confirmar, ele é atualizado.
-              <button
-                type="button"
-                onClick={() => {
-                  setEditandoPedidoId(null);
-                  setRascunhoCliente(null);
-                  setCart([]);
-                  setCheckoutOpen(false);
-                  onIrPara('recepcao');
-                }}
-              >
-                Cancelar
-              </button>
-            </p>
-          )}
-          <ImportOrderPanel onImport={importarPedido} />
-        </div>
-
-        <MenuView
-          appName={storeName}
-          primaryColor={brandColor}
-          logoUrl={logoUrl}
-          theme={theme}
-          interactive
-          products={products}
-          promotions={promotions}
-          categories={categories}
-          cart={cart}
-          onAddToCart={(p) =>
-            setCart([
-              ...cart,
-              {
-                name: p.name,
-                price: p.price,
-                station: p.station,
-                isPromo: p.isPromo,
-                components: p.components,
-              },
-            ])
-          }
-          onRemoveFromCart={(name) => {
-            const idx = cart.findIndex((i) => i.name === name);
-            if (idx !== -1) {
-              const novo = [...cart];
-              novo.splice(idx, 1);
-              setCart(novo);
-            }
-          }}
-          onOpenCheckout={() => setCheckoutOpen(true)}
-          isCheckoutOpen={checkoutOpen}
-        />
-
-        {checkoutOpen && cart.length > 0 && (
-          <CheckoutSheet
-            items={cart}
-            initial={rascunhoCliente ?? undefined}
-            submitLabel={editandoPedidoId ? 'Salvar alterações' : undefined}
-            onClose={() => setCheckoutOpen(false)}
-            onSubmit={(dados) => void finalizarCheckout(dados)}
-          />
-        )}
-      </div>
+      <ClientOrderFlow
+        storeName={storeName}
+        logoUrl={logoUrl}
+        brandColor={brandColor}
+        theme={theme}
+        products={products}
+        promotions={promotions}
+        categories={categories}
+        cart={cart}
+        onCartChange={setCart}
+        /* Só do lado de dentro: o cliente final não importa nada. */
+        mostrarImportacao
+        onImportar={importarPedido}
+        editando={Boolean(editandoPedidoId)}
+        onCancelarEdicao={() => {
+          setEditandoPedidoId(null);
+          setRascunhoCliente(null);
+          setCart([]);
+          onIrPara('recepcao');
+        }}
+        rotuloEnvio={editandoPedidoId ? 'Salvar alterações' : undefined}
+        inicial={rascunhoCliente ?? undefined}
+        onSubmit={finalizarCheckout}
+      />
     );
   }
 
@@ -419,7 +435,7 @@ export function AppViews({
         deliveries={estado.deliveries}
         defaultFee={deliveryFee}
         onEdit={editarPedido}
-        onAccept={(id, fee) => void rodar({ tipo: 'pedido.aceitar', pedidoId: id, fee })}
+        onAccept={(id, fee) => void despachar(id, fee)}
         onReject={(id) => void rodar({ tipo: 'pedido.rejeitar', pedidoId: id })}
       />
     );
@@ -505,20 +521,80 @@ export function AppViews({
           onUpdatePayments={(id, payments) =>
             void rodar({ tipo: 'caixa.pagamento', lancamentoId: id, payments })
           }
+          onCancelEntry={(id, motivo) =>
+            void rodar({ tipo: 'caixa.cancelar', lancamentoId: id, motivo })
+          }
           onCloseRegister={() => void rodar({ tipo: 'caixa.fechar' })}
         />
       </div>
     );
   }
 
+  /* ------------------------------ Entregador ------------------------------ */
+
+  const placar = totalEntregue(estado.deliveries);
+  const concluidas = estado.deliveries.filter((d) => d.status === 'entregue');
+
   return (
-    <DeliveryView
-      orders={estado.deliveries}
-      interactive
-      onAdvance={(id) => void rodar({ tipo: 'pedido.avancar', pedidoId: id })}
-      onRevert={(id) => void rodar({ tipo: 'pedido.voltar', pedidoId: id })}
-      onCancel={(id) => void rodar({ tipo: 'pedido.cancelar', pedidoId: id })}
-    />
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <DeliveryView
+          orders={estado.deliveries}
+          interactive
+          onAdvance={(id) => void rodar({ tipo: 'pedido.avancar', pedidoId: id })}
+          onRevert={(id) => void rodar({ tipo: 'pedido.voltar', pedidoId: id })}
+          onCancel={(id) => void rodar({ tipo: 'pedido.cancelar', pedidoId: id })}
+        />
+
+        {/*
+          Autoria das entregas concluídas.
+          Fica FORA do DeliveryView de propósito: aquele componente também
+          veste a simulação da landing, onde não existe equipe para atribuir.
+        */}
+        {concluidas.length > 0 && (
+          <div className="deliv-autoria">
+            <p className="deliv-autoria__titulo">Autoria das entregas</p>
+            {concluidas.map((pedido) => (
+              <div key={pedido.id} className="deliv-autoria__linha">
+                <span className="deliv-autoria__pedido">#{pedido.code}</span>
+                <select
+                  value={pedido.deliveredById || employeeId}
+                  onChange={(e) =>
+                    void rodar({
+                      tipo: 'pedido.entregador',
+                      pedidoId: pedido.id,
+                      employeeId: e.target.value,
+                    })
+                  }
+                  aria-label={`Entregue por, pedido ${pedido.code}`}
+                >
+                  <option value="">— sem entregador —</option>
+                  {/* O atual entra na lista mesmo se já saiu da equipe: sem
+                      isto o select mostraria vazio e um toque distraído
+                      apagaria a autoria de uma entrega antiga. */}
+                  {!equipe.some((p) => p.id === pedido.deliveredById) && pedido.deliveredById && (
+                    <option value={pedido.deliveredById}>
+                      {pedido.deliveredByName || 'Funcionário removido'}
+                    </option>
+                  )}
+                  {equipe.map((pessoa) => (
+                    <option key={pessoa.id} value={pessoa.id}>
+                      {pessoa.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Placar da noite, fixo no rodapé da aba. */}
+      <div className="deliv-placar">
+        <span>Total de entregas da noite</span>
+        <strong>{placar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+      </div>
+    </div>
   );
 }
 

@@ -30,7 +30,7 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
   const appId = req.device!.app;
 
   const app = (await AppProject.findById(appId)
-    .select('name brand delivery dining categories products promotions stations businessType')
+    .select('name brand delivery dining categories products promotions stations businessType employees roles')
     .lean()) as Record<string, any> | null;
 
   if (!app) throw new HttpError(404, 'Aplicativo nao encontrado.');
@@ -111,6 +111,19 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
           expiresOnRegisterClose: p.expiresOnRegisterClose === true,
           active: true,
         })),
+
+      /*
+       * Equipe: SÓ id e nome.
+       *
+       * É o mínimo para o seletor de entregador funcionar. Devolver o
+       * subdocumento inteiro traria `accessCode` junto — o código de login de
+       * cada colega — para dentro de um aplicativo que qualquer funcionário
+       * abre. Montar campo a campo aqui é o que impede esse vazamento de
+       * acontecer por esquecimento no dia em que alguém trocar o `.select`.
+       */
+      equipe: (app.employees ?? [])
+        .filter((e: Record<string, any>) => e.blocked !== true)
+        .map((e: Record<string, any>) => ({ id: String(e._id), name: String(e.name ?? '') })),
 
       /* Só os nomes, na ordem do cadastro: é o que a Cozinha usa como filtro. */
       stations: (app.stations ?? [])

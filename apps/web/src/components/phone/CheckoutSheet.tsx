@@ -16,6 +16,23 @@ type Props = {
   initial?: { name: string; phone: string; address: string; notes: string };
   /** "Salvar alteracoes" no modo edicao, para o botao nao mentir. */
   submitLabel?: string;
+
+  /**
+   * Entrega ou retirada no balcao.
+   *
+   * O estado vive no componente PAI porque a escolha sobrevive ao fechar e
+   * reabrir esta folha — o cliente que ja disse "vou buscar" nao deve ver os
+   * campos de endereco voltarem porque tocou fora do painel sem querer.
+   */
+  modoEntrega?: boolean;
+  onModoEntregaChange?: (entrega: boolean) => void;
+  /** A loja aceita entrega? Retirada sempre existe. */
+  aceitaEntrega?: boolean;
+
+  /** Observacao do pedido ("sem cebola", "troco para 50"). */
+  observacao?: string;
+  onObservacaoChange?: (texto: string) => void;
+
   onClose: () => void;
   onSubmit: (order: {
     customerName: string;
@@ -59,7 +76,26 @@ function separarEndereco(linha: string): { street: string; number: string } {
   return { street: texto, number: '' };
 }
 
-export function CheckoutSheet({ items, initial, submitLabel, onClose, onSubmit }: Props) {
+export function CheckoutSheet({
+  items,
+  initial,
+  submitLabel,
+  modoEntrega = true,
+  onModoEntregaChange,
+  aceitaEntrega = true,
+  observacao = '',
+  onObservacaoChange,
+  onClose,
+  onSubmit,
+}: Props) {
+  /*
+   * Retirada nao tem endereco. Guardar a decisao numa constante deixa as tres
+   * consequencias (validacao, campos e botao) lendo a MESMA condicao — foi
+   * assim que evitei o classico: esconder o campo e continuar exigindo ele no
+   * envio, com o cliente travado num erro sobre uma tela que nao existe.
+   */
+  const pedeEndereco = aceitaEntrega && modoEntrega;
+
   const enderecoInicial = separarEndereco(initial?.address ?? '');
   const copy = demo.preview;
 
@@ -166,7 +202,10 @@ export function CheckoutSheet({ items, initial, submitLabel, onClose, onSubmit }
     }
 
     const hasManual = manual.street.trim() && manual.number.trim();
-    if (gpsState !== 'done' && !hasManual) {
+
+    /* Retirada no balcao dispensa endereco — exigi-lo travaria o cliente
+       numa tela que ele nem esta vendo. */
+    if (pedeEndereco && gpsState !== 'done' && !hasManual) {
       setError('Compartilhe a localização ou informe rua e número.');
       return;
     }
@@ -368,7 +407,49 @@ export function CheckoutSheet({ items, initial, submitLabel, onClose, onSubmit }
         </div>
       )}
 
-      {/* 4. Localização */}
+      {/* 4. Como o cliente quer receber */}
+      {aceitaEntrega && (
+        <>
+          <p className="phone__sheet-label">Como você quer receber?</p>
+          <div className="phone__modo" role="radiogroup" aria-label="Entrega ou retirada">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={modoEntrega}
+              className={modoEntrega ? 'is-active' : ''}
+              onClick={() => onModoEntregaChange?.(true)}
+            >
+              🛵 Entrega
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!modoEntrega}
+              className={!modoEntrega ? 'is-active' : ''}
+              onClick={() => onModoEntregaChange?.(false)}
+            >
+              🛍️ Retirar no balcão
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 5. Observação do pedido — vale para entrega E retirada. */}
+      <div className="phone__field">
+        <label htmlFor="fw-obs">Observações do pedido</label>
+        <textarea
+          id="fw-obs"
+          rows={3}
+          maxLength={300}
+          placeholder="Ex.: sem cebola, ponto da carne, troco para R$ 50"
+          value={observacao}
+          onChange={(e) => onObservacaoChange?.(e.target.value)}
+        />
+      </div>
+
+      {/* 6. Localização — some inteira quando é retirada. */}
+      {pedeEndereco && (
+      <>
       <p className="phone__sheet-label">{copy.locationTitle}</p>
 
       {gpsState === 'done' ? (
@@ -442,13 +523,15 @@ export function CheckoutSheet({ items, initial, submitLabel, onClose, onSubmit }
           <p className="phone__reference-hint">💡 {copy.manualReferenceHint}</p>
         </div>
       )}
+      </>
+      )}
 
       {error && <p className="phone__sheet-error">{error}</p>}
 
       <button 
         type="button" 
         className="phone__sheet-btn is-primary is-block" 
-        disabled={!customerName || !phone || (!manualOpen && gpsState !== 'done') || splits.length === 0 || splitsTotal < total - 0.01}
+        disabled={!customerName || !phone || (pedeEndereco && !manualOpen && gpsState !== 'done') || splits.length === 0 || splitsTotal < total - 0.01}
         onClick={handleSubmit}
       >
         {submitLabel ?? copy.checkoutSubmit}

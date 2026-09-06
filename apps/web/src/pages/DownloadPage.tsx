@@ -21,32 +21,18 @@ import toast from 'react-hot-toast';
  */
 
 /*
- * Endereços dos instaladores, hospedados como assets de um GitHub Release.
+ * Endereços dos instaladores, servidos pelo PRÓPRIO site.
  *
- * Ficam em variável de ambiente e não no código porque os binários não moram
- * no repositório: o .exe tem ~78 MB e, uma vez commitado, ficaria no
- * histórico do Git para sempre. Publicar uma versão nova passa a ser criar um
- * release — sem tocar no código e sem refazer o deploy do site, já que a URL
- * usa `/releases/latest/download/`, que sempre resolve para o mais recente.
- */
-const EXE_URL = import.meta.env.VITE_EXE_URL ?? '';
-const APK_URL = import.meta.env.VITE_APK_URL ?? '';
-
-/**
- * A URL foi realmente configurada?
+ * Ficam em `public/downloads`, que a Vercel publica como arquivo estático na
+ * mesma origem da página. Isso resolve o problema que o GitHub Releases tinha
+ * aqui: asset de repositório privado exige token, e a /download é pública.
  *
- * Não basta checar se está vazia. O `.env.example` traz a URL de exemplo com
- * `SEU_USUARIO` e `SEU_REPOSITORIO`, e copiar o arquivo sem editá-lo é o erro
- * mais provável de todos — o botão ficaria clicável apontando para um
- * repositório inexistente, e o lojista receberia um 404 do GitHub sem
- * entender o que aconteceu. Melhor mostrar "Em breve".
+ * Mesma origem também faz o atributo `download` voltar a valer — em domínio
+ * de terceiro o navegador o ignora e obedece ao Content-Disposition do outro
+ * servidor.
  */
-function configurada(url: string): boolean {
-  const limpa = url.trim();
-  if (!limpa) return false;
-  if (limpa.includes('SEU_USUARIO') || limpa.includes('SEU_REPOSITORIO')) return false;
-  return /^https?:\/\//.test(limpa);
-}
+const EXE_URL = '/downloads/vapt.exe';
+const APK_URL = '/downloads/vapt.apk';
 
 const CARD =
   'flex h-full flex-col rounded-3xl bg-white p-6 shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]';
@@ -72,20 +58,10 @@ function detectPlatform(): Platform {
 /**
  * Botão de download de um instalador.
  *
- * SOBRE `download` E `target="_blank"` JUNTOS
- * ------------------------------------------
- * O atributo `download` só funciona quando o arquivo está na MESMA origem da
- * página. O GitHub é outra origem, então o navegador ignora o atributo e
- * obedece ao `Content-Disposition` que o servidor mandar — o GitHub manda
- * `attachment`, e o download acontece.
- *
- * O `download` fica assim mesmo, porque não custa nada e passa a valer se um
- * dia os arquivos forem servidos pelo próprio domínio.
- *
- * Quem realmente protege a navegação é o `target="_blank"`: se algum dia o
- * `Content-Disposition` vier errado, o arquivo abre numa aba nova em vez de
- * substituir a página do painel. Com `noreferrer` junto, para não vazar a URL
- * interna de onde o lojista veio.
+ * Com o arquivo na MESMA origem da página, o atributo `download` volta a
+ * valer de verdade: o navegador salva com o nome que pedimos, sem depender do
+ * `Content-Disposition` de um servidor de terceiro. Também não precisa mais
+ * de `target="_blank"` — o download não navega a página.
  */
 function BotaoInstalador({
   url,
@@ -96,7 +72,7 @@ function BotaoInstalador({
   rotulo: string;
   arquivo: string;
 }) {
-  if (!configurada(url)) {
+  if (!url) {
     return (
       <button type="button" className={PILL} disabled title="Instalador ainda não publicado">
         Em breve
@@ -105,7 +81,7 @@ function BotaoInstalador({
   }
 
   return (
-    <a className={PILL} href={url} download={arquivo} target="_blank" rel="noreferrer">
+    <a className={PILL} href={url} download={arquivo}>
       <Download size={16} />
       {rotulo}
     </a>

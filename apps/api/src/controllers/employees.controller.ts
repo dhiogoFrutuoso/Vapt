@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { AppProject } from '../models/AppProject.js';
 import { revokeAllForEmployee, listActiveSessions } from '../services/deviceSession.js';
+import { emitSessionRevoked } from '../realtime/io.js';
 import { generateUniqueEmployeeCode } from '../services/employeeLookup.js';
 import { HttpError } from '../utils/httpError.js';
 
@@ -100,6 +101,10 @@ export const blockEmployee = asyncHandler(async (req: Request, res: Response) =>
 
   const sessoesEncerradas = await revokeAllForEmployee(req.params.empId, 'bloqueio');
 
+  /* O banco ja recusa o refresh; isto derruba a TELA em milissegundos, em vez
+     de deixar o bloqueado operando o caixa ate o access token expirar. */
+  emitSessionRevoked(req.params.id, req.params.empId, 'bloqueio');
+
   console.info(`[equipe] ${emp.name} bloqueado. ${sessoesEncerradas} sessao(oes) encerrada(s).`);
 
   return res.json({
@@ -159,6 +164,7 @@ export const regenerateEmployeeCode = asyncHandler(async (req: Request, res: Res
   await app.save();
 
   const sessoesEncerradas = await revokeAllForEmployee(req.params.empId, 'troca_de_codigo');
+  emitSessionRevoked(req.params.id, req.params.empId, 'troca_de_codigo');
 
   return res.json({
     ok: true,

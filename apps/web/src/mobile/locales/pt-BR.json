@@ -34,5 +34,11 @@
   "abas.entregador": "Entregador",
   "abas.aviso": "Sua função dá acesso a esta área. As telas de operação chegam na próxima etapa.",
   "operacao.carregando": "Carregando a operação...",
-  "operacao.tentar": "Tentar de novo"
+  "operacao.tentar": "Tentar de novo",
+  "acao.atualizar": "Atualizar",
+  "entregador.placar": "Total de entregas da noite",
+  "entregador.por": "Entregue por",
+  "caixa.cancelada": "Venda cancelada",
+  "pedido.retirada": "Retirada no balcão",
+  "pedido.entrega": "Entrega"
 }

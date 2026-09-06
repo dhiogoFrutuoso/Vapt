@@ -34,5 +34,11 @@
   "abas.entregador": "配達",
   "abas.aviso": "この画面へのアクセス権があります。操作画面は次の段階で追加されます。",
   "operacao.carregando": "業務データを読み込み中…",
-  "operacao.tentar": "再試行"
+  "operacao.tentar": "再試行",
+  "acao.atualizar": "更新",
+  "entregador.placar": "本日の配達合計",
+  "entregador.por": "配達担当",
+  "caixa.cancelada": "取消済みの売上",
+  "pedido.retirada": "店頭受取",
+  "pedido.entrega": "配達"
 }

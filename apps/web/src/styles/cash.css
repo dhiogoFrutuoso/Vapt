@@ -1680,3 +1680,37 @@
 .editor-preview.theme-escuro .import-order__total {
   color: #f3f4f6;
 }
+
+/* ------------------------------------------------------------------ */
+/* Correcao de venda fechada                                           */
+/* ------------------------------------------------------------------ */
+.cash-entry__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cash-entry__cancel {
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: #fff;
+  color: #dc2626;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* O fantasma precisa ser LEGIVEL, nao discreto: quem confere o caixa tem de
+   entender por que a soma nao bate com a lista. */
+.cash-entry__fantasma {
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.45;
+}

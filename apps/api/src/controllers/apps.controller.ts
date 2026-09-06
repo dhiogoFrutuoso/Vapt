@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AppProject } from '../models/AppProject.js';
 import { generateUniqueEmployeeCode } from '../services/employeeLookup.js';
 import { revokeAllForEmployee } from '../services/deviceSession.js';
+import { emitSessionRevoked } from '../realtime/io.js';
 import { User } from '../models/User.js';
 import { Image } from '../models/Image.js';
 import { HttpError } from '../utils/httpError.js';
@@ -1140,6 +1141,10 @@ export const removeEmployee = async (req: Request, res: Response) => {
                      * ja nao existe. O acesso tem de morrer junto com a conta.
                      */
                     const derrubadas = await revokeAllForEmployee(req.params.empId, 'admin');
+
+                    /* Fecha a tela na hora, em vez de esperar o token expirar. */
+                    emitSessionRevoked(req.params.id, req.params.empId, 'exclusao');
+
                     if (derrubadas > 0) {
                       console.info(`[equipe] Funcionario removido. ${derrubadas} sessao(oes) encerrada(s).`);
                     }

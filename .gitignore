@@ -135,3 +135,16 @@ skills-lock.json
 # recebe, não.
 releases/*
 !releases/README.md
+
+# ==============================================================================
+# Binarios servidos pelo proprio site
+# ==============================================================================
+# `downloads/` acima vem do template de Python e pegava esta pasta por
+# tabela. Estes arquivos PRECISAM ser versionados: a Vercel publica o que
+# esta no repositorio, e sem eles a /download serve 404.
+#
+# Atencao ao custo: o .exe tem ~78 MB e, uma vez commitado, fica no historico
+# para sempre — todo `git clone` passa a baixa-lo, e cada versao nova soma
+# outro tanto.
+!apps/web/public/downloads/
+!apps/web/public/downloads/**

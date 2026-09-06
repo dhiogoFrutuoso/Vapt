@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   Bike,
   ChefHat,
   ConciergeBell,
   LogOut,
+  RefreshCw,
   User as UserIcon,
   UtensilsCrossed,
   Wallet,
@@ -80,11 +81,46 @@ export function MobileShell() {
    * voltar recarregaria o turno inteiro do zero — e no meio de um fechamento
    * isso apaga a tela na frente de quem está conferindo o dinheiro.
    */
+  /*
+   * Kill-switch: o painel bloqueou ou excluiu este funcionário.
+   *
+   * O `logout` já limpa o token do armazenamento seguro e devolve a tela de
+   * código. Reaproveitá-lo evita uma segunda porta de saída para manter em
+   * sincronia com a primeira.
+   */
+  const aoRevogar = useCallback(async () => {
+    await logout();
+    toast.error('Seu acesso foi encerrado pelo responsável do restaurante.', { duration: 8000 });
+  }, [logout]);
+
   const { estado, carregando: carregandoOperacao, erro, recarregar, executar } = useOperation(
     appId,
-    accessToken
+    accessToken,
+    employee?.id ?? null,
+    aoRevogar
   );
   const { menu } = useMenu(accessToken);
+
+  const [atualizando, setAtualizando] = useState(false);
+
+  /**
+   * Atualização manual.
+   *
+   * O tempo real cai — wi-fi de restaurante, serverless sem socket, celular
+   * saindo do modo avião. Sem um botão, o funcionário fica olhando uma tela
+   * velha sem saber que ela é velha, e a saída dele seria fechar e reabrir o
+   * aplicativo no meio de uma venda.
+   */
+  async function atualizarAgora() {
+    setAtualizando(true);
+    try {
+      await recarregar();
+    } finally {
+      /* Meio segundo de giro mesmo quando volta instantâneo: sem isso o
+         ícone pisca e o toque parece não ter funcionado. */
+      window.setTimeout(() => setAtualizando(false), 500);
+    }
+  }
 
   /** Só as abas da função. Uma função sem permissões cai direto no perfil. */
   const visiveis = useMemo(
@@ -96,7 +132,16 @@ export function MobileShell() {
 
   if (!employee) return null;
 
-  const marca = branding.primaryColor;
+  /*
+   * A marca fresca do `/device/menu` vence a do login.
+   *
+   * O `DeviceAuthContext` guarda o branding junto da sessão, e essa cópia
+   * envelhece: o dono troca a cor no painel e o app continua com a antiga até
+   * o próximo login — que dura 30 dias. O resultado visível era pior que a
+   * cor velha: cabeçalho de uma cor e telas de outra, porque só o conteúdo
+   * lia o valor novo.
+   */
+  const marca = menu.branding.primaryColor || branding.primaryColor;
   const abaAtual = ABAS.find((a) => a.chave === ativa);
 
   async function handleLogout() {
@@ -323,6 +368,17 @@ export function MobileShell() {
 
           <button
             type="button"
+            onClick={() => void atualizarAgora()}
+            disabled={atualizando}
+            aria-label={t('acao.atualizar')}
+            title={t('acao.atualizar')}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-white disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={atualizando ? 'animate-spin' : undefined} />
+          </button>
+
+          <button
+            type="button"
             onClick={() => setAtiva('perfil')}
             aria-label={t('perfil.titulo')}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-extrabold text-white"
@@ -339,6 +395,19 @@ export function MobileShell() {
           <span className="ml-auto truncate text-sm text-gray-500 dark:text-gray-400">
             {employee.role}
           </span>
+
+          <button
+            type="button"
+            onClick={() => void atualizarAgora()}
+            disabled={atualizando}
+            title={t('acao.atualizar')}
+            className="ml-3 inline-flex shrink-0 items-center gap-2 rounded-full border border-solid
+              border-gray-200 bg-white px-3 py-1.5 text-[0.8rem] font-semibold text-gray-600
+              disabled:opacity-60 dark:border-white/10 dark:bg-gray-800 dark:text-gray-300"
+          >
+            <RefreshCw size={14} className={atualizando ? 'animate-spin' : undefined} />
+            {t('acao.atualizar')}
+          </button>
         </header>
 
         {/* ------------------------------ Conteúdo ---------------------------- */}
@@ -396,6 +465,8 @@ export function MobileShell() {
                   courierPaidPerDelivery={menu.delivery.courierPaidPerDelivery}
                   waiterCommissionRate={menu.dining.waiterCommissionRate}
                   onIrPara={setAtiva}
+                  employeeId={employee.id}
+                  equipe={menu.equipe}
                 />
               </div>
             </div>

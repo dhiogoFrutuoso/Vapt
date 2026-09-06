@@ -194,6 +194,8 @@ const comandoSchema = z.discriminatedUnion('tipo', [
     items: z.array(orderItem).min(1).max(80),
     payments: z.array(payment).max(6).default([]),
     address,
+    notes: textoLimpo(300).optional().default(''),
+    isDelivery: z.boolean().optional().default(true),
   }),
   z.object({
     tipo: z.literal('pedido.atualizar'),
@@ -206,6 +208,8 @@ const comandoSchema = z.discriminatedUnion('tipo', [
     items: z.array(orderItem).min(1).max(80),
     payments: z.array(payment).max(6).default([]),
     address,
+    notes: textoLimpo(300).optional().default(''),
+    isDelivery: z.boolean().optional().default(true),
   }),
   z.object({
     tipo: z.literal('pedido.aceitar'),
@@ -222,7 +226,50 @@ const comandoSchema = z.discriminatedUnion('tipo', [
     lancamentoId: z.string().min(1),
     payments: z.array(payment).min(1).max(6),
   }),
+
+  /**
+   * Edição de lançamento JÁ FECHADO.
+   *
+   * O comércio erra: o cliente pagou PIX e o caixa marcou dinheiro. Sem isto,
+   * a única saída seria lançar um estorno falso, que suja o histórico mais do
+   * que a correção.
+   *
+   * Procura no turno E no arquivo — a correção costuma aparecer depois do
+   * fechamento, quando alguém confere o extrato.
+   */
+  z.object({
+    tipo: z.literal('caixa.editar'),
+    lancamentoId: z.string().min(1),
+    payments: z.array(payment).max(6).optional(),
+    items: z.array(orderItem).max(80).optional(),
+    deliveryFee: z.number().min(0).max(999).optional(),
+  }),
+
+  /**
+   * Cancelamento de venda: o "fantasma".
+   *
+   * O lançamento CONTINUA na lista, para auditoria, mas sai do faturamento.
+   * Apagá-lo esconderia o erro; deixá-lo somando inflaria a receita da noite.
+   */
+  z.object({
+    tipo: z.literal('caixa.cancelar'),
+    lancamentoId: z.string().min(1),
+    motivo: textoLimpo(200).optional().default(''),
+  }),
+
   z.object({ tipo: z.literal('caixa.fechar') }),
+
+  /**
+   * Troca do entregador de um pedido já entregue.
+   *
+   * Acontece toda noite: o João pegou a entrega, o Marcos é quem foi. Sem
+   * isto, o placar da noite premia a pessoa errada.
+   */
+  z.object({
+    tipo: z.literal('pedido.entregador'),
+    pedidoId: z.string().min(1),
+    employeeId: z.string().min(1),
+  }),
 
   z.object({
     tipo: z.literal('cozinha.status'),
@@ -266,7 +313,12 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'pedido.cancelar': ['entregador', 'recepcao'],
 
   'caixa.pagamento': ['caixa'],
+  'caixa.editar': ['caixa'],
+  'caixa.cancelar': ['caixa'],
   'caixa.fechar': ['caixa'],
+
+  /* Recepção reatribui porque é quem descobre a troca ao ligar para o cliente. */
+  'pedido.entregador': ['recepcao', 'caixa'],
 
   'cozinha.status': ['cozinha'],
 };
@@ -306,10 +358,12 @@ type Carregada = {
   operacao: OperationDoc;
   /** Fração da taxa de serviço da casa (0.1 = 10%). Vem do cadastro do dono. */
   taxaServico: number;
+  /** id do funcionário -> nome, para carimbar autoria de entrega. */
+  nomes: Map<string, string>;
 };
 
 async function carregar(appId: string): Promise<Carregada> {
-  const app = await AppProject.findById(appId).select('tables dining').lean();
+  const app = await AppProject.findById(appId).select('tables dining employees').lean();
   if (!app) throw new HttpError(404, 'Aplicativo nao encontrado.');
 
   /*
@@ -351,7 +405,16 @@ async function carregar(appId: string): Promise<Carregada> {
 
   if (mudou) operacao.set('tables', sincronizadas);
 
-  return { operacao, taxaServico };
+  /*
+   * Só id e nome. Puxar `employees` inteiro traria os códigos de acesso para
+   * a memória de um controlador que não tem nada a ver com autenticação.
+   */
+  const nomes = new Map<string, string>();
+  for (const e of (app.employees ?? []) as unknown as Array<Record<string, unknown>>) {
+    nomes.set(String(e._id), String(e.name ?? ''));
+  }
+
+  return { operacao, taxaServico, nomes };
 }
 
 /** Devolve o estado como o aplicativo espera consumir. */
@@ -395,8 +458,12 @@ function aplicar(
   operacao: OperationDoc,
   comando: Comando,
   quem: string,
-  taxaServico: number
+  taxaServico: number,
+  nomes: Map<string, string>
 ): string | null {
+  /* Nome do funcionário, ou vazio se ele já foi removido do cadastro. */
+  const nomeDe = (id: string) => nomes.get(id) ?? '';
+
   switch (comando.tipo) {
     /* ----------------------------- Mesas ----------------------------- */
 
@@ -558,11 +625,19 @@ function aplicar(
         payments: comando.payments,
         deliveryFee: 0,
         address: comando.address,
+        notes: comando.notes,
+        isDelivery: comando.isDelivery,
         status: 'novo',
         timeLabel: 'agora',
         distanceLabel: comando.address.mode === 'gps' ? '1,2 km' : '',
         createdAt: agora(),
       } as never);
+      /*
+       * O pedido nasce visível para a Recepção E para a Cozinha ao mesmo
+       * tempo. A cozinha deriva a fila das entregas com status diferente de
+       * "entregue", então não há nada a sincronizar: o pedido novo já está lá
+       * antes de a recepção decidir a taxa, e a chapa começa a trabalhar.
+       */
       return 'Pedido enviado para a recepção.';
     }
 
@@ -578,7 +653,26 @@ function aplicar(
       pedido.set('items', comando.items);
       pedido.set('payments', comando.payments);
       pedido.set('address', comando.address);
+      pedido.notes = comando.notes;
+      pedido.isDelivery = comando.isDelivery;
       pedido.total = somarItens(comando.items) + Number(pedido.deliveryFee ?? 0);
+
+      /*
+       * O lançamento no caixa acompanha a edição.
+       *
+       * Se o pedido já foi despachado, existe uma linha no caixa com os itens
+       * antigos. Deixá-la para trás faria a Coca-Cola acrescentada aparecer
+       * na cozinha e não no faturamento — o restaurante produziria de graça.
+       */
+      const noCaixa = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`);
+      if (noCaixa) {
+        const subtotal = somarItens(comando.items);
+        noCaixa.set('items', comando.items);
+        noCaixa.subtotal = subtotal;
+        noCaixa.total = subtotal + Number(noCaixa.deliveryFee ?? 0);
+        noCaixa.customerName = comando.customerName;
+      }
+
       return 'Pedido atualizado.';
     }
 
@@ -638,12 +732,25 @@ function aplicar(
 
       /* Entregue quita o lançamento pendente: o entregador recebeu na porta. */
       if (proximo === 'entregue') {
+        /*
+         * Autoria por PADRÃO é quem tocou no botão. Na prática é quase sempre
+         * o entregador certo, e deixar em branco esperando alguém preencher
+         * produziria um placar vazio toda noite. A recepção corrige quando
+         * houver troca.
+         */
+        if (!pedido.deliveredById) {
+          pedido.deliveredById = quem;
+          pedido.deliveredByName = nomeDe(quem);
+        }
+
         const lancamento = operacao.cashEntries.find(
           (e) => e.id === `c-${pedido.id}` && e.paymentStatus === 'pendente'
         );
         if (lancamento) {
           lancamento.paymentStatus = 'concluido';
           lancamento.closedAt = agora();
+          lancamento.deliveredById = pedido.deliveredById;
+          lancamento.deliveredByName = pedido.deliveredByName;
         }
       }
       return null;
@@ -691,6 +798,73 @@ function aplicar(
       return `Turno fechado com ${fechados.length} lançamento(s).`;
     }
 
+    case 'pedido.entregador': {
+      const pedido = operacao.deliveries.find((d) => d.id === comando.pedidoId);
+      if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
+
+      pedido.deliveredById = comando.employeeId;
+      pedido.deliveredByName = nomeDe(comando.employeeId);
+
+      /* O caixa espelha, senão o placar e o extrato discordariam. */
+      const lancamento = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`);
+      if (lancamento) {
+        lancamento.deliveredById = pedido.deliveredById;
+        lancamento.deliveredByName = pedido.deliveredByName;
+      }
+      return `Entrega atribuída a ${pedido.deliveredByName || 'outro entregador'}.`;
+    }
+
+    /* ------------------------- Caixa: correções ---------------------- */
+
+    case 'caixa.editar': {
+      /*
+       * Procura no turno E no arquivo. A correção quase sempre aparece depois
+       * do fechamento, quando alguém confere o extrato do dia seguinte.
+       */
+      const lancamento =
+        operacao.cashEntries.find((e) => e.id === comando.lancamentoId) ??
+        operacao.cashArchive.find((e) => e.id === comando.lancamentoId);
+
+      if (!lancamento) throw new HttpError(404, 'Lancamento nao encontrado.');
+
+      if (comando.items) {
+        lancamento.set('items', comando.items);
+        lancamento.subtotal = somarItens(comando.items);
+      }
+      if (comando.deliveryFee !== undefined) lancamento.deliveryFee = comando.deliveryFee;
+      if (comando.payments) lancamento.set('payments', comando.payments);
+
+      /* O total é sempre RECALCULADO, nunca recebido do cliente. */
+      lancamento.total =
+        Number(lancamento.subtotal ?? 0) +
+        Number(lancamento.serviceFee ?? 0) +
+        Number(lancamento.deliveryFee ?? 0);
+
+      lancamento.editadoEm = agora();
+      lancamento.editadoPor = quem;
+      return 'Lançamento corrigido.';
+    }
+
+    case 'caixa.cancelar': {
+      const lancamento =
+        operacao.cashEntries.find((e) => e.id === comando.lancamentoId) ??
+        operacao.cashArchive.find((e) => e.id === comando.lancamentoId);
+
+      if (!lancamento) throw new HttpError(404, 'Lancamento nao encontrado.');
+
+      /*
+       * O lançamento vira FANTASMA: continua na lista, com a marca de
+       * cancelado, e some do faturamento. Apagá-lo esconderia o erro de quem
+       * confere; deixá-lo somando inflaria a receita da noite.
+       */
+      lancamento.orderStatus = 'cancelado';
+      lancamento.paymentStatus = 'pendente';
+      lancamento.motivoCancelamento = comando.motivo;
+      lancamento.editadoEm = agora();
+      lancamento.editadoPor = quem;
+      return 'Venda cancelada. Ela continua no Registro, fora do faturamento.';
+    }
+
     /* ----------------------------- Cozinha --------------------------- */
 
     case 'cozinha.status': {
@@ -732,8 +906,8 @@ export const runOperationCommand = asyncHandler(async (req: Request, res: Respon
   let mensagem: string | null = null;
 
   for (let tentativa = 0; tentativa < 4; tentativa += 1) {
-    const { operacao, taxaServico } = await carregar(appId);
-    mensagem = aplicar(operacao, comando, quem, taxaServico);
+    const { operacao, taxaServico, nomes } = await carregar(appId);
+    mensagem = aplicar(operacao, comando, quem, taxaServico, nomes);
 
     try {
       await operacao.save();

@@ -70,6 +70,19 @@ export default defineConfig(({ mode }) => {
      */
     base: './',
 
+    /*
+     * Pasta publica PROPRIA, e nao a do site.
+     *
+     * O `public/` do site passou a hospedar os instaladores (`downloads/`), e
+     * o Vite copia a pasta publica inteira para dentro do bundle. O resultado
+     * foi o .exe embutindo a si mesmo: 78 MB viraram 160 MB, e o APK de 4 MB
+     * virou 86 MB. Cada build dobraria o anterior.
+     *
+     * `public-app/` tem so o que o aplicativo precisa — o logotipo do
+     * carregamento — e nada do que o site serve.
+     */
+    publicDir: resolve(__dirname, 'public-app'),
+
     build: {
       outDir: 'dist-app',
       emptyOutDir: true,

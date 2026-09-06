@@ -34,5 +34,11 @@
   "abas.entregador": "配送员",
   "abas.aviso": "您的职位可以访问此区域。操作界面将在下一阶段推出。",
   "operacao.carregando": "正在加载运营数据…",
-  "operacao.tentar": "重试"
+  "operacao.tentar": "重试",
+  "acao.atualizar": "刷新",
+  "entregador.placar": "今晚配送总额",
+  "entregador.por": "配送员",
+  "caixa.cancelada": "已取消的订单",
+  "pedido.retirada": "到店自取",
+  "pedido.entrega": "配送"
 }

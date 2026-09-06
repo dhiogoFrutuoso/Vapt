@@ -143,6 +143,25 @@ export function emitOperationChanged(appId: string, dados: { tipo: string; por: 
   io.to(sala(appId)).emit('operation_changed', dados);
 }
 
+/**
+ * Sessao do funcionario revogada: bloqueio, exclusao ou novo codigo.
+ *
+ * O evento vai para a sala do restaurante INTEIRA, e nao so para o aparelho
+ * do alvo — o servidor nao mantem indice de socket por funcionario, e manter
+ * um so para isto seria estado a mais para sincronizar. Cada app compara o
+ * `employeeId` com o seu e ignora o que nao for dele.
+ *
+ * Isso NAO e a seguranca; e a velocidade. Quem garante a revogacao e o
+ * `revokeAllForEmployee`, que apaga o refresh no banco: o access token morre
+ * sozinho em dez minutos mesmo se o socket nao chegar. O evento derruba a
+ * tela em milissegundos em vez de deixar o funcionario bloqueado operando o
+ * caixa ate o token expirar.
+ */
+export function emitSessionRevoked(appId: string, employeeId: string, motivo: string): void {
+  if (!io) return;
+  io.to(sala(appId)).emit('session_revoked', { employeeId, motivo });
+}
+
 export function getIO(): SocketServer | null {
   return io;
 }

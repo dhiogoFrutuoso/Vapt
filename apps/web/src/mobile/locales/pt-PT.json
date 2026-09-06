@@ -34,5 +34,11 @@
   "abas.entregador": "Estafeta",
   "abas.aviso": "A sua função dá acesso a esta área. Os ecrãs de operação chegam na próxima etapa.",
   "operacao.carregando": "A carregar a operação...",
-  "operacao.tentar": "Tentar novamente"
+  "operacao.tentar": "Tentar novamente",
+  "acao.atualizar": "Atualizar",
+  "entregador.placar": "Total de entregas da noite",
+  "entregador.por": "Entregue por",
+  "caixa.cancelada": "Venda cancelada",
+  "pedido.retirada": "Levantamento no balcão",
+  "pedido.entrega": "Entrega"
 }

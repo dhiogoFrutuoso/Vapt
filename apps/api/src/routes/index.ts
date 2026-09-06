@@ -42,7 +42,7 @@ import {
   regenerateEmployeeCode,
   unblockEmployee,
 } from '../controllers/employees.controller.js';
-import { createMagicLink, getPublicApp } from '../controllers/publicApp.controller.js';
+import { createMagicLink, createPublicOrder, getPublicApp } from '../controllers/publicApp.controller.js';
 import { consumeMagicLink } from '../controllers/magicLink.controller.js';
 import {
   createApp,
@@ -138,6 +138,7 @@ router.get('/public/apps/:id', getPublicApp);
 /* Assina o rascunho do pedido. Recebe id e quantidade; os precos vem do
    cardapio no banco, nunca do corpo da requisicao. */
 router.post('/public/apps/:id/magic-link', writeLimiter, createMagicLink);
+router.post('/public/apps/:id/orders', writeLimiter, createPublicOrder);
 
 /* Magic link: o restaurante clica no link que veio no WhatsApp e o pedido
    entra no banco. Sem authLimiter — quem chega e o dono, uma vez por pedido,

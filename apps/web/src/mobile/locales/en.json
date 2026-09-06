@@ -34,5 +34,11 @@
   "abas.entregador": "Courier",
   "abas.aviso": "Your role grants access to this area. The operating screens arrive in the next release.",
   "operacao.carregando": "Loading the floor...",
-  "operacao.tentar": "Try again"
+  "operacao.tentar": "Try again",
+  "acao.atualizar": "Refresh",
+  "entregador.placar": "Tonight's delivery total",
+  "entregador.por": "Delivered by",
+  "caixa.cancelada": "Sale cancelled",
+  "pedido.retirada": "Counter pickup",
+  "pedido.entrega": "Delivery"
 }

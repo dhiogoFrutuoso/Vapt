@@ -144,6 +144,24 @@ const deliverySchema = new Schema(
     status: { type: String, enum: ['novo', 'aceito', 'a_caminho', 'entregue'], default: 'novo' },
     timeLabel: { type: String, trim: true, maxlength: 30, default: 'agora' },
     distanceLabel: { type: String, trim: true, maxlength: 30, default: '' },
+
+    /**
+     * Quem levou a entrega.
+     *
+     * Guarda id E nome. O id liga à pessoa; o nome é uma CÓPIA do momento da
+     * entrega, para o histórico não mudar quando o funcionário for renomeado
+     * ou excluído. Um registro de ontem que passa a dizer "Funcionário
+     * removido" perde justamente o valor de auditoria que justifica guardá-lo.
+     */
+    deliveredById: { type: String, trim: true, maxlength: 40, default: '' },
+    deliveredByName: { type: String, trim: true, maxlength: 80, default: '' },
+
+    /** Observação escrita pelo cliente no cardápio público. */
+    notes: { type: String, trim: true, maxlength: 300, default: '' },
+
+    /** `false` quando o cliente escolheu retirar no balcão. */
+    isDelivery: { type: Boolean, default: true },
+
     createdAt: { type: Number, required: true },
   },
   { _id: false }
@@ -168,6 +186,22 @@ const cashEntrySchema = new Schema(
     payments: { type: [paymentSchema], default: [] },
     orderStatus: { type: String, enum: ['feito', 'cancelado'], default: 'feito' },
     paymentStatus: { type: String, enum: ['pendente', 'concluido'], default: 'pendente' },
+
+    /** Espelha o entregador do pedido, para o Registro auditar sem cruzar listas. */
+    deliveredById: { type: String, trim: true, maxlength: 40, default: '' },
+    deliveredByName: { type: String, trim: true, maxlength: 80, default: '' },
+
+    /**
+     * Trilha de quem mexeu no lançamento DEPOIS de fechado.
+     *
+     * Editar uma venda paga é necessário — o caixa marca dinheiro e o cliente
+     * pagou PIX —, mas sem registro isso vira o buraco por onde o caixa
+     * "conserta" o próprio erro de conferência. Cada alteração deixa marca.
+     */
+    editadoEm: { type: Number, default: null },
+    editadoPor: { type: String, trim: true, maxlength: 40, default: '' },
+    motivoCancelamento: { type: String, trim: true, maxlength: 200, default: '' },
+
     createdAt: { type: Number, required: true },
     closedAt: { type: Number, default: null },
   },

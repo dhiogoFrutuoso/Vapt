@@ -6,6 +6,8 @@ import { AppProject } from '../models/AppProject.js';
 import { HttpError } from '../utils/httpError.js';
 import { signMagicPayload, MAGIC_TTL_MINUTES } from '../utils/magicLink.js';
 import { z } from 'zod';
+import { Operation } from '../models/Operation.js';
+import { emitNewOrder } from '../realtime/io.js';
 
 /**
  * Cardapio publico do restaurante — o que o cliente final ve.
@@ -228,5 +230,130 @@ export const createMagicLink = asyncHandler(async (req: Request, res: Response) 
       total: subtotal + taxa,
       itens: itens.map(([name, price, quantity]) => ({ name, price, quantity })),
     },
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/public/apps/:id/orders                                    */
+/* ------------------------------------------------------------------ */
+
+const pedidoPublicoSchema = z.object({
+  customerName: z.string().trim().min(2, 'Informe o nome.').max(80),
+  phone: z.string().trim().min(10, 'Informe o telefone com DDD.').max(30),
+  notes: z.string().trim().max(300).optional().default(''),
+  isDelivery: z.boolean().optional().default(true),
+  address: z
+    .object({
+      street: z.string().trim().max(160).optional().default(''),
+      number: z.string().trim().max(20).optional().default(''),
+      district: z.string().trim().max(80).optional().default(''),
+      city: z.string().trim().max(80).optional().default(''),
+      reference: z.string().trim().max(240).optional().default(''),
+    })
+    .optional()
+    .default({}),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().trim().min(1),
+        quantity: z.number().int().min(1).max(99),
+      })
+    )
+    .min(1, 'O pedido esta vazio.')
+    .max(40),
+});
+
+/**
+ * Pedido feito pelo CLIENTE FINAL, direto do cardapio publico.
+ *
+ * O pedido nasce na operacao com status `novo`, o que significa: aparece na
+ * Recepcao para definir a taxa E na Cozinha ao mesmo tempo, porque a fila de
+ * producao deriva das entregas que ainda nao foram entregues. A chapa comeca
+ * a trabalhar enquanto a recepcao ainda decide o frete.
+ *
+ * PRECO NUNCA VEM DO CLIENTE
+ * --------------------------
+ * O corpo traz productId e quantidade. Nome e preco sao lidos do cardapio no
+ * banco. Aceitar o preco do navegador deixaria qualquer pessoa pedir uma
+ * picanha por um centavo — e o pedido chegaria na cozinha com aparencia
+ * legitima.
+ */
+export const createPublicOrder = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const body = pedidoPublicoSchema.parse(req.body);
+
+  const filtro = mongoose.isValidObjectId(id) ? { _id: id } : { slug: String(id).toLowerCase() };
+
+  const app = (await AppProject.findOne(filtro)
+    .select('_id status appPlanType products delivery')
+    .lean()) as Record<string, any> | null;
+
+  if (!app) throw new HttpError(404, 'Restaurante nao encontrado.');
+  garantirCardapioPublico(app);
+
+  const disponiveis = new Map<string, { name: string; price: number; station: string }>();
+  for (const p of app.products ?? []) {
+    if (p.available === false) continue;
+    disponiveis.set(String(p._id), {
+      name: String(p.name),
+      price: Number(p.price ?? 0),
+      /* O saguao viaja com o item: e ele que roteia para a praca certa. */
+      station: String(p.station ?? ''),
+    });
+  }
+
+  const itens: Array<{ name: string; price: number; station: string }> = [];
+
+  for (const pedido of body.items) {
+    const produto = disponiveis.get(pedido.productId);
+    if (!produto) {
+      throw new HttpError(409, 'Um item do pedido nao esta mais disponivel.', [
+        { field: 'items', message: pedido.productId },
+      ]);
+    }
+    /* Uma linha por unidade: e o formato que o resto da operacao usa. */
+    for (let i = 0; i < pedido.quantity; i += 1) itens.push({ ...produto });
+  }
+
+  const subtotal = itens.reduce((soma, item) => soma + item.price, 0);
+  const agora = Date.now();
+  const code = String(Math.floor(1000 + Math.random() * 8999));
+  const orderId = `d-${agora}-${Math.floor(Math.random() * 1000)}`;
+
+  const operacao =
+    (await Operation.findOne({ app: app._id })) ?? new Operation({ app: app._id });
+
+  operacao.deliveries.unshift({
+    id: orderId,
+    code,
+    customerName: body.customerName,
+    phone: body.phone,
+    items: itens,
+    total: subtotal,
+    payments: [],
+    deliveryFee: 0,
+    address: { mode: 'manual', ...body.address },
+    notes: body.notes,
+    isDelivery: body.isDelivery,
+    status: 'novo',
+    timeLabel: 'agora',
+    distanceLabel: '',
+    createdAt: agora,
+  } as never);
+
+  await operacao.save();
+
+  /* Acorda a Recepcao e a Cozinha sem esperar a sondagem de 30 segundos. */
+  emitNewOrder(String(app._id), {
+    orderId,
+    code,
+    customerName: body.customerName,
+    status: 'novo',
+    source: 'cardapio',
+  });
+
+  return res.json({
+    ok: true,
+    data: { id: orderId, code, subtotal, items: itens.map(({ name, price }) => ({ name, price })) },
   });
 });

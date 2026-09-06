@@ -14,7 +14,8 @@
     "build:win": "npm run build:app && electron-builder --win --publish never",
     "build:android": "npx cap sync android && cd android && .\\gradlew.bat assembleDebug && cd .. && node scripts/mover-apk.mjs",
     "app:desktop": "npm run build:app && electron .",
-    "deploy:apps": "node scripts/deploy-apps.mjs"
+    "deploy:apps": "node scripts/deploy-apps.mjs",
+    "build:apps": "node scripts/build-apps.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",

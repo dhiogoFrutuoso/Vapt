@@ -171,6 +171,13 @@ export type DeliveryOrder = {
   status: DeliveryStatus;
   timeLabel: string;
   distanceLabel: string;
+  /** Observacao escrita pelo cliente no cardapio publico. */
+  notes?: string;
+  /** `false` quando o cliente escolheu retirar no balcao. */
+  isDelivery?: boolean;
+  /** Autoria da entrega, copiada no momento em que foi concluida. */
+  deliveredById?: string;
+  deliveredByName?: string;
 };
 
 /** Monta o link do Google Maps a partir do endereço do pedido. */
@@ -279,7 +286,34 @@ export type CashEntry = {
   /** Timestamp em ms, usado pelos filtros de tempo. */
   createdAt: number;
   closedAt: number | null;
+  /** Espelha o entregador do pedido, para o Registro auditar. */
+  deliveredById?: string;
+  deliveredByName?: string;
+  /** Trilha de correcao pos-fechamento. */
+  editadoEm?: number | null;
+  editadoPor?: string;
+  motivoCancelamento?: string;
 };
+
+/**
+ * Soma o que ENTROU de dinheiro, pulando os cancelados.
+ *
+ * Um pedido cancelado continua na lista para auditoria, mas nao pode inflar a
+ * receita da noite. Centralizar a regra aqui evita que cada tela invente o
+ * proprio `reduce` e uma delas esqueca o filtro.
+ */
+export function faturamento(entries: CashEntry[]): number {
+  return entries
+    .filter((e) => e.orderStatus !== 'cancelado')
+    .reduce((total, e) => total + (e.total ?? 0), 0);
+}
+
+/** Total das entregas concluidas, para o placar da noite do entregador. */
+export function totalEntregue(orders: DeliveryOrder[]): number {
+  return orders
+    .filter((o) => o.status === 'entregue')
+    .reduce((total, o) => total + (o.total ?? 0), 0);
+}
 
 /** Total dos itens de uma comanda. */
 /**

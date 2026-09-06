@@ -37,6 +37,8 @@ export type Menu = {
   products: PreviewProduct[];
   promotions: PreviewPromotion[];
   stations: string[];
+  /** Equipe ativa, so id e nome — para o seletor de entregador. */
+  equipe: Array<{ id: string; name: string }>;
 };
 
 const VAZIO: Menu = {
@@ -61,6 +63,7 @@ const VAZIO: Menu = {
   products: [],
   promotions: [],
   stations: [],
+  equipe: [],
 };
 
 export function useMenu(token: string | null) {
