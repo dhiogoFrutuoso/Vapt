@@ -1,6 +1,15 @@
 'use strict';
 
-const { app, BrowserWindow, shell, protocol, net } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  net,
+  protocol,
+  safeStorage,
+  shell,
+} = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -18,27 +27,29 @@ const { pathToFileURL } = require('node:url');
 
 const RAIZ = path.join(__dirname, '..', 'dist-app');
 
+/** Origem unica da interface. Tudo fora disto e considerado externo. */
+const ORIGEM = 'vapt://localhost';
+
 /*
  * Dimensoes de software de desktop.
  *
- * A janela travada em proporcao de celular fazia sentido enquanto a interface
- * so existia em coluna unica. Agora ela e responsiva: em tela larga a barra de
- * abas vira uma coluna lateral e o conteudo ocupa o espaco. O caixa e a
- * cozinha usam monitor, e obrigar um monitor a se comportar como celular
- * desperdica a tela inteira.
- *
- * O minimo continua existindo para que o layout nao seja espremido abaixo do
- * ponto em que foi desenhado.
+ * A interface e responsiva: em tela larga a barra de abas vira uma coluna
+ * lateral e o conteudo ocupa o espaco. O caixa e a cozinha usam monitor, e
+ * obrigar um monitor a se comportar como celular desperdica a tela inteira.
  */
 const LARGURA = 1280;
 const ALTURA = 720;
 const LARGURA_MIN = 380;
 const ALTURA_MIN = 600;
 
+/* ------------------------------------------------------------------ */
+/* Esquema proprio                                                     */
+/* ------------------------------------------------------------------ */
+
 /**
  * `vapt://` em vez de `file://`.
  *
- * Duas razoes, e nenhuma delas e estetica:
+ * Tres razoes, e nenhuma delas e estetica:
  *
  *   1. CORS. Em `file://` o navegador manda `Origin: null`, e liberar `null`
  *      na API abriria a porta para qualquer iframe com sandbox na internet.
@@ -47,6 +58,9 @@ const ALTURA_MIN = 600;
  *   2. Armazenamento. `file://` nao tem origem estavel, entao localStorage e
  *      IndexedDB ficam sem lugar fixo: o funcionario seria deslogado a cada
  *      atualizacao do aplicativo.
+ *
+ *   3. Navegacao. Com uma origem nomeada da para dizer "nunca saia daqui"
+ *      numa comparacao de string, sem depender de heuristica de caminho.
  */
 protocol.registerSchemesAsPrivileged([
   {
@@ -88,6 +102,124 @@ function servirArquivos() {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Cofre de segredos                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Armazenamento cifrado dos tokens do funcionario.
+ *
+ * O `safeStorage` cifra com a chave do usuario do sistema — DPAPI no Windows,
+ * Keychain no macOS, libsecret no Linux. O arquivo resultante so abre na
+ * conta de quem gravou: copiar para outra maquina nao serve de nada.
+ *
+ * Fica no processo PRINCIPAL, nao na interface. Se a interface pudesse cifrar
+ * e decifrar sozinha, um XSS na tela teria a mesma capacidade que o
+ * aplicativo — e o cofre viraria enfeite.
+ */
+const CHAVES_PERMITIDAS = new Set([
+  'vapt.device.access',
+  'vapt.device.refresh',
+  'vapt.device.id',
+]);
+
+function arquivoDoCofre() {
+  return path.join(app.getPath('userData'), 'cofre.json');
+}
+
+function lerCofre() {
+  try {
+    return JSON.parse(fs.readFileSync(arquivoDoCofre(), 'utf8'));
+  } catch {
+    /* Primeira execucao, arquivo apagado ou corrompido: comeca vazio. */
+    return {};
+  }
+}
+
+function gravarCofre(dados) {
+  try {
+    fs.writeFileSync(arquivoDoCofre(), JSON.stringify(dados), { mode: 0o600 });
+  } catch (erro) {
+    console.error('[cofre] Nao foi possivel gravar.', erro.message);
+  }
+}
+
+function registrarCofre() {
+  ipcMain.handle('vapt:secure:get', (_evento, chave) => {
+    /*
+     * A lista de chaves e conferida AQUI, no lado privilegiado. Confiar na
+     * interface para nao pedir chaves alheias seria confiar justamente no
+     * lado que um XSS controla.
+     */
+    if (!CHAVES_PERMITIDAS.has(chave)) return null;
+
+    const cofre = lerCofre();
+    const guardado = cofre[chave];
+    if (typeof guardado !== 'string') return null;
+
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      return safeStorage.decryptString(Buffer.from(guardado, 'base64'));
+    } catch {
+      /* Cifrado por outro usuario ou outra maquina: trata como ausente, e o
+         funcionario faz login de novo. Melhor que estourar na tela. */
+      return null;
+    }
+  });
+
+  ipcMain.handle('vapt:secure:set', (_evento, chave, valor) => {
+    if (!CHAVES_PERMITIDAS.has(chave)) return false;
+    if (!safeStorage.isEncryptionAvailable()) return false;
+
+    const cofre = lerCofre();
+    cofre[chave] = safeStorage.encryptString(valor).toString('base64');
+    gravarCofre(cofre);
+    return true;
+  });
+
+  ipcMain.handle('vapt:secure:remove', (_evento, chave) => {
+    if (!CHAVES_PERMITIDAS.has(chave)) return false;
+    const cofre = lerCofre();
+    delete cofre[chave];
+    gravarCofre(cofre);
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Janela                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Enderecos externos que o aplicativo pode ENCAMINHAR ao navegador do
+ * sistema — nunca abrir dentro de si.
+ *
+ * A lista existe porque duas telas dependem dela: o entregador abre o mapa do
+ * endereco e a recepcao chama o cliente no WhatsApp. Bloquear tudo deixaria o
+ * entregador sem rota, que e uma falha de operacao, nao um ganho de
+ * seguranca — ele abriria o mapa no celular do bolso e o pedido atrasaria.
+ *
+ * O que a lista NAO faz e permitir navegacao interna: mesmo estes enderecos
+ * saem para o navegador do sistema. A janela do aplicativo nunca deixa
+ * `vapt://`.
+ */
+const HOSTS_EXTERNOS = new Set([
+  'wa.me',
+  'api.whatsapp.com',
+  'www.google.com',
+  'maps.google.com',
+]);
+
+function podeEncaminhar(url) {
+  try {
+    const alvo = new URL(url);
+    if (alvo.protocol !== 'https:') return false;
+    return HOSTS_EXTERNOS.has(alvo.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function criarJanela() {
   const janela = new BrowserWindow({
     width: LARGURA,
@@ -106,9 +238,11 @@ function criarJanela() {
     autoHideMenuBar: true,
     title: 'Vapt — App da equipe',
     webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+
       /*
        * A interface nao precisa de Node e nao deve ter. Ela renderiza nome,
-       * observacao e endereco digitados por clientes; com `nodeIntegration`,
+       * observacao e endereco digitados por CLIENTES; com `nodeIntegration`,
        * uma falha de escape na tela viraria acesso ao sistema de arquivos do
        * computador do restaurante.
        */
@@ -116,32 +250,94 @@ function criarJanela() {
       contextIsolation: true,
       sandbox: true,
       webviewTag: false,
+
+      /*
+       * `enableRemoteModule` foi REMOVIDO do Electron na versao 14 (usamos a
+       * 33), entao esta linha nao tem efeito nenhum hoje. Fica explicita
+       * mesmo assim: quem auditar o arquivo procura por ela, e a ausencia
+       * levantaria a duvida de se o modulo remoto esta ligado.
+       */
+      enableRemoteModule: false,
+
+      /* Sem integracao de Node tambem nos web workers. */
+      nodeIntegrationInWorker: false,
+      nodeIntegrationInSubFrames: false,
+
+      /* Nao afrouxa a politica de mesma origem por conveniencia de debug. */
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+
+      /* Nada de janela abrindo sozinha por `window.open` sem gesto do usuario. */
+      spellcheck: false,
     },
   });
+
+  /*
+   * DevTools fechado em producao.
+   *
+   * O console aberto no computador do caixa e um caminho direto para ler a
+   * sessao do funcionario e disparar chamadas autenticadas a mao. Em
+   * desenvolvimento continua liberado, senao depurar vira adivinhacao.
+   */
+  if (app.isPackaged) {
+    janela.webContents.on('before-input-event', (evento, entrada) => {
+      const tecla = String(entrada.key ?? '').toLowerCase();
+      const abreDevtools =
+        tecla === 'f12' ||
+        ((entrada.control || entrada.meta) && entrada.shift && ['i', 'j', 'c'].includes(tecla)) ||
+        ((entrada.control || entrada.meta) && tecla === 'u'); // ver codigo-fonte
+
+      if (abreDevtools) evento.preventDefault();
+    });
+
+    /* Cinto e suspensorio: se algo abrir o DevTools por outro caminho
+       (menu, extensao, chamada programatica), ele fecha na hora. */
+    janela.webContents.on('devtools-opened', () => janela.webContents.closeDevTools());
+  }
 
   /*
    * Trava de navegacao.
    *
    * O painel de edicao ja nao esta dentro do bundle, entao isto e a segunda
-   * camada: mesmo que um link ou um redirecionamento tente levar a janela
-   * para o site, ela nao sai de `vapt://`. Link externo abre no navegador do
-   * sistema, que e onde ele deve abrir.
+   * camada: nenhum link, redirecionamento ou `location.href` tira a janela de
+   * `vapt://`. Endereco da lista curta sai para o navegador do sistema; o
+   * resto e simplesmente descartado.
    */
   janela.webContents.on('will-navigate', (evento, url) => {
-    if (!url.startsWith('vapt://')) {
-      evento.preventDefault();
-      void shell.openExternal(url);
-    }
+    if (url.startsWith(ORIGEM)) return;
+
+    evento.preventDefault();
+    if (podeEncaminhar(url)) void shell.openExternal(url);
+    else console.warn('[nav] Navegacao bloqueada:', url);
   });
 
+  /* Nenhuma janela nova, nunca. Popup e o vetor classico de phishing dentro
+     de aplicativo: a janela sem barra de endereco imita a tela de login. */
   janela.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url);
+    if (podeEncaminhar(url)) void shell.openExternal(url);
+    else console.warn('[nav] Popup bloqueado:', url);
     return { action: 'deny' };
   });
 
-  void janela.loadURL('vapt://localhost/index.html');
+  /* Anexar webview e outra forma de embutir conteudo de terceiros. */
+  janela.webContents.on('will-attach-webview', (evento) => evento.preventDefault());
+
+  /*
+   * A interface nao pede camera, microfone nem localizacao. Negar por padrao
+   * evita que uma pagina injetada consiga o que o aplicativo legitimo nunca
+   * usaria.
+   */
+  janela.webContents.session.setPermissionRequestHandler((_conteudo, _permissao, aceitar) => {
+    aceitar(false);
+  });
+
+  void janela.loadURL(`${ORIGEM}/index.html`);
   return janela;
 }
+
+/* ------------------------------------------------------------------ */
+/* Ciclo de vida                                                       */
+/* ------------------------------------------------------------------ */
 
 /*
  * Instancia unica. Dois aplicativos abertos disputariam o mesmo
@@ -161,6 +357,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     servirArquivos();
+    registrarCofre();
     criarJanela();
 
     app.on('activate', () => {
@@ -170,5 +367,18 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
+  });
+
+  /*
+   * Ultima linha de defesa do processo principal: mesmo que algum codigo
+   * futuro esqueca as travas da janela, nenhuma WebContents deste
+   * aplicativo pode ganhar Node nem abrir janela para fora.
+   */
+  app.on('web-contents-created', (_evento, conteudo) => {
+    conteudo.setWindowOpenHandler(({ url }) => {
+      if (podeEncaminhar(url)) void shell.openExternal(url);
+      return { action: 'deny' };
+    });
+    conteudo.on('will-attach-webview', (evento) => evento.preventDefault());
   });
 }

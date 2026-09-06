@@ -16,7 +16,65 @@ export function createApp() {
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  /*
+   * Helmet com CSP explícita.
+   *
+   * ONDE ISTO PROTEGE, E ONDE NÃO
+   * -----------------------------
+   * Esta API devolve JSON e imagens; o HTML do site vem da Vercel, não daqui.
+   * Uma CSP mandada em resposta JSON não protege a página do painel — quem
+   * protege aquilo é o cabeçalho servido junto do HTML, configurado no
+   * `vercel.json`.
+   *
+   * O que a CSP daqui cobre de verdade:
+   *
+   *   - a rota de imagens (`/api/images/:id`), que devolve conteúdo enviado
+   *     por usuários. Um SVG com `<script>` dentro executaria na origem da
+   *     API se aberto direto no navegador; `script-src 'none'` impede;
+   *   - qualquer página de erro que um middleware venha a renderizar;
+   *   - o enquadramento em iframe, barrado por `frame-ancestors` e pelo
+   *     `X-Frame-Options: DENY` — sem isso um site hostil embutiria uma rota
+   *     nossa e faria clickjacking.
+   *
+   * `crossOriginResourcePolicy: cross-origin` continua necessário: as
+   * imagens das lojas são carregadas pelo domínio do site, que é outra
+   * origem, e o padrão `same-origin` do Helmet as bloquearia.
+   */
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          defaultSrc: ["'none'"],
+          /* A API não serve script nenhum. Nem o próprio. */
+          scriptSrc: ["'none'"],
+          styleSrc: ["'none'"],
+          /* `data:` cobre as imagens processadas que voltam embutidas. */
+          imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
+          fontSrc: ["'none'"],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'none'"],
+          formAction: ["'none'"],
+          frameAncestors: ["'none'"],
+          upgradeInsecureRequests: [],
+        },
+      },
+      /* DENY, não SAMEORIGIN: nada nesta API precisa ser embutido. */
+      frameguard: { action: 'deny' },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      /* Sem `Referer` para fora: as URLs carregam ids de aplicativo. */
+      referrerPolicy: { policy: 'no-referrer' },
+    })
+  );
+
+  /*
+   * O navegador não deve adivinhar o tipo de um upload.
+   *
+   * `nosniff` já vem do Helmet, mas a rota de imagens merece a menção: sem
+   * ele, um arquivo enviado como imagem e servido com o tipo errado poderia
+   * ser interpretado como HTML e executar script na origem da API.
+   */
   app.use(mongoSanitize());
 
   /*

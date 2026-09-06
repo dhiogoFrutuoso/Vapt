@@ -14,6 +14,9 @@ import { OnboardingScreen } from './OnboardingScreen';
 import { PreferencesPanel } from './PreferencesPanel';
 import { usePreferences } from './PreferencesContext';
 import type { Chave as ChaveTexto } from './i18n';
+import { AppViews } from './AppViews';
+import { useOperation } from './useOperation';
+import { useMenu } from './useMenu';
 
 /**
  * Casca do app depois do login.
@@ -64,10 +67,24 @@ const CARTAO =
   'dark:bg-gray-900 dark:shadow-none dark:ring-1 dark:ring-white/10';
 
 export function MobileShell() {
-  const { employee, branding, logout } = useDeviceAuth();
+  const { employee, branding, appId, accessToken, logout } = useDeviceAuth();
   const { idioma, t } = usePreferences();
   const [editando, setEditando] = useState(false);
   const [saindo, setSaindo] = useState(false);
+
+  /*
+   * Operação e cardápio vêm do servidor.
+   *
+   * Os dois hooks ficam AQUI, na casca, e não dentro de cada aba: assim o
+   * estado sobrevive à troca de aba. Buscando dentro da aba, sair do Caixa e
+   * voltar recarregaria o turno inteiro do zero — e no meio de um fechamento
+   * isso apaga a tela na frente de quem está conferindo o dinheiro.
+   */
+  const { estado, carregando: carregandoOperacao, erro, recarregar, executar } = useOperation(
+    appId,
+    accessToken
+  );
+  const { menu } = useMenu(accessToken);
 
   /** Só as abas da função. Uma função sem permissões cai direto no perfil. */
   const visiveis = useMemo(
@@ -328,22 +345,60 @@ export function MobileShell() {
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6">
           {ativa === 'perfil' ? (
             renderPerfil()
-          ) : (
-            <section className="flex min-h-full flex-col items-center justify-center py-16 text-center">
-              <div
-                className="flex h-16 w-16 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: `${marca}1A` }}
-              >
-                {abaAtual ? <abaAtual.Icone size={26} style={{ color: marca }} /> : null}
-              </div>
-
-              <h2 className="m-0 mt-4 text-lg font-extrabold text-gray-900 dark:text-gray-50">
-                {abaAtual ? t(abaAtual.texto) : ''}
-              </h2>
-              <p className="m-0 mt-2 max-w-xs text-[0.95rem] leading-relaxed text-gray-500 dark:text-gray-400">
-                {t('abas.aviso')}
-              </p>
+          ) : carregandoOperacao ? (
+            <section className="flex min-h-full items-center justify-center py-16">
+              <p className="m-0 text-sm font-semibold text-gray-400">{t('operacao.carregando')}</p>
             </section>
+          ) : erro ? (
+            <section className="flex min-h-full flex-col items-center justify-center gap-4 py-16 text-center">
+              <p className="m-0 max-w-xs text-[0.95rem] leading-relaxed text-gray-500 dark:text-gray-400">
+                {erro}
+              </p>
+              <button
+                type="button"
+                onClick={() => void recarregar()}
+                className="rounded-full px-6 py-3 text-[0.9rem] font-bold text-white"
+                style={{ backgroundColor: marca }}
+              >
+                {t('operacao.tentar')}
+              </button>
+            </section>
+          ) : (
+            /*
+             * `editor-preview` e `theme-*` são as classes que o CSS dos
+             * componentes espera — os mesmos arquivos que vestem o simulador
+             * do painel. Sem elas os cards saem sem estilo nenhum, porque
+             * `.phone__*` e `.cash-*` são escopados por dentro delas.
+             */
+            <div
+              className={`editor-preview editor-preview--app theme-${menu.branding.theme}`}
+              style={
+                {
+                  '--brand': marca,
+                  '--on-brand': '#ffffff',
+                } as React.CSSProperties
+              }
+            >
+              <div className="editor-preview__screen">
+                <AppViews
+                  aba={ativa}
+                  estado={estado}
+                  executar={executar}
+                  products={menu.products}
+                  promotions={menu.promotions}
+                  categories={menu.categories}
+                  stations={menu.stations}
+                  storeName={menu.storeName || branding.storeName}
+                  logoUrl={menu.branding.logoUrl ?? branding.logoUrl}
+                  brandColor={marca}
+                  theme={menu.branding.theme}
+                  deliveryFee={menu.delivery.fee}
+                  courierPaidPerDelivery={menu.delivery.courierPaidPerDelivery}
+                  waiterCommissionRate={menu.dining.waiterCommissionRate}
+                  onIrPara={setAtiva}
+                />
+              </div>
+            </div>
           )}
         </div>
 

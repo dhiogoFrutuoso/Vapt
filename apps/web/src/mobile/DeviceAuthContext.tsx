@@ -33,6 +33,25 @@ export const VAPT_BRANDING: Branding = {
 type DeviceAuthValue = {
   employee: Employee | null;
   branding: Branding;
+  /**
+   * Restaurante da sessao.
+   *
+   * Necessario para o socket: o handshake manda o appId junto do token, e o
+   * servidor CONFERE um contra o outro antes de colocar a conexao na sala.
+   * Mandar so o token bastaria para o app da equipe (o appId vai assinado
+   * dentro dele), mas a mesma funcao de autenticacao serve o painel do dono,
+   * onde o appId precisa vir de fora.
+   */
+  appId: string | null;
+  /**
+   * Access token atual, exposto SO para o handshake do socket.
+   *
+   * O `socket.io-client` nao passa por `deviceApi`, entao nao herda o
+   * cabecalho `Authorization`. Fora isso, nenhuma tela deve ler este valor:
+   * quem faz chamada HTTP usa `deviceApi`, que ja injeta o token e renova
+   * sozinho em 401.
+   */
+  accessToken: string | null;
   /** true enquanto a checagem inicial de sessao nao terminou. */
   loading: boolean;
   login: (code: string, deviceName: string) => Promise<Employee>;
@@ -45,11 +64,15 @@ const DeviceAuthContext = createContext<DeviceAuthValue | null>(null);
 export function DeviceAuthProvider({ children }: { children: ReactNode }) {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [branding, setBranding] = useState<Branding>(VAPT_BRANDING);
+  const [appId, setAppId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const encerrarLocal = useCallback(() => {
     setEmployee(null);
     setBranding(VAPT_BRANDING);
+    setAppId(null);
+    setAccessToken(null);
   }, []);
 
   /*
@@ -89,6 +112,8 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
           profile: salvo?.profile ?? { phone: '', cpf: '', birthDate: null, photoUrl: null },
         });
         setBranding(salvo?.branding ?? VAPT_BRANDING);
+        setAppId(dados.appId);
+        setAccessToken(token ?? (await deviceStorage.getAccess()));
       } catch {
         if (vivo) encerrarLocal();
       } finally {
@@ -107,6 +132,8 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (code: string, deviceName: string) => {
     const data = await deviceApi.login(code, deviceName);
+    setAppId(data.appId);
+    setAccessToken(data.accessToken);
     setEmployee(data.employee);
     setBranding(data.branding);
     salvarBranding({
@@ -136,8 +163,8 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<DeviceAuthValue>(
-    () => ({ employee, branding, loading, login, logout, completeOnboarding }),
-    [employee, branding, loading, login, logout, completeOnboarding]
+    () => ({ employee, branding, appId, accessToken, loading, login, logout, completeOnboarding }),
+    [employee, branding, appId, accessToken, loading, login, logout, completeOnboarding]
   );
 
   return <DeviceAuthContext.Provider value={value}>{children}</DeviceAuthContext.Provider>;

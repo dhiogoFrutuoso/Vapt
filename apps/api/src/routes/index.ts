@@ -70,6 +70,11 @@ import {
 import { authLimiter, writeLimiter } from '../middlewares/rateLimiter.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireDevice } from '../middlewares/requireDevice.js';
+import {
+  getOperation,
+  runOperationCommand,
+} from '../controllers/operation.controller.js';
+import { getDeviceMenu } from '../controllers/deviceMenu.controller.js';
 import { upload } from '../middlewares/upload.js';
 import { adminRoutes } from './adminRoutes.js';
 
@@ -154,6 +159,22 @@ router.post('/device/refresh', deviceRefresh);
 router.post('/device/logout', deviceLogout);
 router.get('/device/me', requireDevice, deviceMe);
 router.get('/device/sessions', requireDevice, deviceSessions);
+
+/*
+ * Operacao do restaurante: mesas, retiradas, entregas, caixa e cozinha.
+ *
+ * A leitura devolve o estado inteiro, e o POST recebe UM comando por vez. A
+ * autorizacao por comando fica dentro do controlador, numa tabela unica —
+ * espalhar `requirePermission` por vinte e duas rotas faria a auditoria de
+ * "quem pode o que" depender de ler o arquivo de rotas inteiro.
+ *
+ * O comando NAO passa pelo `writeLimiter`: o limite de escrita foi calibrado
+ * para cadastro, e um garcom lancando itens numa mesa cheia dispara dezenas
+ * de comandos em poucos minutos. O `apiLimiter` geral continua valendo.
+ */
+router.get('/device/menu', requireDevice, getDeviceMenu);
+router.get('/device/operation', requireDevice, getOperation);
+router.post('/device/operation', requireDevice, runOperationCommand);
 
 /* ------------------------ Aplicativos ----------------------------- */
 

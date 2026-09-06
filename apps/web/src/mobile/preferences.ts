@@ -1,17 +1,26 @@
+import { IDIOMAS, type Idioma } from './i18n';
+
 /**
  * Preferências de interface do FUNCIONÁRIO, não do restaurante.
  *
- * Tema, tamanho da interface e idioma são de quem segura o aparelho. Dois
+ * Tema, tamanho, tipografia e idioma são de quem segura o aparelho. Dois
  * garçons dividem o mesmo restaurante e o mesmo cardápio, mas um enxerga mal
  * e quer a fonte grande, e o outro trabalha no salão escuro à noite. Guardar
  * isso no banco do restaurante faria a escolha de um virar a tela do outro.
  *
- * POR QUE `localStorage` E NÃO O ARMAZENAMENTO SEGURO
- * --------------------------------------------------
+ * NADA DISTO VAI PARA O BACKEND. É estritamente local.
+ *
+ * POR QUE `localStorage`
+ * ----------------------
  * O `deviceStorage` existe para o token do funcionário e usa `sessionStorage`
  * de propósito, para que um XSS não leia a sessão. Aqui é o oposto: não há
  * segredo nenhum, e a preferência PRECISA sobreviver ao fechamento do app —
  * senão o funcionário reajusta a fonte toda manhã.
+ *
+ * `localStorage` funciona igual nas três plataformas: navegador, WebView do
+ * Capacitor (Android) e Chromium do Electron (Windows). No Electron ele é
+ * persistido porque a página é servida por `vapt://`, uma origem estável;
+ * em `file://` não haveria origem e o armazenamento se perderia.
  *
  * A leitura também precisa ser SÍNCRONA. As APIs nativas de preferência são
  * assíncronas, e ler o tema depois da primeira pintura produz o clarão branco
@@ -19,12 +28,13 @@
  */
 
 export type Tema = 'claro' | 'escuro' | 'sistema';
-export type Idioma = 'pt-BR' | 'en' | 'es';
+export type Fonte = 'padrao' | 'serifada' | 'mono';
 
 export type Preferencias = {
   tema: Tema;
   /** Porcentagem do tamanho base da interface. */
   escala: number;
+  fonte: Fonte;
   idioma: Idioma;
 };
 
@@ -33,22 +43,38 @@ const CHAVE = 'vapt.pref.interface';
 /*
  * Limites da escala.
  *
- * Abaixo de 85% os alvos de toque ficam menores que a ponta de um dedo; acima
- * de 130% a barra de abas com seis itens começa a quebrar. São os extremos em
- * que a tela ainda funciona, não o que o slider consegue representar.
+ * Abaixo de 80% os alvos de toque ficam menores que a ponta de um dedo; acima
+ * de 120% a barra de abas com seis itens começa a quebrar no celular. São os
+ * extremos em que a tela ainda funciona nas duas plataformas.
  */
-export const ESCALA_MIN = 85;
-export const ESCALA_MAX = 130;
+export const ESCALA_MIN = 80;
+export const ESCALA_MAX = 120;
 export const ESCALA_PADRAO = 100;
 
 export const PADRAO: Preferencias = {
   tema: 'sistema',
   escala: ESCALA_PADRAO,
+  fonte: 'padrao',
   idioma: 'pt-BR',
 };
 
 const TEMAS: Tema[] = ['claro', 'escuro', 'sistema'];
-const IDIOMAS: Idioma[] = ['pt-BR', 'en', 'es'];
+const FONTES: Fonte[] = ['padrao', 'serifada', 'mono'];
+
+/**
+ * Pilhas de fonte.
+ *
+ * Cada uma termina numa família genérica para que o aparelho use o que tiver
+ * instalado. A serifada e a monoespaçada não vêm do Google Fonts de
+ * propósito: o app precisa abrir com a tipografia certa mesmo sem internet,
+ * e um restaurante com wi-fi ruim veria a tela trocar de fonte no meio do
+ * carregamento.
+ */
+export const PILHA_DE_FONTE: Record<Fonte, string> = {
+  padrao: "'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+  serifada: "Georgia, 'Times New Roman', 'Noto Serif', ui-serif, serif",
+  mono: "ui-monospace, 'Cascadia Mono', Consolas, 'Roboto Mono', 'Noto Sans Mono', monospace",
+};
 
 /** Prende um número ao intervalo aceito, inclusive quando vem `NaN`. */
 function limitar(valor: unknown): number {
@@ -61,9 +87,9 @@ function limitar(valor: unknown): number {
  * Lê o que está gravado, campo a campo.
  *
  * Nunca confia na forma do objeto salvo: uma versão anterior pode ter gravado
- * outro formato, e o usuário pode ter editado o `localStorage` à mão. Um
- * `tema` inválido aplicado ao `<html>` deixaria a tela num estado que nenhum
- * botão da interface desfaz.
+ * outro formato — e gravou mesmo, quando a escala ia até 130 — e o usuário
+ * pode ter editado o `localStorage` à mão. Um `tema` inválido aplicado ao
+ * `<html>` deixaria a tela num estado que nenhum botão da interface desfaz.
  */
 export function lerPreferencias(): Preferencias {
   try {
@@ -75,6 +101,7 @@ export function lerPreferencias(): Preferencias {
     return {
       tema: TEMAS.includes(dados.tema as Tema) ? (dados.tema as Tema) : PADRAO.tema,
       escala: limitar(dados.escala),
+      fonte: FONTES.includes(dados.fonte as Fonte) ? (dados.fonte as Fonte) : PADRAO.fonte,
       idioma: IDIOMAS.includes(dados.idioma as Idioma) ? (dados.idioma as Idioma) : PADRAO.idioma,
     };
   } catch {
@@ -125,5 +152,17 @@ export function aplicarPreferencias(prefs: Preferencias): void {
   raiz.style.colorScheme = escuro ? 'dark' : 'light';
 
   raiz.style.fontSize = `${limitar(prefs.escala)}%`;
+
+  /*
+   * A tipografia vai na variável `--font`, não em `style.fontFamily`.
+   *
+   * O `base.css` declara `body { font-family: var(--font) }`. Escrever
+   * `font-family` no `<html>` seria sobrescrito pelo `body` uma linha
+   * depois — a preferência ficaria salva e sem efeito nenhum na tela.
+   * Trocando a variável, a regra que já existe passa a resolver para a
+   * fonte escolhida.
+   */
+  raiz.style.setProperty('--font', PILHA_DE_FONTE[prefs.fonte] ?? PILHA_DE_FONTE.padrao);
+
   raiz.lang = prefs.idioma;
 }

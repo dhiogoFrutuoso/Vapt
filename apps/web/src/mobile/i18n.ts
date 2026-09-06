@@ -1,135 +1,70 @@
-import type { Idioma } from './preferences';
+import ptBR from './locales/pt-BR.json';
+import ptPT from './locales/pt-PT.json';
+import en from './locales/en.json';
+import es from './locales/es.json';
+import zh from './locales/zh.json';
+import ja from './locales/ja.json';
 
 /**
- * Textos do aplicativo da equipe.
+ * Dicionários do aplicativo da equipe.
  *
- * Dicionário simples, sem biblioteca: são poucas telas e nenhuma delas tem
- * plural, gênero variável ou data formatada por região. Trazer uma biblioteca
- * de i18n aqui adicionaria peso ao bundle que roda dentro do APK sem resolver
- * um problema que exista.
+ * Os textos moram em JSON, um arquivo por idioma, e não espalhados pelo TSX.
+ * Traduzir passa a ser copiar um arquivo e reescrever o lado direito — coisa
+ * que um tradutor faz sem abrir o editor de código nem saber React.
  *
- * O `pt-BR` é a referência: as outras línguas se comparam a ele. O tipo
- * `Chave` é derivado do próprio pt-BR, então esquecer uma tradução vira erro
- * de compilação em vez de um texto faltando na tela do funcionário.
+ * SEM BIBLIOTECA DE i18n, DE PROPÓSITO
+ * ------------------------------------
+ * Nenhuma tela aqui tem plural, gênero variável ou formatação de data por
+ * região — as datas usam `toLocaleDateString` do próprio navegador. Uma
+ * biblioteca resolveria problemas que este app não tem e acrescentaria peso
+ * ao bundle que roda dentro do APK.
+ *
+ * O PT-BR É O CONTRATO
+ * --------------------
+ * O tipo `Chave` sai do arquivo pt-BR, e os outros cinco são conferidos
+ * contra ele por `satisfies`. Esquecer uma chave numa tradução vira erro de
+ * compilação, e não um texto faltando na tela do funcionário no meio do
+ * turno.
  */
 
-const ptBR = {
-  'perfil.titulo': 'Meu perfil',
-  'perfil.dados': 'Meus dados',
-  'perfil.telefone': 'Telefone',
-  'perfil.cpf': 'CPF',
-  'perfil.nascimento': 'Nascimento',
-  'perfil.editar': 'Editar dados',
-  'perfil.sair': 'Sair da conta',
-  'perfil.saindo': 'Saindo...',
-  'perfil.saiu': 'Você saiu da conta.',
-
-  'prefs.titulo': 'Preferências',
-  'prefs.descricao': 'Valem só neste aparelho. Cada pessoa da equipe tem as suas.',
-  'prefs.tema': 'Aparência',
-  'prefs.tema.claro': 'Claro',
-  'prefs.tema.escuro': 'Escuro',
-  'prefs.tema.sistema': 'Automático',
-  'prefs.tema.ajuda': 'Automático segue a configuração do aparelho.',
-  'prefs.escala': 'Tamanho da interface',
-  'prefs.escala.ajuda': 'Aumenta texto, botões e espaçamentos juntos.',
-  'prefs.escala.restaurar': 'Restaurar padrão',
-  'prefs.idioma': 'Idioma',
-  'prefs.salvo': 'Preferência salva neste aparelho.',
-
-  'nav.areas': 'Áreas do aplicativo',
-  'abas.cliente': 'Cliente',
-  'abas.recepcao': 'Recepção',
-  'abas.salao': 'Salão',
-  'abas.cozinha': 'Cozinha',
-  'abas.caixa': 'Caixa',
-  'abas.entregador': 'Entregador',
-  'abas.aviso': 'Sua função dá acesso a esta área. As telas de operação chegam na próxima etapa.',
-} as const;
+export type Idioma = 'pt-BR' | 'pt-PT' | 'en' | 'es' | 'zh' | 'ja';
 
 export type Chave = keyof typeof ptBR;
 
-const en: Record<Chave, string> = {
-  'perfil.titulo': 'My profile',
-  'perfil.dados': 'My details',
-  'perfil.telefone': 'Phone',
-  'perfil.cpf': 'Tax ID',
-  'perfil.nascimento': 'Date of birth',
-  'perfil.editar': 'Edit details',
-  'perfil.sair': 'Sign out',
-  'perfil.saindo': 'Signing out...',
-  'perfil.saiu': 'You have signed out.',
+type Dicionario = Record<Chave, string>;
 
-  'prefs.titulo': 'Preferences',
-  'prefs.descricao': 'These apply to this device only. Each team member has their own.',
-  'prefs.tema': 'Appearance',
-  'prefs.tema.claro': 'Light',
-  'prefs.tema.escuro': 'Dark',
-  'prefs.tema.sistema': 'Automatic',
-  'prefs.tema.ajuda': 'Automatic follows the device setting.',
-  'prefs.escala': 'Interface size',
-  'prefs.escala.ajuda': 'Scales text, buttons and spacing together.',
-  'prefs.escala.restaurar': 'Reset to default',
-  'prefs.idioma': 'Language',
-  'prefs.salvo': 'Preference saved on this device.',
-
-  'nav.areas': 'App areas',
-  'abas.cliente': 'Customer',
-  'abas.recepcao': 'Front desk',
-  'abas.salao': 'Dining room',
-  'abas.cozinha': 'Kitchen',
-  'abas.caixa': 'Register',
-  'abas.entregador': 'Courier',
-  'abas.aviso': 'Your role grants access to this area. The operating screens arrive in the next release.',
-};
-
-const es: Record<Chave, string> = {
-  'perfil.titulo': 'Mi perfil',
-  'perfil.dados': 'Mis datos',
-  'perfil.telefone': 'Teléfono',
-  'perfil.cpf': 'Documento',
-  'perfil.nascimento': 'Fecha de nacimiento',
-  'perfil.editar': 'Editar datos',
-  'perfil.sair': 'Cerrar sesión',
-  'perfil.saindo': 'Cerrando...',
-  'perfil.saiu': 'Has cerrado la sesión.',
-
-  'prefs.titulo': 'Preferencias',
-  'prefs.descricao': 'Valen solo en este dispositivo. Cada persona tiene las suyas.',
-  'prefs.tema': 'Apariencia',
-  'prefs.tema.claro': 'Claro',
-  'prefs.tema.escuro': 'Oscuro',
-  'prefs.tema.sistema': 'Automático',
-  'prefs.tema.ajuda': 'Automático sigue la configuración del dispositivo.',
-  'prefs.escala': 'Tamaño de la interfaz',
-  'prefs.escala.ajuda': 'Aumenta texto, botones y espaciados a la vez.',
-  'prefs.escala.restaurar': 'Restaurar predeterminado',
-  'prefs.idioma': 'Idioma',
-  'prefs.salvo': 'Preferencia guardada en este dispositivo.',
-
-  'nav.areas': 'Áreas de la aplicación',
-  'abas.cliente': 'Cliente',
-  'abas.recepcao': 'Recepción',
-  'abas.salao': 'Salón',
-  'abas.cozinha': 'Cocina',
-  'abas.caixa': 'Caja',
-  'abas.entregador': 'Repartidor',
-  'abas.aviso': 'Tu función da acceso a esta área. Las pantallas de operación llegan en la próxima etapa.',
-};
-
-const DICIONARIOS: Record<Idioma, Record<Chave, string>> = {
+const DICIONARIOS = {
   'pt-BR': ptBR,
-  en,
-  es,
-};
+  'pt-PT': ptPT satisfies Dicionario,
+  en: en satisfies Dicionario,
+  es: es satisfies Dicionario,
+  zh: zh satisfies Dicionario,
+  ja: ja satisfies Dicionario,
+} as const satisfies Record<Idioma, Dicionario>;
 
-/** Nome de cada idioma na própria língua — é assim que se reconhece o seu. */
+/**
+ * Nome de cada idioma escrito NA PRÓPRIA LÍNGUA.
+ *
+ * Quem precisa trocar o idioma normalmente não lê o idioma atual da tela.
+ * "Japonês" numa lista em português não ajuda ninguém; 日本語 é reconhecido
+ * de imediato por quem procura.
+ */
 export const NOMES_IDIOMA: Record<Idioma, string> = {
   'pt-BR': 'Português (Brasil)',
+  'pt-PT': 'Português (Portugal)',
   en: 'English',
   es: 'Español',
+  zh: '中文',
+  ja: '日本語',
 };
 
+/** Lista na ordem em que aparece no seletor. */
+export const IDIOMAS = Object.keys(NOMES_IDIOMA) as Idioma[];
+
 export function traduzir(idioma: Idioma, chave: Chave): string {
+  /*
+   * O fallback é o pt-BR, e não a própria chave. Um texto na língua errada
+   * ainda é lido; `prefs.escala.ajuda` na tela não é lido por ninguém.
+   */
   return DICIONARIOS[idioma]?.[chave] ?? ptBR[chave];
 }

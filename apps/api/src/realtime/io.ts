@@ -130,6 +130,19 @@ export function emitOrderUpdated(appId: string, dados: EventoPedido): void {
   emitir(appId, 'order_updated', dados);
 }
 
+/**
+ * A operacao mudou: mesas, retiradas, entregas, caixa ou cozinha.
+ *
+ * O evento carrega so o TIPO do comando, nunca o estado novo. Mandar o
+ * documento inteiro pelo socket duplicaria a autorizacao — cada aparelho
+ * receberia dados que talvez nao possa ver. Quem recebe isto recarrega pela
+ * rota autenticada, e o RBAC continua sendo aplicado num lugar so.
+ */
+export function emitOperationChanged(appId: string, dados: { tipo: string; por: string }): void {
+  if (!io) return;
+  io.to(sala(appId)).emit('operation_changed', dados);
+}
+
 export function getIO(): SocketServer | null {
   return io;
 }

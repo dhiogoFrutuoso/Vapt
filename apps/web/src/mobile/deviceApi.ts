@@ -167,6 +167,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const deviceApi = {
+  /**
+   * Chamadas genericas autenticadas.
+   *
+   * Existem para a operacao (mesas, pedidos, caixa, cozinha), que fala com um
+   * unico par de rotas e um comando tipado. Criar um metodo nomeado para cada
+   * um dos vinte e dois comandos duplicaria aqui a mesma uniao discriminada
+   * que ja existe no `useOperation` e no controlador — tres lugares para
+   * manter sincronizados em vez de um.
+   *
+   * Passam pelo mesmo `request`, entao herdam o Bearer, o X-Device-Id e a
+   * renovacao automatica em 401.
+   */
+  get: <T>(path: string) => request<T>(path),
+
+  post: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+
   /** Login por codigo. Nao usa token — e ele que cria a sessao. */
   async login(code: string, deviceName: string): Promise<LoginResult> {
     const response = await rawRequest(
