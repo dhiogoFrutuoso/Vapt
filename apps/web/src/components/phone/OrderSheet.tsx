@@ -56,6 +56,10 @@ export function OrderSheet({
   onDismiss,
 }: Props) {
   const copy = demo.preview;
+  const paymentOptions = [
+    ...copy.payments,
+    { value: 'fiado', label: 'Fiado', iconName: 'wallet' },
+  ];
   const [mode, setMode] = useState<'comanda' | 'cardapio'>('comanda');
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   const { confirm, ConfirmElement } = useConfirm();
@@ -71,6 +75,7 @@ export function OrderSheet({
 
   const splitsTotal = splits.reduce((s, p) => s + p.amount, 0);
   const remaining = Math.max(0, total - splitsTotal);
+  const changeDue = Math.max(0, splitsTotal - total);
   const isValid = Math.abs(remaining) < 0.01 && splits.every(p => p.amount > 0);
 
   function addSplit() {
@@ -103,9 +108,9 @@ export function OrderSheet({
     }
   }, [total]);
 
-  const featured = products.filter((product) => product.isFeatured);
+  const featured = products.filter((product) => product.isFeatured && product.available !== false);
   const categoryProducts = selectedCategory
-    ? products.filter((product) => (product.category || copy.uncategorized) === selectedCategory.name)
+    ? products.filter((product) => product.available !== false && (product.category || copy.uncategorized) === selectedCategory.name)
     : [];
 
   const fallbackGroups = Array.from(new Set(products.map((p) => p.category || copy.uncategorized)));
@@ -339,7 +344,7 @@ export function OrderSheet({
               {!isSplitMode ? (
                 <>
                   <div className="phone__pay">
-                    {copy.payments.map((option) => (
+                    {paymentOptions.map((option) => (
                       <button
                         key={option.value}
                         type="button"
@@ -365,6 +370,11 @@ export function OrderSheet({
                       </div>
                     </div>
                   )}
+                  {changeDue > 0.009 && (
+                    <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-extrabold text-emerald-700">
+                      Troco calculado: {brl(changeDue)}
+                    </p>
+                  )}
                   <button
                     type="button"
                     className="phone__split-toggle"
@@ -385,6 +395,7 @@ export function OrderSheet({
                         <option value="pix">PIX</option>
                         <option value="cartao">Cartão</option>
                         <option value="dinheiro">Dinheiro</option>
+                        <option value="fiado">Fiado</option>
                       </select>
                       <div className="split-pay__input-wrapper">
                         <span className="split-pay__input-prefix">R$</span>
@@ -413,7 +424,7 @@ export function OrderSheet({
                   )}
                   {splitsTotal > total + 0.01 && (
                     <p style={{ fontSize: '0.8rem', color: '#ef4444', margin: '4px 0' }}>
-                      Excede o total em {brl(splitsTotal - total)}
+                      Troco calculado: {brl(splitsTotal - total)}
                     </p>
                   )}
 
@@ -442,7 +453,17 @@ export function OrderSheet({
               <button
                 type="button"
                 className="phone__sheet-btn is-primary is-block"
-                onClick={() => onConfirmPayment(splits)}
+                onClick={() => {
+                  if (splits.some((split) => split.method === 'fiado')) {
+                    confirm({
+                      title: 'Confirmar venda fiada',
+                      message: 'O valor ficará vinculado ao cliente e destacado no caixa até a quitação.',
+                      confirmText: 'Registrar fiado',
+                      isDestructive: true,
+                      onConfirm: () => onConfirmPayment(splits),
+                    });
+                  } else onConfirmPayment(splits);
+                }}
                 disabled={!isValid}
                 style={{ marginTop: '8px' }}
               >

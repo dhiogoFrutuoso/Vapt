@@ -149,6 +149,7 @@ export type EmployeeDetail = {
   roleId: string;
   roleName: string;
   permissions: string[];
+  isDeliveryman: boolean;
   accessCode: string | null;
   blocked: boolean;
   blockedAt: string | null;
@@ -319,6 +320,7 @@ export type Employee = {
   name: string;
   roleId: string;
   accessCode: string;
+  isDeliveryman?: boolean;
 };
 
 export type AppProjectFull = {

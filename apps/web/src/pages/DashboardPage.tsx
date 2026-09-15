@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { EmployeeList } from '../components/settings/EmployeeList';
 import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/api';
 import { useConfirm } from '../components/ConfirmModal';
-import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users } from 'lucide-react';
+import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users, X } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
 
 /*
@@ -185,14 +185,18 @@ export function DashboardPage() {
   const [newRolePermissions, setNewRolePermissions] = useState<string[]>([]);
   /** Espelha 1:1 as abas do aplicativo — o que o funcionario ve, ele acessa. */
   const PERMISSIONS = [
-    { id: 'cliente', label: 'Cliente' },
-    { id: 'recepcao', label: 'Recepção' },
-    { id: 'salao', label: 'Salão' },
-    { id: 'caixa', label: 'Caixa' },
+    { id: 'cliente', label: 'Atendimento ao cliente' },
+    { id: 'recepcao', label: 'Recepcionista' },
+    { id: 'salao', label: 'Garçom' },
+    { id: 'caixa', label: 'Caixeiro' },
     { id: 'entregador', label: 'Entregador' },
-    { id: 'cozinha', label: 'Cozinha' },
+    { id: 'cozinha', label: 'Cozinheiro' },
+    { id: 'administracao', label: 'Administrador' },
   ];
   const [isAddingRole, setIsAddingRole] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editingRoleName, setEditingRoleName] = useState('');
+  const [editingRolePermissions, setEditingRolePermissions] = useState<string[]>([]);
 
   // Form State for "Equipe" (Saguoes / pracas de preparo)
   const [newStationName, setNewStationName] = useState('');
@@ -431,6 +435,39 @@ export function DashboardPage() {
     } finally {
       setIsAddingRole(false);
     }
+  }
+
+  function beginRoleEdit(role: { _id: string; name: string; permissions: string[] }) {
+    setEditingRoleId(role._id);
+    setEditingRoleName(role.name);
+    setEditingRolePermissions(role.permissions ?? []);
+  }
+
+  function handleUpdateRole() {
+    if (!fullApp || !editingRoleId || !editingRoleName.trim() || editingRolePermissions.length === 0) return;
+    const appId = fullApp._id;
+    const roleId = editingRoleId;
+    const name = editingRoleName.trim();
+    const permissions = editingRolePermissions;
+
+    confirm({
+      title: 'Atualizar tag de acesso?',
+      message: 'As sessões dos funcionários vinculados serão encerradas e as novas permissões valerão imediatamente.',
+      confirmText: 'Atualizar tag',
+      onConfirm: async () => {
+        try {
+          const updated = await api.updateRole(appId, roleId, { name, permissions });
+          setFullApp((current) => current ? {
+            ...current,
+            roles: current.roles.map((role) => role._id === roleId ? updated : role),
+          } : current);
+          setEditingRoleId(null);
+          toast.success('Tag atualizada.');
+        } catch (err: any) {
+          toast.error(err?.message || 'Erro ao atualizar tag');
+        }
+      },
+    });
   }
 
   async function handleAddStation(e: React.FormEvent) {
@@ -1072,16 +1109,16 @@ export function DashboardPage() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-start' }}>
                       {/* Funções (Roles) */}
                       <div style={{ flex: 1, backgroundColor: '#FAFAFA', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}><Shield size={20} color="#F95D2A" /> Funções</h3>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}><Shield size={20} color="#F95D2A" /> Tags de função</h3>
                         
                         <form onSubmit={handleAddRole} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.5rem', backgroundColor: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                          <input type="text" placeholder="Nome da função (Ex: Cozinheiro)" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = '#F95D2A'} onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'} />
+                          <input type="text" placeholder="Nome da tag (ex.: Recepcionista Garçom)" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = '#F95D2A'} onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'} />
                           
                           <div>
                             <strong style={{ display: 'block', fontSize: '0.85rem', color: '#333', marginBottom: '8px', fontWeight: '600' }}>Permissões de Acesso:</strong>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                               {PERMISSIONS.map(p => (
-                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: '#444' }}>
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: newRolePermissions.includes(p.id) ? '#C2410C' : '#444', border: `1px solid ${newRolePermissions.includes(p.id) ? '#FDBA74' : '#E5E7EB'}`, background: newRolePermissions.includes(p.id) ? '#FFF7ED' : '#fff', borderRadius: '999px', padding: '9px 12px', fontWeight: 700 }}>
                                   <input 
                                     type="checkbox" 
                                     checked={newRolePermissions.includes(p.id)}
@@ -1098,14 +1135,33 @@ export function DashboardPage() {
                           </div>
 
                           <button type="submit" disabled={isAddingRole || newRolePermissions.length === 0} style={{ padding: '12px', background: '#111', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', opacity: (isAddingRole || newRolePermissions.length === 0) ? 0.5 : 1, marginTop: '8px' }}>
-                            Criar Função
+                            Criar tag composta
                           </button>
                         </form>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                           {fullApp.roles?.length > 0 ? fullApp.roles.map((r: any) => (
-                            <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', backgroundColor: '#fff', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div key={r._id} style={{ display: 'flex', flexDirection: editingRoleId === r._id ? 'column' : 'row', justifyContent: 'space-between', alignItems: editingRoleId === r._id ? 'stretch' : 'center', gap: '12px', padding: '12px', backgroundColor: '#fff', border: `1px solid ${editingRoleId === r._id ? '#FDBA74' : 'rgba(0,0,0,0.05)'}`, borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                              {editingRoleId === r._id ? (
+                                <>
+                                  <input value={editingRoleName} onChange={(event) => setEditingRoleName(event.target.value)} aria-label="Nome da tag" style={{ ...campoTexto, padding: '10px 12px' }} />
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {PERMISSIONS.map((permission) => {
+                                      const active = editingRolePermissions.includes(permission.id);
+                                      return (
+                                        <button key={permission.id} type="button" aria-pressed={active} onClick={() => setEditingRolePermissions((current) => active ? current.filter((id) => id !== permission.id) : [...current, permission.id])} style={{ border: `1px solid ${active ? '#F95D2A' : '#E5E7EB'}`, color: active ? '#C2410C' : '#4B5563', background: active ? '#FFF7ED' : '#fff', borderRadius: '999px', padding: '8px 11px', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+                                          {permission.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button type="button" onClick={handleUpdateRole} disabled={!editingRoleName.trim() || editingRolePermissions.length === 0} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#F95D2A', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}><Save size={15} /> Salvar</button>
+                                    <button type="button" onClick={() => setEditingRoleId(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#fff', color: '#4B5563', border: '1px solid #E5E7EB', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}><X size={15} /> Cancelar</button>
+                                  </div>
+                                </>
+                              ) : <>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
                                   <span style={{ fontSize: '0.95rem', fontWeight: '700', color: '#111' }}>{r.name}</span>
                                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                     {r.permissions?.map((p: any) => (
@@ -1115,7 +1171,11 @@ export function DashboardPage() {
                                     ))}
                                   </div>
                                 </div>
-                              <button onClick={() => handleRemoveRole(r._id)} style={{ background: '#fff', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '8px' }}><Trash2 size={16} /></button>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button type="button" onClick={() => beginRoleEdit(r)} aria-label={`Editar ${r.name}`} style={{ background: '#fff', border: '1px solid #E5E7EB', color: '#4B5563', cursor: 'pointer', padding: '8px', borderRadius: '8px' }}><Edit3 size={16} /></button>
+                                <button type="button" onClick={() => handleRemoveRole(r._id)} aria-label={`Excluir ${r.name}`} style={{ background: '#fff', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '8px' }}><Trash2 size={16} /></button>
+                              </div>
+                              </>}
                             </div>
                           )) : <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Nenhuma função criada.</p>}
                         </div>
@@ -1127,11 +1187,13 @@ export function DashboardPage() {
                         
                         <form onSubmit={handleAddEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.5rem', backgroundColor: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
                           <input type="text" placeholder="Nome do funcionário" value={newEmpName} onChange={e => setNewEmpName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = '#F95D2A'} onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'} />
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <select value={newEmpRoleId} onChange={e => setNewEmpRoleId(e.target.value)} required style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', outline: 'none', backgroundColor: '#fff' }} onFocus={(e) => e.target.style.borderColor = '#F95D2A'} onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'}>
-                              <option value="" disabled>Selecione a função</option>
-                              {fullApp.roles?.map((r: any) => <option key={r._id} value={r._id}>{r.name}</option>)}
-                            </select>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6B7280' }}>Selecione uma tag</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }} role="radiogroup" aria-label="Tag do funcionário">
+                              {fullApp.roles?.map((r: any) => (
+                                <button key={r._id} type="button" role="radio" aria-checked={newEmpRoleId === r._id} onClick={() => setNewEmpRoleId(r._id)} style={{ border: `1px solid ${newEmpRoleId === r._id ? '#F95D2A' : '#E5E7EB'}`, color: newEmpRoleId === r._id ? '#C2410C' : '#374151', background: newEmpRoleId === r._id ? '#FFF7ED' : '#fff', borderRadius: '999px', padding: '9px 13px', fontWeight: 700, cursor: 'pointer' }}>{r.name}</button>
+                              ))}
+                            </div>
                             <button type="submit" disabled={isAddingEmp || !newEmpRoleId} style={{ padding: '12px 16px', background: '#F95D2A', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', opacity: (!newEmpRoleId) ? 0.5 : 1 }}>Adicionar</button>
                           </div>
                         </form>
@@ -1139,7 +1201,7 @@ export function DashboardPage() {
                         {/* Lista com detalhes, bloqueio e exclusao. Extraida
                             para componente proprio: aqui dentro seriam mais
                             200 linhas num arquivo que ja passa de 1.000. */}
-                        <EmployeeList appId={settingsAppId} onChanged={() => void openSettings(settingsAppId)} />
+                        <EmployeeList appId={settingsAppId} roles={fullApp.roles ?? []} onChanged={() => void openSettings(settingsAppId)} />
                       </div>
 
                       {/* Saguões (praças de preparo da cozinha) */}

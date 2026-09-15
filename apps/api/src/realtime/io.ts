@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { verifyDeviceAccessToken } from '../utils/deviceToken.js';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { AppProject } from '../models/AppProject.js';
+import { isValidObjectId } from 'mongoose';
 
 /**
  * Motor de tempo real.
@@ -47,6 +48,10 @@ function sala(appId: string): string {
   return `app:${appId}`;
 }
 
+function salaPublica(appId: string): string {
+  return `public:${appId}`;
+}
+
 /**
  * Autentica a conexão.
  *
@@ -55,8 +60,23 @@ function sala(appId: string): string {
  *            mas é CONFERIDO contra a posse do aplicativo;
  *   app    → Bearer token do funcionário, que já carrega o appId assinado.
  */
-async function autenticar(socket: Socket): Promise<{ appId: string } | null> {
-  const { token, appId } = socket.handshake.auth as { token?: string; appId?: string };
+async function autenticar(socket: Socket): Promise<{ appId: string; publico?: boolean } | null> {
+  const { token, appId, publicAppId } = socket.handshake.auth as {
+    token?: string;
+    appId?: string;
+    publicAppId?: string;
+  };
+
+  /* O cardápio público recebe apenas eventos públicos, em sala separada. */
+  if (!token && publicAppId) {
+    const app = await AppProject.findOne(
+      isValidObjectId(publicAppId) ? { _id: publicAppId } : { slug: publicAppId.toLowerCase() }
+    )
+      .select('_id')
+      .lean()
+      .catch(() => null);
+    if (app) return { appId: String(app._id), publico: true };
+  }
   if (!token) return null;
 
   /* 1) Token do app da equipe: o appId vem assinado dentro dele. */
@@ -106,7 +126,7 @@ export function initRealtime(server: HttpServer): SocketServer {
         return;
       }
 
-      await socket.join(sala(auth.appId));
+      await socket.join(auth.publico ? salaPublica(auth.appId) : sala(auth.appId));
       socket.data.appId = auth.appId;
       socket.emit('ready', { appId: auth.appId });
     })();
@@ -149,6 +169,16 @@ export function emitOrderUpdated(appId: string, dados: EventoPedido): void {
 export function emitOperationChanged(appId: string, dados: { tipo: string; por: string }): void {
   if (!io) return;
   io.to(sala(appId)).emit('operation_changed', dados);
+}
+
+/** Disponibilidade não contém dados internos e chega também ao cardápio público. */
+export function emitMenuItemAvailabilityChanged(
+  appId: string,
+  dados: { productId: string; available: boolean }
+): void {
+  if (!io) return;
+  io.to(sala(appId)).emit('menu_item_availability_changed', dados);
+  io.to(salaPublica(appId)).emit('menu_item_availability_changed', dados);
 }
 
 /**

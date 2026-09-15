@@ -14,6 +14,8 @@ type Props = {
   onSetTableStatus: (id: string, status: TableStatus) => void;
   onSetTakeoutStatus: (id: string, status: TableStatus) => void;
   onCancelTakeout: (id: string) => void;
+  showTables?: boolean;
+  showTakeouts?: boolean;
 };
 
 const STATUS_OPTIONS: Array<{ value: TableStatus; label: string }> = [
@@ -33,6 +35,8 @@ export function ServiceView({
   onSetTableStatus,
   onSetTakeoutStatus,
   onCancelTakeout,
+  showTables = true,
+  showTakeouts = true,
 }: Props) {
   const copy = demo.preview;
   const [name, setName] = useState('');
@@ -53,7 +57,7 @@ export function ServiceView({
         {copy.roleStrip.salao.text}
       </p>
 
-      <section className="svc-block">
+      {showTakeouts && <section className="svc-block">
         <div className="phone__section-title">
           <span>{copy.takeoutTitle}</span>
           <span className="phone__section-count">{takeouts.length}</span>
@@ -148,9 +152,9 @@ export function ServiceView({
             ))}
           </div>
         )}
-      </section>
+      </section>}
 
-      <section className="svc-block">
+      {showTables && <section className="svc-block">
         <div className="phone__section-title">
           <span>{copy.tablesTitle}</span>
           <span className="phone__section-count">
@@ -213,7 +217,7 @@ export function ServiceView({
 
         {flash && <p className="phone__flash">{flash}</p>}
         {interactive && <p className="phone__hint">{demo.tables.testHint}</p>}
-      </section>
+      </section>}
     </div>
   );
 }

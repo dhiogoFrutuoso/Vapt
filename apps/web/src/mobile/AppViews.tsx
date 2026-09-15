@@ -7,7 +7,9 @@ import { OrderSheet, type Ticket } from '../components/phone/OrderSheet';
 import { DeliveryView } from '../components/phone/DeliveryView';
 import { ReceptionView } from '../components/phone/ReceptionView';
 import { KitchenView } from '../components/phone/KitchenView';
-import { addressLabel, NO_STATION, sumItems, totalEntregue } from '../components/phone/types';
+import { AdministrationView } from '../components/phone/AdministrationView';
+import { deviceApi } from './deviceApi';
+import { NO_STATION, sumItems, totalEntregue } from '../components/phone/types';
 import type {
   CategoryItem,
   KitchenStatus,
@@ -43,7 +45,7 @@ import type { Comando, EstadoOperacao } from './useOperation';
  */
 
 type Props = {
-  aba: 'cliente' | 'recepcao' | 'salao' | 'cozinha' | 'caixa' | 'entregador';
+  aba: 'cliente' | 'recepcao' | 'salao' | 'cozinha' | 'caixa' | 'entregador' | 'administracao';
   estado: EstadoOperacao;
   executar: (comando: Comando) => Promise<string | null>;
   /** Cardápio e configuração, vindos do aplicativo do dono. */
@@ -63,7 +65,15 @@ type Props = {
   /** Funcionário logado, para carimbar autoria e reatribuir entregas. */
   employeeId: string;
   /** Equipe, para o seletor de entregador. */
-  equipe?: Array<{ id: string; name: string }>;
+  equipe?: Array<{
+    id: string;
+    name: string;
+    roleName: string;
+    permissions: string[];
+    isDeliveryman: boolean;
+  }>;
+  permissions: string[];
+  isDeliveryman: boolean;
 };
 
 export function AppViews({
@@ -84,6 +94,8 @@ export function AppViews({
   onIrPara,
   employeeId,
   equipe = [],
+  permissions,
+  isDeliveryman,
 }: Props) {
   /* ------------------------- Estado local da tela ------------------------- */
 
@@ -95,8 +107,9 @@ export function AppViews({
   const [rascunhoCliente, setRascunhoCliente] = useState<{
     name: string;
     phone: string;
-    address: string;
+    address: string | import('../components/phone/types').DeliveryAddress;
     notes: string;
+    payments?: PaymentSplit;
     isDelivery?: boolean;
   } | null>(null);
 
@@ -187,8 +200,9 @@ export function AppViews({
     setRascunhoCliente({
       name: pedido.customerName,
       phone: pedido.phone ?? '',
-      address: pedido.address.mode === 'manual' ? addressLabel(pedido.address) : '',
+      address: { ...pedido.address },
       notes: pedido.notes ?? '',
+      payments: pedido.payments.map((payment) => ({ ...payment })),
       isDelivery: pedido.isDelivery !== false,
     });
     setEditandoPedidoId(id);
@@ -249,10 +263,10 @@ export function AppViews({
    * clipboard é chato, mas o pedido JÁ saiu, e reverter por causa disso seria
    * pior. A tela avisa e segue.
    */
-  async function despachar(id: string, fee: number) {
+  async function despachar(id: string, fee: number, employeeId?: string) {
     const pedido = estado.deliveries.find((d) => d.id === id);
     try {
-      await executar({ tipo: 'pedido.aceitar', pedidoId: id, fee });
+      await executar({ tipo: 'pedido.aceitar', pedidoId: id, fee, employeeId });
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : 'Não foi possível despachar.');
       return;
@@ -431,13 +445,47 @@ export function AppViews({
 
   if (aba === 'recepcao') {
     return (
-      <ReceptionView
-        deliveries={estado.deliveries}
-        defaultFee={deliveryFee}
-        onEdit={editarPedido}
-        onAccept={(id, fee) => void despachar(id, fee)}
-        onReject={(id) => void rodar({ tipo: 'pedido.rejeitar', pedidoId: id })}
-      />
+      <>
+        <ReceptionView
+          deliveries={estado.deliveries}
+          defaultFee={deliveryFee}
+          deliveryPeople={equipe.filter((person) => person.isDeliveryman)}
+          onEdit={editarPedido}
+          onAccept={(id, fee, assignedId) => void despachar(id, fee, assignedId)}
+          onReject={(id) => void rodar({ tipo: 'pedido.rejeitar', pedidoId: id })}
+          onReassign={(id, assignedId) => void rodar({ tipo: 'pedido.entregador', pedidoId: id, employeeId: assignedId })}
+          storeName={storeName}
+        />
+        <ServiceView
+          tables={[]}
+          takeouts={estado.takeouts}
+          showTables={false}
+          interactive
+          flash={null}
+          onOpenTable={() => {}}
+          onOpenTakeout={(takeout) => {
+            setOpenTableId(null);
+            setOpenTakeoutId(takeout.id);
+          }}
+          onCreateTakeout={(name, phone) => void rodar({ tipo: 'retirada.criar', customerName: name, phone })}
+          onSetTableStatus={() => {}}
+          onSetTakeoutStatus={(id, status) => void rodar({ tipo: 'retirada.status', retiradaId: id, status })}
+          onCancelTakeout={(id) => void rodar({ tipo: 'retirada.remover', retiradaId: id })}
+        />
+        {openTakeout && ticket && (
+          <OrderSheet
+            ticket={ticket}
+            categories={categories}
+            products={products}
+            onAddItem={(item) => void adicionarItem(item)}
+            onRemoveItem={(index) => void removerItem(index)}
+            onRequestPayment={() => void pedirPagamento()}
+            onConfirmPayment={(payments) => void confirmarPagamento(payments)}
+            onCancelOrder={() => void cancelarComanda()}
+            onDismiss={() => setOpenTakeoutId(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -447,6 +495,7 @@ export function AppViews({
         <ServiceView
           tables={estado.tables}
           takeouts={estado.takeouts}
+          showTakeouts={false}
           interactive
           flash={null}
           onOpenTable={(mesa) => void abrirMesa(mesa)}
@@ -507,6 +556,13 @@ export function AppViews({
             status,
           })
         }
+        products={products}
+        storeName={storeName}
+        onToggleAvailability={(productId, available) => {
+          void deviceApi.patch(`/device/menu/products/${productId}/availability`, { available })
+            .then(() => toast.success(available ? 'Produto disponível.' : 'Produto pausado no cardápio.'))
+            .catch((error) => toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o produto.'));
+        }}
       />
     );
   }
@@ -521,13 +577,28 @@ export function AppViews({
           onUpdatePayments={(id, payments) =>
             void rodar({ tipo: 'caixa.pagamento', lancamentoId: id, payments })
           }
+          onEditEntry={permissions.includes('administracao')
+            ? (id, data) => void rodar({ tipo: 'caixa.editar', lancamentoId: id, ...data })
+            : undefined}
           onCancelEntry={(id, motivo) =>
             void rodar({ tipo: 'caixa.cancelar', lancamentoId: id, motivo })
           }
-          onCloseRegister={() => void rodar({ tipo: 'caixa.fechar' })}
+          movements={estado.cashMovements}
+          onCashMovement={(movementType, amount, reason) =>
+            void rodar({ tipo: 'caixa.movimento', movementType, amount, reason })
+          }
+          onCreditPayment={(id, amount) => void rodar({ tipo: 'fiado.abater', lancamentoId: id, amount })}
+          onReopenEntry={permissions.includes('administracao')
+            ? (id) => void rodar({ tipo: 'caixa.reabrir', lancamentoId: id })
+            : undefined}
+          onCloseRegister={(counted) => void rodar({ tipo: 'caixa.fechar', counted })}
         />
       </div>
     );
+  }
+
+  if (aba === 'administracao') {
+    return <AdministrationView estado={estado} equipe={equipe} />;
   }
 
   /* ------------------------------ Entregador ------------------------------ */
@@ -542,6 +613,9 @@ export function AppViews({
           orders={estado.deliveries}
           interactive
           onAdvance={(id) => void rodar({ tipo: 'pedido.avancar', pedidoId: id })}
+          onClaim={isDeliveryman
+            ? (id) => void rodar({ tipo: 'pedido.aceitar', pedidoId: id, fee: deliveryFee, employeeId })
+            : undefined}
           onRevert={(id) => void rodar({ tipo: 'pedido.voltar', pedidoId: id })}
           onCancel={(id) => void rodar({ tipo: 'pedido.cancelar', pedidoId: id })}
         />
@@ -577,7 +651,7 @@ export function AppViews({
                       {pedido.deliveredByName || 'Funcionário removido'}
                     </option>
                   )}
-                  {equipe.map((pessoa) => (
+                  {equipe.filter((pessoa) => pessoa.isDeliveryman).map((pessoa) => (
                     <option key={pessoa.id} value={pessoa.id}>
                       {pessoa.name}
                     </option>

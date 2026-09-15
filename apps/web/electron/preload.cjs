@@ -35,4 +35,5 @@ contextBridge.exposeInMainWorld('vaptSecure', {
   set: (chave, valor) => ipcRenderer.invoke('vapt:secure:set', String(chave), String(valor)),
   remove: (chave) => ipcRenderer.invoke('vapt:secure:remove', String(chave)),
   openUpdate: (url) => ipcRenderer.invoke('vapt:update:open', String(url)),
+  printReceipt: () => ipcRenderer.invoke('vapt:print:receipt'),
 });

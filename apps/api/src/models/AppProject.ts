@@ -80,7 +80,10 @@ const roleSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 40 },
     permissions: [
-      { type: String, enum: ['cliente', 'recepcao', 'salao', 'caixa', 'entregador', 'cozinha'] },
+      {
+        type: String,
+        enum: ['cliente', 'recepcao', 'salao', 'caixa', 'entregador', 'cozinha', 'administracao'],
+      },
     ],
   },
   { _id: true, timestamps: true }
@@ -90,6 +93,9 @@ const employeeSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 60 },
     roleId: { type: Schema.Types.ObjectId, required: true },
+
+    /** Espelho explícito da tag, usado somente para escalas e atribuições. */
+    isDeliveryman: { type: Boolean, default: false },
 
     /**
      * Credencial de acesso ao app. `uppercase` porque o funcionario digita no

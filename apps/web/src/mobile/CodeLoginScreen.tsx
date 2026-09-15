@@ -99,7 +99,7 @@ export function CodeLoginScreen() {
                   .slice(0, 6)
               );
             }}
-            className="w-full rounded-2xl border border-solid border-gray-200 bg-white px-4 py-4
+            className="box-border w-full rounded-2xl border border-solid border-gray-200 bg-white px-4 py-4
               text-center text-3xl font-extrabold uppercase tracking-[0.4em] text-gray-900
               outline-none transition-colors placeholder:tracking-normal placeholder:text-gray-300
               dark:border-white/10 dark:bg-gray-900 dark:text-gray-50 dark:placeholder:text-gray-600
@@ -117,7 +117,7 @@ export function CodeLoginScreen() {
           <button
             type="submit"
             disabled={!completo || enviando}
-            className="mt-6 w-full rounded-full px-6 py-4 text-[1rem] font-bold text-white
+            className="box-border mt-6 w-full rounded-full px-6 py-4 text-[1rem] font-bold text-white
               transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
             style={{ backgroundColor: VAPT_BRANDING.primaryColor }}
           >

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { HttpError } from '../utils/httpError.js';
 import { verifyDeviceAccessToken, type DevicePayload } from '../utils/deviceToken.js';
+import { AppProject } from '../models/AppProject.js';
 
 /**
  * Autentica requisicoes vindas do app da equipe.
@@ -8,11 +9,9 @@ import { verifyDeviceAccessToken, type DevicePayload } from '../utils/deviceToke
  * Le o Bearer token, NAO o cookie: a WebView do Capacitor roda em
  * `capacitor://localhost` e nao compartilha cookie com o dominio da API.
  *
- * Nao consulta o banco. O access token e curto (10 min por padrao) e essa
- * brevidade e o que substitui a checagem por requisicao: revogar a sessao
- * derruba o refresh imediatamente, e o access morre sozinho logo depois.
- * Trocar isso por um SELECT a cada chamada custaria uma ida ao banco em todo
- * request do app, o dia inteiro, para ganhar alguns minutos de reacao.
+ * Aplica Zero Trust por requisicao: o token prova a sessao e o banco fornece
+ * o estado e as permissoes atuais. Bloqueios e trocas de tag passam a valer
+ * imediatamente, sem esperar a expiracao do access token.
  */
 
 declare global {
@@ -31,7 +30,7 @@ function bearer(req: Request): string | null {
   return token.length > 0 ? token : null;
 }
 
-export function requireDevice(req: Request, _res: Response, next: NextFunction) {
+export async function requireDevice(req: Request, _res: Response, next: NextFunction) {
   const token = bearer(req);
   if (!token) return next(new HttpError(401, 'Faca login no aplicativo para continuar.'));
 
@@ -53,20 +52,36 @@ export function requireDevice(req: Request, _res: Response, next: NextFunction) 
     return next(new HttpError(401, 'Este acesso pertence a outro aparelho.'));
   }
 
-  req.device = payload;
-  return next();
+  try {
+    /* A permissão efetiva vem do cadastro atual, não do snapshot do JWT.
+       Assim uma tag removida fecha a rota na requisição seguinte. */
+    const app = await AppProject.findOne({ _id: payload.app, 'employees._id': payload.sub })
+      .select('employees roles status')
+      .lean();
+    if (!app || app.status === 'pausado') {
+      return next(new HttpError(401, 'Este acesso não está mais disponível.'));
+    }
+    const employee = (app.employees ?? []).find((item) => String(item._id) === payload.sub);
+    if (!employee || employee.blocked) {
+      return next(new HttpError(401, 'Seu acesso foi bloqueado.'));
+    }
+    const role = (app.roles ?? []).find((item) => String(item._id) === String(employee.roleId));
+    req.device = { ...payload, perms: (role?.permissions ?? []).map(String) };
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 }
 
 /**
  * RBAC por aba. `requirePermission('cozinha')` recusa quem nao tem a funcao.
  *
- * As permissoes vem do token, gravadas na emissao e reescritas a cada
- * rotacao — mudanca de funcao passa a valer na renovacao seguinte.
+ * As permissoes efetivas foram revalidadas no banco pela middleware acima.
  */
 export function requirePermission(...permissoes: string[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     const atuais = req.device?.perms ?? [];
-    const autorizado = permissoes.some((p) => atuais.includes(p));
+    const autorizado = atuais.includes('administracao') || permissoes.some((p) => atuais.includes(p));
 
     if (!autorizado) {
       return next(new HttpError(403, 'Sua funcao nao tem acesso a esta area.'));

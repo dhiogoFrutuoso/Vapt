@@ -3,6 +3,9 @@ import { io, type Socket } from 'socket.io-client';
 import { deviceApi } from './deviceApi';
 import type {
   CashEntry,
+  CashMovement,
+  CashClosure,
+  AuditEntry,
   DeliveryOrder,
   KitchenStatus,
   OrderItem,
@@ -39,6 +42,9 @@ export type EstadoOperacao = {
   cashEntries: CashEntry[];
   cashArchive: CashEntry[];
   kitchenStatus: Record<string, KitchenStatus>;
+  cashMovements: CashMovement[];
+  cashClosures: CashClosure[];
+  auditLog: AuditEntry[];
 };
 
 const VAZIO: EstadoOperacao = {
@@ -48,6 +54,9 @@ const VAZIO: EstadoOperacao = {
   cashEntries: [],
   cashArchive: [],
   kitchenStatus: {},
+  cashMovements: [],
+  cashClosures: [],
+  auditLog: [],
 };
 
 /** Todo comando aceito pela API, com a forma exata de cada um. */
@@ -84,7 +93,7 @@ export type Comando =
       notes?: string;
       isDelivery?: boolean;
     }
-  | { tipo: 'pedido.aceitar'; pedidoId: string; fee: number }
+  | { tipo: 'pedido.aceitar'; pedidoId: string; fee: number; employeeId?: string }
   | { tipo: 'pedido.rejeitar'; pedidoId: string }
   | { tipo: 'pedido.avancar'; pedidoId: string }
   | { tipo: 'pedido.voltar'; pedidoId: string }
@@ -98,7 +107,10 @@ export type Comando =
       deliveryFee?: number;
     }
   | { tipo: 'caixa.cancelar'; lancamentoId: string; motivo?: string }
-  | { tipo: 'caixa.fechar' }
+  | { tipo: 'caixa.fechar'; counted: { dinheiro: number; cartao: number; pix: number } }
+  | { tipo: 'caixa.movimento'; movementType: 'sangria' | 'suprimento'; amount: number; reason: string }
+  | { tipo: 'caixa.reabrir'; lancamentoId: string }
+  | { tipo: 'fiado.abater'; lancamentoId: string; amount: number }
   | { tipo: 'pedido.entregador'; pedidoId: string; employeeId: string }
   | { tipo: 'cozinha.status'; comandaId: string; saguoes: string[]; status: KitchenStatus };
 

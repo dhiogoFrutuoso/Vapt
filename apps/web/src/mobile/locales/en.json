@@ -32,6 +32,7 @@
   "abas.cozinha": "Kitchen",
   "abas.caixa": "Register",
   "abas.entregador": "Courier",
+  "abas.administracao": "Management",
   "abas.aviso": "Your role grants access to this area. The operating screens arrive in the next release.",
   "operacao.carregando": "Loading the floor...",
   "operacao.tentar": "Try again",

@@ -23,6 +23,7 @@ export type EmployeeMatch = {
   employeeName: string;
   roleName: string;
   permissions: string[];
+  isDeliveryman: boolean;
   blocked: boolean;
   onboardingCompleted: boolean;
   profile: {
@@ -101,6 +102,8 @@ export async function findEmployeeByCode(code: string): Promise<EmployeeMatch | 
     employeeName: employee.name,
     roleName: role?.name ?? 'Sem funcao',
     permissions: (role?.permissions ?? []).map(String),
+    isDeliveryman:
+      employee.isDeliveryman === true || (role?.permissions ?? []).map(String).includes('entregador'),
     blocked: employee.blocked === true,
     onboardingCompleted: employee.onboardingCompleted === true,
     profile: {

@@ -8,6 +8,7 @@ import type {
   PreviewPromotion,
 } from '../components/phone/types';
 import { brl } from '../lib/format';
+import { io } from 'socket.io-client';
 
 /**
  * `/cliente/:id` — o cardápio que o cliente final abre.
@@ -161,6 +162,27 @@ export function ClientMenuPage() {
 
     return () => {
       vivo = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const origin = BASE.startsWith('http') ? BASE.replace(/\/api\/?$/, '') : window.location.origin;
+    const socket = io(origin, {
+      auth: { publicAppId: id },
+      transports: ['polling', 'websocket'],
+    });
+    socket.on('menu_item_availability_changed', async () => {
+      try {
+        const response = await fetch(`${BASE}/public/apps/${encodeURIComponent(id)}`);
+        const payload = await response.json();
+        if (response.ok && payload.ok !== false) setCardapio(payload.data as CardapioPublico);
+      } catch {
+        /* A próxima reconexão ou recarga recupera o estado; o carrinho atual é preservado. */
+      }
+    });
+    return () => {
+      socket.close();
     };
   }, [id]);
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   Bike,
@@ -6,6 +6,7 @@ import {
   ConciergeBell,
   LogOut,
   RefreshCw,
+  ShieldCheck,
   User as UserIcon,
   UtensilsCrossed,
   Wallet,
@@ -52,6 +53,7 @@ const ABAS = [
   { chave: 'cozinha', texto: 'abas.cozinha', Icone: ChefHat },
   { chave: 'caixa', texto: 'abas.caixa', Icone: Wallet },
   { chave: 'entregador', texto: 'abas.entregador', Icone: Bike },
+  { chave: 'administracao', texto: 'abas.administracao', Icone: ShieldCheck },
 ] as const satisfies ReadonlyArray<{ chave: string; texto: ChaveTexto; Icone: typeof Bike }>;
 
 type Chave = (typeof ABAS)[number]['chave'] | 'perfil';
@@ -99,7 +101,7 @@ export function MobileShell() {
     employee?.id ?? null,
     aoRevogar
   );
-  const { menu } = useMenu(accessToken);
+  const { menu } = useMenu(accessToken, appId);
 
   const [atualizando, setAtualizando] = useState(false);
 
@@ -124,11 +126,21 @@ export function MobileShell() {
 
   /** Só as abas da função. Uma função sem permissões cai direto no perfil. */
   const visiveis = useMemo(
-    () => ABAS.filter((aba) => employee?.permissions.includes(aba.chave)),
+    () => ABAS.filter((aba) =>
+      employee?.permissions.includes('administracao') || employee?.permissions.includes(aba.chave)
+    ),
     [employee?.permissions]
   );
 
   const [ativa, setAtiva] = useState<Chave>(() => visiveis[0]?.chave ?? 'perfil');
+
+  /* Guard de rota também no cliente: revogação de tag nunca deixa uma aba
+     antiga renderizada enquanto a nova sessão é propagada. */
+  useEffect(() => {
+    if (ativa === 'perfil' || visiveis.some((aba) => aba.chave === ativa)) return;
+    setAtiva(visiveis[0]?.chave ?? 'perfil');
+    toast('Seu acesso a essa área foi atualizado.');
+  }, [ativa, visiveis]);
 
   if (!employee) return null;
 
@@ -467,6 +479,8 @@ export function MobileShell() {
                   onIrPara={setAtiva}
                   employeeId={employee.id}
                   equipe={menu.equipe}
+                  permissions={employee.permissions}
+                  isDeliveryman={employee.isDeliveryman ?? employee.permissions.includes('entregador')}
                 />
               </div>
             </div>

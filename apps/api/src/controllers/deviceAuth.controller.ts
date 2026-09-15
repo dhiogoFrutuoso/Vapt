@@ -163,6 +163,7 @@ export const deviceLogin = asyncHandler(async (req: Request, res: Response) => {
         name: match.employeeName,
         role: match.roleName,
         permissions: match.permissions,
+        isDeliveryman: match.isDeliveryman,
         onboardingCompleted: match.onboardingCompleted,
         profile: match.profile,
       },

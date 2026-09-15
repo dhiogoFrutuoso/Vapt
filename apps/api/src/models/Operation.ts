@@ -73,7 +73,7 @@ const orderItemSchema = new Schema(
 /** Uma parcela de pagamento. Várias formam o split. */
 const paymentSchema = new Schema(
   {
-    method: { type: String, enum: ['pix', 'dinheiro', 'cartao'], required: true },
+    method: { type: String, enum: ['pix', 'dinheiro', 'cartao', 'fiado'], required: true },
     amount: { type: Number, required: true, min: 0, max: 999_999 },
   },
   { _id: false }
@@ -186,6 +186,27 @@ const cashEntrySchema = new Schema(
     payments: { type: [paymentSchema], default: [] },
     orderStatus: { type: String, enum: ['feito', 'cancelado'], default: 'feito' },
     paymentStatus: { type: String, enum: ['pendente', 'concluido'], default: 'pendente' },
+    creditStatus: {
+      type: String,
+      enum: ['none', 'open', 'partial', 'paid'],
+      default: 'none',
+    },
+    creditOriginalAmount: { type: Number, default: 0, min: 0 },
+    creditPaid: { type: Number, default: 0, min: 0 },
+    creditPayments: {
+      type: [
+        new Schema(
+          {
+            amount: { type: Number, required: true, min: 0.01 },
+            operatorId: { type: String, required: true },
+            operatorName: { type: String, default: '' },
+            createdAt: { type: Number, required: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
 
     /** Espelha o entregador do pedido, para o Registro auditar sem cruzar listas. */
     deliveredById: { type: String, trim: true, maxlength: 40, default: '' },
@@ -227,6 +248,72 @@ const operationSchema = new Schema(
     deliveries: { type: [deliverySchema], default: [] },
     cashEntries: { type: [cashEntrySchema], default: [] },
     cashArchive: { type: [cashEntrySchema], default: [] },
+
+    cashMovements: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true },
+            type: { type: String, enum: ['sangria', 'suprimento'], required: true },
+            amount: { type: Number, required: true, min: 0.01 },
+            reason: { type: String, required: true, trim: true, maxlength: 200 },
+            operatorId: { type: String, required: true },
+            operatorName: { type: String, default: '' },
+            createdAt: { type: Number, required: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+
+    cashClosures: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true },
+            counted: {
+              dinheiro: { type: Number, default: 0 },
+              cartao: { type: Number, default: 0 },
+              pix: { type: Number, default: 0 },
+            },
+            expected: {
+              dinheiro: { type: Number, default: 0 },
+              cartao: { type: Number, default: 0 },
+              pix: { type: Number, default: 0 },
+            },
+            difference: {
+              dinheiro: { type: Number, default: 0 },
+              cartao: { type: Number, default: 0 },
+              pix: { type: Number, default: 0 },
+            },
+            operatorId: { type: String, required: true },
+            operatorName: { type: String, default: '' },
+            createdAt: { type: Number, required: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+
+    auditLog: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true },
+            action: { type: String, required: true, maxlength: 60 },
+            targetId: { type: String, default: '', maxlength: 80 },
+            summary: { type: String, required: true, maxlength: 240 },
+            operatorId: { type: String, required: true },
+            operatorName: { type: String, default: '' },
+            createdAt: { type: Number, required: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
 
     /**
      * Andamento da produção, na chave `comandaId::saguao`.

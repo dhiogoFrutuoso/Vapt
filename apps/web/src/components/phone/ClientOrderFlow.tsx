@@ -61,7 +61,14 @@ type Props = {
   rotuloEnvio?: string;
 
   /** Valores que voltam ao reidratar um pedido em edição. */
-  inicial?: { name: string; phone: string; address: string; notes: string; isDelivery?: boolean };
+  inicial?: {
+    name: string;
+    phone: string;
+    address: string | DeliveryAddress;
+    notes: string;
+    payments?: PaymentSplit;
+    isDelivery?: boolean;
+  };
 
   /** A loja aceita entrega? Retirada é sempre possível. */
   aceitaEntrega?: boolean;
@@ -175,6 +182,7 @@ export function ClientOrderFlow({
            */
           modoEntrega={isDelivery}
           aceitaEntrega={aceitaEntrega}
+          allowCredit={mostrarImportacao}
           onModoEntregaChange={setIsDelivery}
           observacao={notes}
           onObservacaoChange={setNotes}

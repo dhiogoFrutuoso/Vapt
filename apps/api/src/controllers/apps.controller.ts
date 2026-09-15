@@ -39,6 +39,17 @@ export const createApp = async (req: Request, res: Response) => {
                     slug,
                     businessType,
                     appPlanType,
+                    roles: [
+                      {
+                        name: 'Administrador',
+                        permissions: ['administracao'],
+                      },
+                      { name: 'Recepcionista', permissions: ['cliente', 'recepcao'] },
+                      { name: 'Garçom', permissions: ['salao'] },
+                      { name: 'Cozinheiro', permissions: ['cozinha'] },
+                      { name: 'Caixeiro', permissions: ['caixa'] },
+                      { name: 'Entregador', permissions: ['entregador'] },
+                    ],
                   });
 
                   await app.save();
@@ -780,12 +791,33 @@ Plano escolhido: ${planName}`;
 
 /* ------------------------- Roles ------------------------- */
 
+const permissionSchema = z.enum([
+  'cliente',
+  'recepcao',
+  'salao',
+  'caixa',
+  'entregador',
+  'cozinha',
+  'administracao',
+]);
+
+const roleBodySchema = z.object({
+  name: z.string().trim().min(2).max(40),
+  permissions: z.array(permissionSchema).min(1).max(7),
+});
+
+const employeeBodySchema = z.object({
+  name: z.string().trim().min(2).max(60),
+  roleId: z.string().min(1),
+});
+
 export const addRole = async (req: Request, res: Response) => {
           try {
             const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
                   if (!app) throw HttpError.notFound('App nao encontrado');
 
-                  const newRole = { name: req.body.name, permissions: req.body.permissions || [] };
+                  const body = roleBodySchema.parse(req.body);
+                  const newRole = body;
                   app.roles.push(newRole as any);
                   await app.save();
                   
@@ -823,10 +855,24 @@ export const updateRole = async (req: Request, res: Response) => {
                   const role = app.roles.id(req.params.roleId);
                   if (!role) throw HttpError.notFound('Funcao nao encontrada');
 
-                  if (req.body.name !== undefined) role.name = req.body.name;
-                  if (req.body.permissions !== undefined) role.permissions = req.body.permissions;
+                  const body = roleBodySchema.partial().parse(req.body);
+                  if (body.name !== undefined) role.name = body.name;
+                  if (body.permissions !== undefined) {
+                    role.permissions = body.permissions;
+                    const entregador = body.permissions.includes('entregador');
+                    for (const employee of app.employees) {
+                      if (String(employee.roleId) === String(role._id)) employee.isDeliveryman = entregador;
+                    }
+                  }
                   
                   await app.save();
+                  const affected = app.employees.filter((employee) => String(employee.roleId) === String(role._id));
+                  await Promise.all(
+                    affected.map((employee) => revokeAllForEmployee(String(employee._id), 'admin'))
+                  );
+                  for (const employee of affected) {
+                    emitSessionRevoked(String(app._id), String(employee._id), 'permissoes_alteradas');
+                  }
                   res.json({ ok: true, data: role });
 
           } catch (error: any) {
@@ -859,6 +905,9 @@ export const removeRole = async (req: Request, res: Response) => {
 
                   const role = app.roles.id(req.params.roleId);
                   if (role) {
+                    if (app.employees.some((employee) => String(employee.roleId) === String(role._id))) {
+                      throw HttpError.badRequest('Reatribua os funcionários antes de excluir esta tag.');
+                    }
                     role.deleteOne();
                     await app.save();
                   }
@@ -902,11 +951,17 @@ export const addEmployee = async (req: Request, res: Response) => {
             const app = await AppProject.findOne({ _id: req.params.id, owner: req.user!.id });
                   if (!app) throw HttpError.notFound('App nao encontrado');
 
-                  const roleExists = app.roles.id(req.body.roleId);
+                  const body = employeeBodySchema.parse(req.body);
+                  const roleExists = app.roles.id(body.roleId);
                   if (!roleExists) throw HttpError.badRequest('Funcao invalida');
 
                   const accessCode = await generateUniqueEmployeeCode();
-                  const newEmployee = { name: req.body.name, roleId: req.body.roleId, accessCode };
+                  const newEmployee = {
+                    name: body.name,
+                    roleId: body.roleId,
+                    accessCode,
+                    isDeliveryman: roleExists.permissions.includes('entregador'),
+                  };
                   app.employees.push(newEmployee as any);
                   await app.save();
                   
@@ -944,13 +999,22 @@ export const updateEmployee = async (req: Request, res: Response) => {
                   const emp = app.employees.id(req.params.empId);
                   if (!emp) throw HttpError.notFound('Funcionario nao encontrado');
 
-                  if (req.body.name !== undefined) emp.name = req.body.name;
-                  if (req.body.roleId !== undefined) {
-                    if (!app.roles.id(req.body.roleId)) throw HttpError.badRequest('Funcao invalida');
-                    emp.roleId = req.body.roleId;
+                  const body = employeeBodySchema.partial().parse(req.body);
+                  let roleChanged = false;
+                  if (body.name !== undefined) emp.name = body.name;
+                  if (body.roleId !== undefined) {
+                    const role = app.roles.id(body.roleId);
+                    if (!role) throw HttpError.badRequest('Funcao invalida');
+                    emp.roleId = role._id;
+                    emp.isDeliveryman = role.permissions.includes('entregador');
+                    roleChanged = true;
                   }
                   
                   await app.save();
+                  if (roleChanged) {
+                    await revokeAllForEmployee(String(emp._id), 'admin');
+                    emitSessionRevoked(String(app._id), String(emp._id), 'funcao_alterada');
+                  }
                   res.json({ ok: true, data: emp });
 
           } catch (error: any) {

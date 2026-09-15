@@ -48,6 +48,8 @@ export const listEmployees = asyncHandler(async (req: Request, res: Response) =>
         roleId: String(e.roleId),
         roleName: role?.name ?? 'Sem funcao',
         permissions: (role?.permissions ?? []).map(String),
+        isDeliveryman:
+          e.isDeliveryman === true || (role?.permissions ?? []).map(String).includes('entregador'),
         accessCode: e.accessCode ?? null,
         blocked: e.blocked === true,
         blockedAt: e.blockedAt ?? null,

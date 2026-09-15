@@ -74,7 +74,7 @@ import {
   getOperation,
   runOperationCommand,
 } from '../controllers/operation.controller.js';
-import { getDeviceMenu } from '../controllers/deviceMenu.controller.js';
+import { getDeviceMenu, setDeviceProductAvailability } from '../controllers/deviceMenu.controller.js';
 import { upload } from '../middlewares/upload.js';
 import { adminRoutes } from './adminRoutes.js';
 import { getPublicAppVersion } from '../controllers/appVersion.controller.js';
@@ -176,6 +176,7 @@ router.get('/device/sessions', requireDevice, deviceSessions);
  * de comandos em poucos minutos. O `apiLimiter` geral continua valendo.
  */
 router.get('/device/menu', requireDevice, getDeviceMenu);
+router.patch('/device/menu/products/:productId/availability', requireDevice, setDeviceProductAvailability);
 router.get('/device/operation', requireDevice, getOperation);
 router.post('/device/operation', requireDevice, runOperationCommand);
 

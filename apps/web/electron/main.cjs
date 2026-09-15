@@ -7,6 +7,7 @@ const {
   net,
   protocol,
   safeStorage,
+  session,
   shell,
 } = require('electron');
 const fs = require('node:fs');
@@ -92,7 +93,7 @@ function servirArquivos() {
      * remove a barra inicial sem ambiguidade.
      */
     const relativo = bruto.split(path.sep).filter(Boolean).join(path.sep);
-    const destino = path.join(RAIZ, relativo || 'index.html');
+    const destino = path.join(RAIZ, relativo || 'index.app.html');
 
     if (!destino.startsWith(RAIZ)) {
       return new Response('Nao encontrado', { status: 404 });
@@ -195,6 +196,15 @@ function registrarCofre() {
       return false;
     }
   });
+
+  ipcMain.handle('vapt:print:receipt', (evento) =>
+    new Promise((resolve) => {
+      evento.sender.print(
+        { silent: true, printBackground: false, margins: { marginType: 'none' } },
+        (success, failureReason) => resolve({ success, error: success ? null : failureReason })
+      );
+    })
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -229,6 +239,21 @@ function podeEncaminhar(url) {
   } catch {
     return false;
   }
+}
+
+function configurarGeolocalizacao() {
+  const origemConfiavel = (conteudo, origem) =>
+    String(origem ?? '').startsWith(ORIGEM) &&
+    String(conteudo?.getURL?.() ?? '').startsWith(ORIGEM);
+
+  session.defaultSession.setPermissionCheckHandler((conteudo, permissao, origem) =>
+    permissao === 'geolocation' && origemConfiavel(conteudo, origem)
+  );
+
+  session.defaultSession.setPermissionRequestHandler((conteudo, permissao, responder, detalhes) => {
+    const origem = detalhes?.requestingUrl ?? conteudo?.getURL?.() ?? '';
+    responder(permissao === 'geolocation' && origemConfiavel(conteudo, origem));
+  });
 }
 
 function criarJanela() {
@@ -333,16 +358,7 @@ function criarJanela() {
   /* Anexar webview e outra forma de embutir conteudo de terceiros. */
   janela.webContents.on('will-attach-webview', (evento) => evento.preventDefault());
 
-  /*
-   * A interface nao pede camera, microfone nem localizacao. Negar por padrao
-   * evita que uma pagina injetada consiga o que o aplicativo legitimo nunca
-   * usaria.
-   */
-  janela.webContents.session.setPermissionRequestHandler((_conteudo, _permissao, aceitar) => {
-    aceitar(false);
-  });
-
-  void janela.loadURL(`${ORIGEM}/index.html`);
+  void janela.loadURL(`${ORIGEM}/index.app.html`);
   return janela;
 }
 
@@ -369,6 +385,7 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     servirArquivos();
     registrarCofre();
+    configurarGeolocalizacao();
     criarJanela();
 
     app.on('activate', () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { TbAlertTriangle, TbX } from 'react-icons/tb';
 
 export type ConfirmModalProps = {
@@ -22,22 +22,49 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const titleId = useId();
+  const messageId = useId();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
+    if (!isOpen) return;
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.setTimeout(() => cardRef.current?.querySelector<HTMLButtonElement>('button')?.focus(), 0);
+
     function handleKeyDown(e: KeyboardEvent) {
-      if (!isOpen) return;
       if (e.key === 'Escape') onCancel();
       if (e.key === 'Enter') onConfirm();
+      if (e.key === 'Tab' && cardRef.current) {
+        const focusable = [...cardRef.current.querySelectorAll<HTMLElement>('button, input, select, textarea')]
+          .filter((node) => !node.hasAttribute('disabled'));
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus();
+    };
   }, [isOpen, onCancel, onConfirm]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+    <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={messageId}>
       <div className="confirm-modal__overlay" onClick={onCancel} aria-hidden="true" />
-      <div className="confirm-modal__card">
+      <div className="confirm-modal__card" ref={cardRef}>
         <button type="button" className="confirm-modal__close" onClick={onCancel} aria-label="Fechar">
           <TbX size={20} />
         </button>
@@ -47,10 +74,10 @@ export function ConfirmModal({
               <TbAlertTriangle size={24} />
             </div>
           )}
-          <h3 id="confirm-modal-title">{title}</h3>
+          <h3 id={titleId}>{title}</h3>
         </div>
         <div className="confirm-modal__body">
-          <p>{message}</p>
+          <p id={messageId}>{message}</p>
         </div>
         <div className="confirm-modal__footer">
           <button type="button" className="btn btn--ghost" onClick={onCancel}>
@@ -114,4 +141,3 @@ export function useConfirm() {
 
   return { confirm, ConfirmElement };
 }
-

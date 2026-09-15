@@ -3,6 +3,8 @@ import { env } from '../config/env.js';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { AppProject } from '../models/AppProject.js';
 import { HttpError } from '../utils/httpError.js';
+import { z } from 'zod';
+import { emitMenuItemAvailabilityChanged } from '../realtime/io.js';
 
 /**
  * Cardápio e configuração de operação, para o app da equipe.
@@ -123,7 +125,19 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
        */
       equipe: (app.employees ?? [])
         .filter((e: Record<string, any>) => e.blocked !== true)
-        .map((e: Record<string, any>) => ({ id: String(e._id), name: String(e.name ?? '') })),
+        .map((e: Record<string, any>) => {
+          const role = (app.roles ?? []).find(
+            (r: Record<string, any>) => String(r._id) === String(e.roleId)
+          );
+          const permissions = (role?.permissions ?? []).map(String);
+          return {
+            id: String(e._id),
+            name: String(e.name ?? ''),
+            roleName: String(role?.name ?? 'Sem tag'),
+            permissions,
+            isDeliveryman: e.isDeliveryman === true || permissions.includes('entregador'),
+          };
+        }),
 
       /* Só os nomes, na ordem do cadastro: é o que a Cozinha usa como filtro. */
       stations: (app.stations ?? [])
@@ -132,4 +146,22 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
         .map((s: Record<string, any>) => String(s.name)),
     },
   });
+});
+
+export const setDeviceProductAvailability = asyncHandler(async (req: Request, res: Response) => {
+  const productId = z.string().min(1).parse(req.params.productId);
+  const { available } = z.object({ available: z.boolean() }).parse(req.body);
+  const permissions = req.device!.perms ?? [];
+  if (!permissions.includes('cozinha') && !permissions.includes('administracao')) {
+    throw new HttpError(403, 'Sua função não permite alterar o cardápio.');
+  }
+
+  const result = await AppProject.updateOne(
+    { _id: req.device!.app, 'products._id': productId },
+    { $set: { 'products.$.available': available } }
+  );
+  if (!result.matchedCount) throw new HttpError(404, 'Produto não encontrado.');
+
+  emitMenuItemAvailabilityChanged(req.device!.app, { productId, available });
+  return res.json({ ok: true, data: { productId, available } });
 });

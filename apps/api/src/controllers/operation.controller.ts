@@ -118,7 +118,7 @@ const orderItem = z.object({
 });
 
 const payment = z.object({
-  method: z.enum(['pix', 'dinheiro', 'cartao']),
+  method: z.enum(['pix', 'dinheiro', 'cartao', 'fiado']),
   amount: z.number().min(0).max(999_999),
 });
 
@@ -215,6 +215,7 @@ const comandoSchema = z.discriminatedUnion('tipo', [
     tipo: z.literal('pedido.aceitar'),
     pedidoId: z.string().min(1),
     fee: z.number().min(0).max(999),
+    employeeId: z.string().min(1).optional(),
   }),
   z.object({ tipo: z.literal('pedido.rejeitar'), pedidoId: z.string().min(1) }),
   z.object({ tipo: z.literal('pedido.avancar'), pedidoId: z.string().min(1) }),
@@ -257,7 +258,26 @@ const comandoSchema = z.discriminatedUnion('tipo', [
     motivo: textoLimpo(200).optional().default(''),
   }),
 
-  z.object({ tipo: z.literal('caixa.fechar') }),
+  z.object({
+    tipo: z.literal('caixa.fechar'),
+    counted: z.object({
+      dinheiro: z.number().min(0).max(999_999),
+      cartao: z.number().min(0).max(999_999),
+      pix: z.number().min(0).max(999_999),
+    }),
+  }),
+  z.object({
+    tipo: z.literal('caixa.movimento'),
+    movementType: z.enum(['sangria', 'suprimento']),
+    amount: z.number().positive().max(999_999),
+    reason: textoLimpo(200).pipe(z.string().min(3)),
+  }),
+  z.object({ tipo: z.literal('caixa.reabrir'), lancamentoId: z.string().min(1) }),
+  z.object({
+    tipo: z.literal('fiado.abater'),
+    lancamentoId: z.string().min(1),
+    amount: z.number().positive().max(999_999),
+  }),
 
   /**
    * Troca do entregador de um pedido já entregue.
@@ -295,18 +315,18 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'mesa.item.adicionar': ['salao'],
   'mesa.item.remover': ['salao'],
 
-  'retirada.criar': ['salao'],
-  'retirada.status': ['salao'],
-  'retirada.remover': ['salao'],
-  'retirada.item.adicionar': ['salao'],
-  'retirada.item.remover': ['salao'],
+  'retirada.criar': ['recepcao'],
+  'retirada.status': ['recepcao'],
+  'retirada.remover': ['recepcao'],
+  'retirada.item.adicionar': ['recepcao'],
+  'retirada.item.remover': ['recepcao'],
 
-  'comanda.pagar': ['salao', 'caixa'],
-  'comanda.cancelar': ['salao', 'caixa'],
+  'comanda.pagar': ['salao', 'recepcao', 'caixa'],
+  'comanda.cancelar': ['salao', 'recepcao', 'caixa'],
 
   'pedido.criar': ['cliente', 'recepcao'],
   'pedido.atualizar': ['cliente', 'recepcao'],
-  'pedido.aceitar': ['recepcao'],
+  'pedido.aceitar': ['recepcao', 'entregador'],
   'pedido.rejeitar': ['recepcao'],
   'pedido.avancar': ['entregador', 'recepcao'],
   'pedido.voltar': ['entregador', 'recepcao'],
@@ -316,6 +336,9 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'caixa.editar': ['caixa'],
   'caixa.cancelar': ['caixa'],
   'caixa.fechar': ['caixa'],
+  'caixa.movimento': ['caixa'],
+  'caixa.reabrir': ['administracao'],
+  'fiado.abater': ['caixa'],
 
   /* Recepção reatribui porque é quem descobre a troca ao ligar para o cliente. */
   'pedido.entregador': ['recepcao', 'caixa'],
@@ -332,6 +355,12 @@ const agora = () => Date.now();
 /** Soma dos itens da comanda. A lista tem um item por unidade. */
 function somarItens(itens: Array<{ price: number }>): number {
   return itens.reduce((total, item) => total + Number(item.price ?? 0), 0);
+}
+
+function validarPagamentos(total: number, pagamentos: Array<{ amount: number }>): void {
+  if (pagamentos.length === 0) return;
+  const informado = pagamentos.reduce((soma, pagamento) => soma + Number(pagamento.amount ?? 0), 0);
+  if (informado + 0.005 < total) throw new HttpError(400, 'O pagamento não cobre o total do pedido.');
 }
 
 /** Número curto mostrado ao cliente. Não é identificador — só rótulo. */
@@ -360,10 +389,11 @@ type Carregada = {
   taxaServico: number;
   /** id do funcionário -> nome, para carimbar autoria de entrega. */
   nomes: Map<string, string>;
+  entregadores: Set<string>;
 };
 
 async function carregar(appId: string): Promise<Carregada> {
-  const app = await AppProject.findById(appId).select('tables dining employees').lean();
+  const app = await AppProject.findById(appId).select('tables dining employees roles').lean();
   if (!app) throw new HttpError(404, 'Aplicativo nao encontrado.');
 
   /*
@@ -410,22 +440,41 @@ async function carregar(appId: string): Promise<Carregada> {
    * a memória de um controlador que não tem nada a ver com autenticação.
    */
   const nomes = new Map<string, string>();
+  const roles = new Map(
+    ((app as unknown as { roles?: Array<Record<string, unknown>> }).roles ?? []).map((role) => [
+      String(role._id),
+      ((role.permissions ?? []) as unknown[]).map(String),
+    ])
+  );
+  const entregadores = new Set<string>();
   for (const e of (app.employees ?? []) as unknown as Array<Record<string, unknown>>) {
-    nomes.set(String(e._id), String(e.name ?? ''));
+    const id = String(e._id);
+    nomes.set(id, String(e.name ?? ''));
+    if (
+      e.blocked !== true &&
+      (e.isDeliveryman === true || (roles.get(String(e.roleId)) ?? []).includes('entregador'))
+    ) {
+      entregadores.add(id);
+    }
   }
 
-  return { operacao, taxaServico, nomes };
+  return { operacao, taxaServico, nomes, entregadores };
 }
 
 /** Devolve o estado como o aplicativo espera consumir. */
-function serializar(operacao: OperationDoc) {
+function serializar(operacao: OperationDoc, permissions: string[] = []) {
+  const admin = permissions.includes('administracao');
+  const can = (...needed: string[]) => admin || needed.some((permission) => permissions.includes(permission));
   return {
-    tables: operacao.tables,
-    takeouts: operacao.takeouts,
-    deliveries: operacao.deliveries,
-    cashEntries: operacao.cashEntries,
-    cashArchive: operacao.cashArchive,
-    kitchenStatus: Object.fromEntries(operacao.kitchenStatus ?? new Map()),
+    tables: can('salao', 'cozinha') ? operacao.tables : [],
+    takeouts: can('recepcao', 'cozinha') ? operacao.takeouts : [],
+    deliveries: can('cliente', 'recepcao', 'cozinha', 'entregador') ? operacao.deliveries : [],
+    cashEntries: can('caixa') ? operacao.cashEntries : [],
+    cashArchive: can('caixa') ? operacao.cashArchive : [],
+    cashMovements: can('caixa') ? operacao.cashMovements : [],
+    cashClosures: admin ? operacao.cashClosures : [],
+    auditLog: admin ? operacao.auditLog : [],
+    kitchenStatus: can('cozinha') ? Object.fromEntries(operacao.kitchenStatus ?? new Map()) : {},
     lastClosedAt: operacao.lastClosedAt,
     lastClosedBy: operacao.lastClosedBy,
   };
@@ -442,7 +491,7 @@ export const getOperation = asyncHandler(async (req: Request, res: Response) => 
   // A sincronização das mesas pode ter alterado o documento.
   if (operacao.isNew || operacao.isModified()) await operacao.save();
 
-  return res.json({ ok: true, data: serializar(operacao) });
+  return res.json({ ok: true, data: serializar(operacao, req.device!.perms) });
 });
 
 /* ------------------------------------------------------------------ */
@@ -459,10 +508,24 @@ function aplicar(
   comando: Comando,
   quem: string,
   taxaServico: number,
-  nomes: Map<string, string>
+  nomes: Map<string, string>,
+  entregadores: Set<string>,
+  permissoes: string[]
 ): string | null {
   /* Nome do funcionário, ou vazio se ele já foi removido do cadastro. */
   const nomeDe = (id: string) => nomes.get(id) ?? '';
+  const auditar = (action: string, targetId: string, summary: string) => {
+    operacao.auditLog.unshift({
+      id: `a-${agora()}-${Math.floor(Math.random() * 1000)}`,
+      action,
+      targetId,
+      summary,
+      operatorId: quem,
+      operatorName: nomeDe(quem),
+      createdAt: agora(),
+    } as never);
+    if (operacao.auditLog.length > 1000) operacao.auditLog.splice(1000);
+  };
 
   switch (comando.tipo) {
     /* ----------------------------- Mesas ----------------------------- */
@@ -576,9 +639,13 @@ function aplicar(
        * mesa de R$ 400 cobrando 0% de serviço.
        */
       const taxa = pagando && naMesa ? subtotal * taxaServico : 0;
+      if (pagando) validarPagamentos(subtotal + taxa, comando.payments);
 
       // Cancelamento sem consumo não vira lançamento: não houve dinheiro.
       if (pagando || subtotal > 0) {
+        const credito = pagando
+          ? comando.payments.filter((p) => p.method === 'fiado').reduce((soma, p) => soma + p.amount, 0)
+          : 0;
         operacao.cashEntries.unshift({
           id: `c-${agora()}-${Math.floor(Math.random() * 1000)}`,
           source: naMesa ? 'mesa' : 'retirada',
@@ -593,9 +660,15 @@ function aplicar(
           payments: pagando ? comando.payments : [],
           orderStatus: pagando ? 'feito' : 'cancelado',
           paymentStatus: pagando ? 'concluido' : 'pendente',
+          creditStatus: credito > 0 ? 'open' : 'none',
+          creditOriginalAmount: credito,
+          creditPaid: 0,
           createdAt: agora(),
           closedAt: agora(),
         } as never);
+        if (credito > 0) {
+          auditar('fiado.criado', comando.alvoId, `Crédito de R$ ${credito.toFixed(2)} registrado.`);
+        }
       }
 
       if (mesa) {
@@ -615,6 +688,7 @@ function aplicar(
 
     case 'pedido.criar': {
       const total = somarItens(comando.items);
+      validarPagamentos(total, comando.payments);
       operacao.deliveries.unshift({
         id: `d-${agora()}-${Math.floor(Math.random() * 1000)}`,
         code: codigoCurto(),
@@ -644,7 +718,7 @@ function aplicar(
     case 'pedido.atualizar': {
       const pedido = operacao.deliveries.find((d) => d.id === comando.pedidoId);
       if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
-      if (pedido.status === 'entregue') {
+      if (pedido.status === 'entregue' && !permissoes.includes('administracao')) {
         throw new HttpError(409, 'Pedido ja entregue nao pode ser alterado.');
       }
 
@@ -656,6 +730,7 @@ function aplicar(
       pedido.notes = comando.notes;
       pedido.isDelivery = comando.isDelivery;
       pedido.total = somarItens(comando.items) + Number(pedido.deliveryFee ?? 0);
+      validarPagamentos(somarItens(comando.items), comando.payments);
 
       /*
        * O lançamento no caixa acompanha a edição.
@@ -665,13 +740,32 @@ function aplicar(
        * na cozinha e não no faturamento — o restaurante produziria de graça.
        */
       const noCaixa = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`);
-      if (noCaixa) {
+      const noArquivo = operacao.cashArchive.find((e) => e.id === `c-${pedido.id}`);
+      for (const lancamento of [noCaixa, noArquivo]) {
+        if (!lancamento) continue;
         const subtotal = somarItens(comando.items);
-        noCaixa.set('items', comando.items);
-        noCaixa.subtotal = subtotal;
-        noCaixa.total = subtotal + Number(noCaixa.deliveryFee ?? 0);
-        noCaixa.customerName = comando.customerName;
+        lancamento.set('items', comando.items);
+        lancamento.set('payments', comando.payments);
+        const credito = comando.payments
+          .filter((payment) => payment.method === 'fiado')
+          .reduce((sum, payment) => sum + payment.amount, 0);
+        lancamento.creditOriginalAmount = credito;
+        lancamento.creditPaid = Math.min(Number(lancamento.creditPaid ?? 0), credito);
+        lancamento.creditStatus = credito <= 0
+          ? 'none'
+          : lancamento.creditPaid + 0.005 >= credito
+            ? 'paid'
+            : lancamento.creditPaid > 0
+              ? 'partial'
+              : 'open';
+        lancamento.subtotal = subtotal;
+        lancamento.total = subtotal + Number(lancamento.deliveryFee ?? 0);
+        lancamento.customerName = comando.customerName;
+        lancamento.editadoEm = agora();
+        lancamento.editadoPor = quem;
       }
+
+      auditar('pedido.editado', pedido.id, `Pedido #${pedido.code} editado.`);
 
       return 'Pedido atualizado.';
     }
@@ -689,9 +783,25 @@ function aplicar(
       pedido.total = subtotal + comando.fee;
       pedido.status = 'aceito';
 
+      let entregadorId = comando.employeeId ?? '';
+      if (permissoes.includes('entregador') && !permissoes.includes('recepcao')) entregadorId = quem;
+      if (pedido.isDelivery && !entregadorId) {
+        throw new HttpError(400, 'Selecione um entregador ativo antes de despachar.');
+      }
+      if (pedido.isDelivery && entregadorId) {
+        if (!entregadores.has(entregadorId)) {
+          throw new HttpError(400, 'Selecione um entregador ativo com a tag Entregador.');
+        }
+        pedido.deliveredById = entregadorId;
+        pedido.deliveredByName = nomeDe(entregadorId);
+      }
+
       /* Pago só no PIX já entra fechado; o resto fica pendente até a entrega. */
       const pagoAntes =
         pedido.payments.length > 0 && pedido.payments.every((p) => p.method === 'pix');
+      const credito = pedido.payments
+        .filter((payment) => payment.method === 'fiado')
+        .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
 
       operacao.cashEntries.unshift({
         id: `c-${pedido.id}`,
@@ -707,9 +817,17 @@ function aplicar(
         payments: pedido.payments,
         orderStatus: 'feito',
         paymentStatus: pagoAntes ? 'concluido' : 'pendente',
+        creditStatus: credito > 0 ? 'open' : 'none',
+        creditOriginalAmount: credito,
+        creditPaid: 0,
+        deliveredById: pedido.deliveredById,
+        deliveredByName: pedido.deliveredByName,
         createdAt: agora(),
         closedAt: pagoAntes ? agora() : null,
       } as never);
+
+      if (credito > 0) auditar('fiado.criado', pedido.id, `Crédito de R$ ${credito.toFixed(2)} registrado.`);
+      auditar('pedido.despachado', pedido.id, `Pedido #${pedido.code} despachado.`);
 
       return 'Pedido despachado para o entregador!';
     }
@@ -729,6 +847,16 @@ function aplicar(
 
       const proximo = proximoStatus[pedido.status];
       pedido.status = proximo;
+
+      if (permissoes.includes('entregador') && entregadores.has(quem)) {
+        pedido.deliveredById = quem;
+        pedido.deliveredByName = nomeDe(quem);
+        const espelho = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`);
+        if (espelho) {
+          espelho.deliveredById = quem;
+          espelho.deliveredByName = nomeDe(quem);
+        }
+      }
 
       /* Entregue quita o lançamento pendente: o entregador recebeu na porta. */
       if (proximo === 'entregue') {
@@ -777,15 +905,58 @@ function aplicar(
     case 'caixa.pagamento': {
       const lancamento = operacao.cashEntries.find((e) => e.id === comando.lancamentoId);
       if (!lancamento) throw new HttpError(404, 'Lancamento nao encontrado.');
+      validarPagamentos(Number(lancamento.total ?? 0), comando.payments);
       lancamento.set('payments', comando.payments);
       lancamento.paymentStatus = 'concluido';
       lancamento.closedAt = agora();
+      const fiado = comando.payments
+        .filter((p) => p.method === 'fiado')
+        .reduce((total, p) => total + p.amount, 0);
+      lancamento.creditOriginalAmount = fiado;
+      lancamento.creditPaid = 0;
+      lancamento.creditStatus = fiado > 0 ? 'open' : 'none';
+      auditar(fiado > 0 ? 'fiado.criado' : 'caixa.pagamento', lancamento.id, fiado > 0
+        ? `Crédito de R$ ${fiado.toFixed(2)} registrado para ${lancamento.customerName || lancamento.label}.`
+        : `Pagamento de ${lancamento.label} registrado.`);
       return null;
     }
 
     case 'caixa.fechar': {
       const fechados = operacao.cashEntries.filter((e) => e.paymentStatus === 'concluido');
       if (fechados.length === 0) throw new HttpError(409, 'Nao ha lancamentos concluidos para fechar.');
+
+      const expected = { dinheiro: 0, cartao: 0, pix: 0 };
+      for (const entry of fechados) {
+        if (entry.orderStatus === 'cancelado') continue;
+        let nonCash = 0;
+        let hasCash = false;
+        for (const p of entry.payments) {
+          if (p.method === 'dinheiro') hasCash = true;
+          else if (p.method !== 'fiado') {
+            expected[p.method] += Number(p.amount ?? 0);
+            nonCash += Number(p.amount ?? 0);
+          } else nonCash += Number(p.amount ?? 0);
+        }
+        if (hasCash) expected.dinheiro += Math.max(0, Number(entry.total ?? 0) - nonCash);
+      }
+      for (const movement of operacao.cashMovements) {
+        if (movement.type === 'suprimento') expected.dinheiro += Number(movement.amount ?? 0);
+        else expected.dinheiro -= Number(movement.amount ?? 0);
+      }
+      const difference = {
+        dinheiro: comando.counted.dinheiro - expected.dinheiro,
+        cartao: comando.counted.cartao - expected.cartao,
+        pix: comando.counted.pix - expected.pix,
+      };
+      operacao.cashClosures.unshift({
+        id: `f-${agora()}`,
+        counted: comando.counted,
+        expected,
+        difference,
+        operatorId: quem,
+        operatorName: nomeDe(quem),
+        createdAt: agora(),
+      } as never);
 
       /* O turno sai da tela, mas continua auditável no Registro. */
       operacao.set('cashArchive', [...fechados, ...operacao.cashArchive]);
@@ -795,7 +966,57 @@ function aplicar(
       );
       operacao.lastClosedAt = new Date();
       operacao.lastClosedBy = quem;
+      operacao.set('cashMovements', []);
+      auditar('caixa.fechado', '', `Turno fechado com ${fechados.length} lançamento(s).`);
       return `Turno fechado com ${fechados.length} lançamento(s).`;
+    }
+
+    case 'caixa.movimento': {
+      operacao.cashMovements.unshift({
+        id: `m-${agora()}-${Math.floor(Math.random() * 1000)}`,
+        type: comando.movementType,
+        amount: comando.amount,
+        reason: comando.reason,
+        operatorId: quem,
+        operatorName: nomeDe(quem),
+        createdAt: agora(),
+      } as never);
+      auditar(
+        `caixa.${comando.movementType}`,
+        '',
+        `${comando.movementType === 'sangria' ? 'Sangria' : 'Suprimento'} de R$ ${comando.amount.toFixed(2)}: ${comando.reason}`
+      );
+      return comando.movementType === 'sangria' ? 'Sangria registrada.' : 'Suprimento registrado.';
+    }
+
+    case 'caixa.reabrir': {
+      const index = operacao.cashArchive.findIndex((e) => e.id === comando.lancamentoId);
+      if (index < 0) throw new HttpError(404, 'Lançamento arquivado não encontrado.');
+      const [lancamento] = operacao.cashArchive.splice(index, 1);
+      operacao.cashEntries.unshift(lancamento);
+      auditar('caixa.reaberto', lancamento.id, `${lancamento.label} reaberto para correção.`);
+      return 'Lançamento reaberto.';
+    }
+
+    case 'fiado.abater': {
+      const lancamento =
+        operacao.cashEntries.find((e) => e.id === comando.lancamentoId) ??
+        operacao.cashArchive.find((e) => e.id === comando.lancamentoId);
+      if (!lancamento || !['open', 'partial'].includes(lancamento.creditStatus)) {
+        throw new HttpError(404, 'Crédito em aberto não encontrado.');
+      }
+      const restante = Number(lancamento.creditOriginalAmount ?? 0) - Number(lancamento.creditPaid ?? 0);
+      if (comando.amount > restante + 0.005) throw new HttpError(400, 'O abatimento excede o saldo devedor.');
+      lancamento.creditPaid = Number(lancamento.creditPaid ?? 0) + comando.amount;
+      lancamento.creditStatus = lancamento.creditPaid + 0.005 >= lancamento.creditOriginalAmount ? 'paid' : 'partial';
+      lancamento.creditPayments.push({
+        amount: comando.amount,
+        operatorId: quem,
+        operatorName: nomeDe(quem),
+        createdAt: agora(),
+      } as never);
+      auditar('fiado.abatido', lancamento.id, `Abatimento de R$ ${comando.amount.toFixed(2)} em ${lancamento.label}.`);
+      return lancamento.creditStatus === 'paid' ? 'Dívida quitada.' : 'Abatimento registrado.';
     }
 
     case 'pedido.entregador': {
@@ -804,13 +1025,19 @@ function aplicar(
 
       pedido.deliveredById = comando.employeeId;
       pedido.deliveredByName = nomeDe(comando.employeeId);
+      if (!entregadores.has(comando.employeeId)) {
+        throw new HttpError(400, 'O funcionário selecionado não possui a tag Entregador.');
+      }
 
       /* O caixa espelha, senão o placar e o extrato discordariam. */
-      const lancamento = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`);
+      const lancamento =
+        operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`) ??
+        operacao.cashArchive.find((e) => e.id === `c-${pedido.id}`);
       if (lancamento) {
         lancamento.deliveredById = pedido.deliveredById;
         lancamento.deliveredByName = pedido.deliveredByName;
       }
+      auditar('entrega.reatribuida', pedido.id, `Entrega #${pedido.code} atribuída a ${pedido.deliveredByName}.`);
       return `Entrega atribuída a ${pedido.deliveredByName || 'outro entregador'}.`;
     }
 
@@ -832,16 +1059,32 @@ function aplicar(
         lancamento.subtotal = somarItens(comando.items);
       }
       if (comando.deliveryFee !== undefined) lancamento.deliveryFee = comando.deliveryFee;
-      if (comando.payments) lancamento.set('payments', comando.payments);
+      if (comando.payments) {
+        lancamento.set('payments', comando.payments);
+        const credito = comando.payments
+          .filter((payment) => payment.method === 'fiado')
+          .reduce((sum, payment) => sum + payment.amount, 0);
+        lancamento.creditOriginalAmount = credito;
+        lancamento.creditPaid = Math.min(Number(lancamento.creditPaid ?? 0), credito);
+        lancamento.creditStatus = credito <= 0
+          ? 'none'
+          : lancamento.creditPaid + 0.005 >= credito
+            ? 'paid'
+            : lancamento.creditPaid > 0
+              ? 'partial'
+              : 'open';
+      }
 
       /* O total é sempre RECALCULADO, nunca recebido do cliente. */
       lancamento.total =
         Number(lancamento.subtotal ?? 0) +
         Number(lancamento.serviceFee ?? 0) +
         Number(lancamento.deliveryFee ?? 0);
+      if (comando.payments) validarPagamentos(Number(lancamento.total ?? 0), comando.payments);
 
       lancamento.editadoEm = agora();
       lancamento.editadoPor = quem;
+      auditar('caixa.editado', lancamento.id, `${lancamento.label} corrigido.`);
       return 'Lançamento corrigido.';
     }
 
@@ -862,6 +1105,7 @@ function aplicar(
       lancamento.motivoCancelamento = comando.motivo;
       lancamento.editadoEm = agora();
       lancamento.editadoPor = quem;
+      auditar('caixa.cancelado', lancamento.id, `${lancamento.label} cancelado: ${comando.motivo || 'sem motivo'}.`);
       return 'Venda cancelada. Ela continua no Registro, fora do faturamento.';
     }
 
@@ -881,7 +1125,7 @@ export const runOperationCommand = asyncHandler(async (req: Request, res: Respon
 
   const exigidas = PERMISSAO[comando.tipo];
   const minhas = req.device!.perms ?? [];
-  if (!exigidas || !exigidas.some((p) => minhas.includes(p))) {
+  if (!exigidas || (!minhas.includes('administracao') && !exigidas.some((p) => minhas.includes(p)))) {
     throw new HttpError(403, 'Sua funcao nao permite esta acao.');
   }
 
@@ -906,13 +1150,13 @@ export const runOperationCommand = asyncHandler(async (req: Request, res: Respon
   let mensagem: string | null = null;
 
   for (let tentativa = 0; tentativa < 4; tentativa += 1) {
-    const { operacao, taxaServico, nomes } = await carregar(appId);
-    mensagem = aplicar(operacao, comando, quem, taxaServico, nomes);
+    const { operacao, taxaServico, nomes, entregadores } = await carregar(appId);
+    mensagem = aplicar(operacao, comando, quem, taxaServico, nomes, entregadores, minhas);
 
     try {
       await operacao.save();
       emitOperationChanged(appId, { tipo: comando.tipo, por: quem });
-      return res.json({ ok: true, data: { ...serializar(operacao), mensagem } });
+      return res.json({ ok: true, data: { ...serializar(operacao, minhas), mensagem } });
     } catch (erro) {
       const nome = (erro as { name?: string })?.name;
       if (nome !== 'VersionError' && nome !== 'ParallelSaveError') throw erro;

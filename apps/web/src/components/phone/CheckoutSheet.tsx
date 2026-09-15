@@ -5,6 +5,12 @@ import { MoneyInput } from './MoneyInput';
 import { MapPicker } from './MapPicker';
 import { IconRenderer } from '../IconRenderer';
 import type { DeliveryAddress, OrderItem, PaymentSplit, PaymentSplitItem, PaymentMethod } from './types';
+import { useConfirm } from '../ConfirmModal';
+import {
+  DEFAULT_MAP_CENTER,
+  getCurrentCoordinates,
+  reverseGeocodeCoordinates,
+} from '../../lib/location';
 
 type Props = {
   items: OrderItem[];
@@ -13,7 +19,13 @@ type Props = {
    * edicao de um pedido existente — nos dois casos o funcionario nao deve
    * redigitar o que o sistema ja sabe.
    */
-  initial?: { name: string; phone: string; address: string; notes: string };
+  initial?: {
+    name: string;
+    phone: string;
+    address: string | DeliveryAddress;
+    notes: string;
+    payments?: PaymentSplit;
+  };
   /** "Salvar alteracoes" no modo edicao, para o botao nao mentir. */
   submitLabel?: string;
 
@@ -28,6 +40,7 @@ type Props = {
   onModoEntregaChange?: (entrega: boolean) => void;
   /** A loja aceita entrega? Retirada sempre existe. */
   aceitaEntrega?: boolean;
+  allowCredit?: boolean;
 
   /** Observacao do pedido ("sem cebola", "troco para 50"). */
   observacao?: string;
@@ -83,6 +96,7 @@ export function CheckoutSheet({
   modoEntrega = true,
   onModoEntregaChange,
   aceitaEntrega = true,
+  allowCredit = false,
   observacao = '',
   onObservacaoChange,
   onClose,
@@ -96,28 +110,39 @@ export function CheckoutSheet({
    */
   const pedeEndereco = aceitaEntrega && modoEntrega;
 
-  const enderecoInicial = separarEndereco(initial?.address ?? '');
+  const addressObject = initial?.address && typeof initial.address !== 'string' ? initial.address : null;
+  const enderecoInicial = separarEndereco(typeof initial?.address === 'string' ? initial.address : '');
   const copy = demo.preview;
+  const { confirm, ConfirmElement } = useConfirm();
+  const paymentOptions = allowCredit
+    ? [...copy.payments, { value: 'fiado', label: 'Fiado', iconName: 'wallet' }]
+    : copy.payments;
 
   const total = items.reduce((sum, item) => sum + item.price, 0);
 
   const [customerName, setCustomerName] = useState(initial?.name ?? '');
   const [phone, setPhone] = useState(initial?.phone ?? '');
   const [isSplitMode, setIsSplitMode] = useState(false);
-  const [splits, setSplits] = useState<PaymentSplitItem[]>([{ method: 'pix', amount: total }]);
-  const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'done'>('idle');
-  const [manualOpen, setManualOpen] = useState(Boolean(initial?.address));
+  const [splits, setSplits] = useState<PaymentSplitItem[]>(
+    initial?.payments?.length ? initial.payments.map((payment) => ({ ...payment })) : [{ method: 'pix', amount: total }]
+  );
+  const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'done'>(addressObject?.mode === 'gps' ? 'done' : 'idle');
+  const [manualOpen, setManualOpen] = useState(Boolean(initial?.address) && addressObject?.mode !== 'gps');
   const [manual, setManual] = useState<{ city: string; district: string; street: string; number: string; reference: string; lat?: number; lng?: number }>({
-    city: '',
-    district: '',
-    street: enderecoInicial.street,
-    number: enderecoInicial.number,
-    reference: initial?.notes ?? '',
+    city: addressObject?.city ?? '',
+    district: addressObject?.district ?? '',
+    street: addressObject?.street ?? enderecoInicial.street,
+    number: addressObject?.number ?? enderecoInicial.number,
+    reference: addressObject?.reference ?? initial?.notes ?? '',
+    lat: addressObject?.lat,
+    lng: addressObject?.lng,
   });
 
   const [error, setError] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
-  const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(
+    addressObject?.lat != null && addressObject.lng != null ? { lat: addressObject.lat, lng: addressObject.lng } : null
+  );
 
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +154,7 @@ export function CheckoutSheet({
 
   const splitsTotal = splits.reduce((sum, s) => sum + s.amount, 0);
   const remaining = Math.max(0, total - splitsTotal);
+  const changeDue = Math.max(0, splitsTotal - total);
 
   function addSplit() {
     setSplits([...splits, { method: 'pix', amount: remaining }]);
@@ -142,29 +168,25 @@ export function CheckoutSheet({
     setSplits(splits.map((s, i) => (i === index ? { ...s, ...updates } : s)));
   }
 
-  function captureLocation() {
+  async function captureLocation() {
     setError(null);
     setManualOpen(false);
-    
-    if (!navigator.geolocation) {
-      setError('Geolocalização não suportada pelo seu navegador.');
-      return;
-    }
-
     setGpsState('loading');
-    
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setTempCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setMapOpen(true);
-        setGpsState('idle');
-      },
-      () => {
-        setGpsState('idle');
-        setError('Não foi possível obter a localização. Verifique a permissão do navegador.');
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+
+    try {
+      const coords = await getCurrentCoordinates();
+      setTempCoords(coords);
+    } catch {
+      setTempCoords(
+        manual.lat != null && manual.lng != null
+          ? { lat: manual.lat, lng: manual.lng }
+          : DEFAULT_MAP_CENTER
+      );
+      setError('Localização automática indisponível. Ajuste o pino no mapa para continuar.');
+    } finally {
+      setMapOpen(true);
+      setGpsState('idle');
+    }
   }
 
   async function handleConfirmMap(coords: { lat: number; lng: number }) {
@@ -172,20 +194,20 @@ export function CheckoutSheet({
     setMapOpen(false);
     
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`);
-      const data = await res.json();
+      const address = await reverseGeocodeCoordinates(coords);
       
       setManual(prev => ({
         ...prev,
         lat: coords.lat,
         lng: coords.lng,
-        street: data.address?.road || prev.street,
-        city: data.address?.city || data.address?.town || data.address?.village || prev.city,
-        district: data.address?.suburb || data.address?.neighbourhood || prev.district,
+        street: address.street || prev.street,
+        city: address.city || prev.city,
+        district: address.district || prev.district,
       }));
     } catch (e) {
       setManual(prev => ({ ...prev, lat: coords.lat, lng: coords.lng }));
     }
+    setError(null);
     setGpsState('done');
   }
 
@@ -227,12 +249,21 @@ export function CheckoutSheet({
             reference: manual.reference.trim() || undefined,
           };
 
-    onSubmit({
+    const data = {
       customerName: customerName.trim(),
       phone: phone.trim(),
       payments: splits,
       address,
-    });
+    };
+    if (splits.some((split) => split.method === 'fiado')) {
+      confirm({
+        title: 'Confirmar venda fiada',
+        message: 'O saldo ficará vinculado ao cliente e registrado na auditoria até a quitação.',
+        confirmText: 'Registrar fiado',
+        isDestructive: true,
+        onConfirm: () => onSubmit(data),
+      });
+    } else onSubmit(data);
   }
 
   return (
@@ -307,7 +338,7 @@ export function CheckoutSheet({
       {!isSplitMode ? (
         <>
           <div className="phone__pay">
-            {copy.payments.map((option) => (
+            {paymentOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -333,6 +364,11 @@ export function CheckoutSheet({
               </div>
             </div>
           )}
+          {changeDue > 0.009 && (
+            <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-extrabold text-emerald-700">
+              Troco calculado: {brl(changeDue)}
+            </p>
+          )}
           <button
             type="button"
             className="phone__split-toggle"
@@ -353,6 +389,7 @@ export function CheckoutSheet({
                 <option value="pix">PIX</option>
                 <option value="cartao">Cartão</option>
                 <option value="dinheiro">Dinheiro</option>
+                {allowCredit && <option value="fiado">Fiado</option>}
               </select>
               <div className="split-pay__input-wrapper">
                 <span className="split-pay__input-prefix">R$</span>
@@ -455,7 +492,17 @@ export function CheckoutSheet({
       {gpsState === 'done' ? (
         <div className="phone__gps is-done">
           <strong>📍 {copy.locationDone}</strong>
-          <span>Rua das Palmeiras, 128 — a 1,2 km do restaurante</span>
+          <span>{manual.street || 'Pino confirmado'}{manual.number ? `, ${manual.number}` : ''}</span>
+          <button
+            type="button"
+            className="phone__manual-toggle"
+            onClick={() => {
+              setTempCoords({ lat: manual.lat ?? DEFAULT_MAP_CENTER.lat, lng: manual.lng ?? DEFAULT_MAP_CENTER.lng });
+              setMapOpen(true);
+            }}
+          >
+            Ajustar pino no mapa
+          </button>
         </div>
       ) : (
         <button type="button" className="phone__gps-btn" onClick={captureLocation} disabled={gpsState === 'loading'}>
@@ -545,6 +592,7 @@ export function CheckoutSheet({
         onCancel={() => setMapOpen(false)}
       />
     )}
+    {ConfirmElement}
     </>
   );
 }

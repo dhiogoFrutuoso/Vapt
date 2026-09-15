@@ -55,6 +55,7 @@ export type Employee = {
   name: string;
   role: string;
   permissions: string[];
+  isDeliveryman?: boolean;
   onboardingCompleted: boolean;
   profile: EmployeeProfile;
 };
@@ -183,6 +184,9 @@ export const deviceApi = {
 
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
 
   /** Login por codigo. Nao usa token — e ele que cria a sessao. */
   async login(code: string, deviceName: string): Promise<LoginResult> {

@@ -53,6 +53,7 @@ export type PreviewProduct = {
   /** Saguão (praça de preparo) que produz o item. */
   station?: string;
   isFeatured?: boolean;
+  available?: boolean;
   isPromo?: boolean;
   /** Peças do combo, quando este "produto" na verdade e uma promoção. */
   components?: ComboPart[];
@@ -135,7 +136,7 @@ export type PreviewTable = {
 
 /* ---------------------------- Delivery ---------------------------- */
 
-export type PaymentMethod = 'pix' | 'dinheiro' | 'cartao';
+export type PaymentMethod = 'pix' | 'dinheiro' | 'cartao' | 'fiado';
 
 /** Uma parcela de pagamento. Vários itens formam um split (ex.: parte PIX, parte dinheiro). */
 export type PaymentSplitItem = { method: PaymentMethod; amount: number };
@@ -293,6 +294,45 @@ export type CashEntry = {
   editadoEm?: number | null;
   editadoPor?: string;
   motivoCancelamento?: string;
+  creditStatus?: 'none' | 'open' | 'partial' | 'paid';
+  creditOriginalAmount?: number;
+  creditPaid?: number;
+  creditPayments?: Array<{
+    amount: number;
+    operatorId: string;
+    operatorName: string;
+    createdAt: number;
+  }>;
+};
+
+export type CashMovement = {
+  id: string;
+  type: 'sangria' | 'suprimento';
+  amount: number;
+  reason: string;
+  operatorId: string;
+  operatorName: string;
+  createdAt: number;
+};
+
+export type CashClosure = {
+  id: string;
+  counted: Record<'dinheiro' | 'cartao' | 'pix', number>;
+  expected: Record<'dinheiro' | 'cartao' | 'pix', number>;
+  difference: Record<'dinheiro' | 'cartao' | 'pix', number>;
+  operatorId: string;
+  operatorName: string;
+  createdAt: number;
+};
+
+export type AuditEntry = {
+  id: string;
+  action: string;
+  targetId: string;
+  summary: string;
+  operatorId: string;
+  operatorName: string;
+  createdAt: number;
 };
 
 /**

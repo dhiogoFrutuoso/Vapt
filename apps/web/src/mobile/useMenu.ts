@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 import { deviceApi } from './deviceApi';
 import type {
   CategoryItem,
@@ -38,7 +39,13 @@ export type Menu = {
   promotions: PreviewPromotion[];
   stations: string[];
   /** Equipe ativa, so id e nome — para o seletor de entregador. */
-  equipe: Array<{ id: string; name: string }>;
+  equipe: Array<{
+    id: string;
+    name: string;
+    roleName: string;
+    permissions: string[];
+    isDeliveryman: boolean;
+  }>;
 };
 
 const VAZIO: Menu = {
@@ -66,7 +73,12 @@ const VAZIO: Menu = {
   equipe: [],
 };
 
-export function useMenu(token: string | null) {
+function socketOrigin(): string {
+  const base = import.meta.env.VITE_API_URL ?? '/api';
+  return base.startsWith('http') ? base.replace(/\/api\/?$/, '') : window.location.origin;
+}
+
+export function useMenu(token: string | null, appId?: string | null) {
   const [menu, setMenu] = useState<Menu>(VAZIO);
   const [carregando, setCarregando] = useState(true);
 
@@ -93,6 +105,22 @@ export function useMenu(token: string | null) {
       vivo = false;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!token || !appId) return;
+    const socket = io(socketOrigin(), { auth: { token, appId }, transports: ['polling', 'websocket'] });
+    socket.on('menu_item_availability_changed', (event: { productId: string; available: boolean }) => {
+      setMenu((current) => ({
+        ...current,
+        products: current.products.map((product) =>
+          product.id === event.productId ? { ...product, available: event.available } : product
+        ),
+      }));
+    });
+    return () => {
+      socket.close();
+    };
+  }, [token, appId]);
 
   return { menu, carregando };
 }

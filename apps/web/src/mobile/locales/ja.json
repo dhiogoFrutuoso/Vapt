@@ -32,6 +32,7 @@
   "abas.cozinha": "キッチン",
   "abas.caixa": "レジ",
   "abas.entregador": "配達",
+  "abas.administracao": "管理",
   "abas.aviso": "この画面へのアクセス権があります。操作画面は次の段階で追加されます。",
   "operacao.carregando": "業務データを読み込み中…",
   "operacao.tentar": "再試行",

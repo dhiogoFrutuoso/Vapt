@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
+  Check,
   ChevronDown,
   KeySquare,
   Lock,
+  Pencil,
   RefreshCw,
   Smartphone,
   Trash2,
   Unlock,
+  X,
 } from 'lucide-react';
-import { api, ApiError, type EmployeeDetail } from '../../lib/api';
+import { api, ApiError, type EmployeeDetail, type Role } from '../../lib/api';
 import { useConfirm } from '../ConfirmModal';
 
 /**
@@ -25,6 +28,7 @@ import { useConfirm } from '../ConfirmModal';
 
 type Props = {
   appId: string;
+  roles: Role[];
   /** Recarrega o app pai quando a lista muda (nome, função, exclusão). */
   onChanged?: () => void;
 };
@@ -45,13 +49,16 @@ function formatarQuando(iso: string | null): string {
   return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-export function EmployeeList({ appId, onChanged }: Props) {
+export function EmployeeList({ appId, roles, onChanged }: Props) {
   const { confirm, ConfirmElement } = useConfirm();
 
   const [employees, setEmployees] = useState<EmployeeDetail[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [nomeEdicao, setNomeEdicao] = useState('');
+  const [tagEdicao, setTagEdicao] = useState('');
 
   async function recarregar() {
     try {
@@ -155,6 +162,43 @@ export function EmployeeList({ appId, onChanged }: Props) {
     });
   }
 
+  function iniciarEdicao(emp: EmployeeDetail) {
+    setEditando(emp.id);
+    setNomeEdicao(emp.name);
+    setTagEdicao(emp.roleId);
+  }
+
+  function salvarEdicao(emp: EmployeeDetail) {
+    const nome = nomeEdicao.trim();
+    if (!nome || !tagEdicao) return;
+
+    const executar = async () => {
+      setOcupado(emp.id);
+      try {
+        await api.updateEmployee(appId, emp.id, { name: nome, roleId: tagEdicao });
+        toast.success('Funcionário atualizado.');
+        setEditando(null);
+        await recarregar();
+        onChanged?.();
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : 'Não foi possível atualizar o funcionário.');
+      } finally {
+        setOcupado(null);
+      }
+    };
+
+    if (tagEdicao !== emp.roleId) {
+      confirm({
+        title: 'Alterar tag de acesso?',
+        message: `A sessão atual de ${emp.name} será encerrada e as novas permissões valerão imediatamente.`,
+        confirmText: 'Alterar tag',
+        onConfirm: executar,
+      });
+      return;
+    }
+    void executar();
+  }
+
   if (carregando) {
     return <p className="py-6 text-center text-sm text-gray-500">Carregando equipe...</p>;
   }
@@ -204,6 +248,15 @@ export function EmployeeList({ appId, onChanged }: Props) {
               </button>
 
               <div className="flex shrink-0 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => iniciarEdicao(emp)}
+                  disabled={travado}
+                  title="Editar funcionário"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-solid border-gray-200 bg-white text-gray-600 disabled:opacity-50"
+                >
+                  <Pencil size={15} />
+                </button>
                 {emp.blocked ? (
                   <button
                     type="button"
@@ -237,6 +290,56 @@ export function EmployeeList({ appId, onChanged }: Props) {
                 </button>
               </div>
             </div>
+
+            {editando === emp.id && (
+              <div className="mt-3 space-y-3 rounded-xl border border-solid border-orange-200 bg-orange-50/50 p-3">
+                <label className="block text-xs font-bold text-gray-600">
+                  Nome
+                  <input
+                    value={nomeEdicao}
+                    onChange={(event) => setNomeEdicao(event.target.value)}
+                    className="mt-1 box-border w-full rounded-lg border border-solid border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:border-[#F95D2A]"
+                  />
+                </label>
+                <fieldset className="m-0 border-0 p-0">
+                  <legend className="mb-2 text-xs font-bold text-gray-600">Tag de acesso</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {roles.map((role) => (
+                      <button
+                        key={role._id}
+                        type="button"
+                        onClick={() => setTagEdicao(role._id)}
+                        aria-pressed={tagEdicao === role._id}
+                        className={`rounded-full border border-solid px-3 py-2 text-xs font-bold ${
+                          tagEdicao === role._id
+                            ? 'border-[#F95D2A] bg-orange-100 text-orange-800'
+                            : 'border-gray-200 bg-white text-gray-600'
+                        }`}
+                      >
+                        {role.name}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => salvarEdicao(emp)}
+                    disabled={travado || !nomeEdicao.trim() || !tagEdicao}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#F95D2A] px-3 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    <Check size={15} /> Salvar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditando(null)}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-solid border-gray-200 bg-white px-3 py-2.5 text-sm font-bold text-gray-600"
+                  >
+                    <X size={15} /> Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* --------------------------- Código --------------------------- */}
             <div className="mt-3 flex items-center gap-2.5 rounded-lg border border-solid border-gray-100 bg-gray-50 p-2.5">

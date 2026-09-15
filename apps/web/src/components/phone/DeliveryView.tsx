@@ -4,7 +4,9 @@ import { brl } from '../../lib/format';
 import { addressLabel, mapsUrl, whatsappUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
 import { useConfirm } from '../ConfirmModal';
 
-const PAYMENT_LABEL: Record<PaymentMethod, string> = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro' };
+const PAYMENT_LABEL: Record<PaymentMethod, string> = {
+  pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro', fiado: 'Fiado',
+};
 
 function formatPayments(payments: PaymentSplit): string {
   if (payments.length === 0) return 'Pendente';
@@ -15,6 +17,7 @@ type Props = {
   orders: DeliveryOrder[];
   interactive: boolean;
   onAdvance: (id: string) => void;
+  onClaim?: (id: string) => void;
   onRevert: (id: string) => void;
   onCancel: (id: string) => void;
 };
@@ -58,13 +61,16 @@ function normalize(value: string): string {
  * e "Concluídas" (entregue) — com busca que varre qualquer informação do pedido:
  * nome, telefone, código, item, endereço, referência, forma de pagamento ou valor.
  */
-export function DeliveryView({ orders, interactive, onAdvance, onRevert, onCancel }: Props) {
+export function DeliveryView({ orders, interactive, onAdvance, onClaim, onRevert, onCancel }: Props) {
   const copy = demo.preview;
   const [tab, setTab] = useState<'pending' | 'done'>('pending');
   const { confirm, ConfirmElement } = useConfirm();
   const [search, setSearch] = useState('');
 
-  const pending = useMemo(() => orders.filter((order) => order.status !== 'entregue' && order.status !== 'novo'), [orders]);
+  const pending = useMemo(
+    () => orders.filter((order) => order.status !== 'entregue' && (order.status !== 'novo' || Boolean(onClaim))),
+    [orders, onClaim]
+  );
   const done = useMemo(() => orders.filter((order) => order.status === 'entregue'), [orders]);
 
   const visible = useMemo(() => {
@@ -218,7 +224,7 @@ export function DeliveryView({ orders, interactive, onAdvance, onRevert, onCance
                 <button
                   type="button"
                   className="phone__sheet-btn is-primary"
-                  onClick={() => onAdvance(order.id)}
+                  onClick={() => order.status === 'novo' && onClaim ? onClaim(order.id) : onAdvance(order.id)}
                   disabled={!interactive || order.status === 'entregue'}
                 >
                   {copy.deliveryActions[order.status]}
