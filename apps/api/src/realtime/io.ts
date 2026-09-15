@@ -32,6 +32,14 @@ export type EventoPedido = {
   source?: string;
 };
 
+export type EventoAtualizacaoObrigatoria = {
+  latestVersion: string;
+  minVersion: string;
+  forceUpdate: boolean;
+  downloadUrls: { apk: string; exe: string };
+  changelog: string[];
+};
+
 let io: SocketServer | null = null;
 
 /** Nome da sala. Uma função para não haver duas convenções no código. */
@@ -160,6 +168,12 @@ export function emitOperationChanged(appId: string, dados: { tipo: string; por: 
 export function emitSessionRevoked(appId: string, employeeId: string, motivo: string): void {
   if (!io) return;
   io.to(sala(appId)).emit('session_revoked', { employeeId, motivo });
+}
+
+/** Publicação global: todas as salas e todos os restaurantes recebem. */
+export function emitForceUpdatePublished(dados: EventoAtualizacaoObrigatoria): void {
+  if (!io) return;
+  io.emit('app:force_update_published', dados);
 }
 
 export function getIO(): SocketServer | null {

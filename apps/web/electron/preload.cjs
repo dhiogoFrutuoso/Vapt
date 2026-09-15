@@ -34,4 +34,5 @@ contextBridge.exposeInMainWorld('vaptSecure', {
   get: (chave) => ipcRenderer.invoke('vapt:secure:get', String(chave)),
   set: (chave, valor) => ipcRenderer.invoke('vapt:secure:set', String(chave), String(valor)),
   remove: (chave) => ipcRenderer.invoke('vapt:secure:remove', String(chave)),
+  openUpdate: (url) => ipcRenderer.invoke('vapt:update:open', String(url)),
 });

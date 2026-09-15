@@ -77,6 +77,7 @@ import {
 import { getDeviceMenu } from '../controllers/deviceMenu.controller.js';
 import { upload } from '../middlewares/upload.js';
 import { adminRoutes } from './adminRoutes.js';
+import { getPublicAppVersion } from '../controllers/appVersion.controller.js';
 
 export const router = Router();
 
@@ -88,6 +89,7 @@ router.get('/health', (_req, res) =>
 
 router.get('/company', getCompanyInfo);
 router.get('/plans', listPlans);
+router.get('/public/app/version', getPublicAppVersion);
 
 /* ------------------------- Landing page --------------------------- */
 

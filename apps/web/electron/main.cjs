@@ -184,6 +184,17 @@ function registrarCofre() {
     gravarCofre(cofre);
     return true;
   });
+
+  ipcMain.handle('vapt:update:open', async (_evento, value) => {
+    try {
+      const url = new URL(String(value));
+      if (url.protocol !== 'https:' || !url.pathname.toLowerCase().endsWith('.exe')) return false;
+      await shell.openExternal(url.toString());
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 /* ------------------------------------------------------------------ */

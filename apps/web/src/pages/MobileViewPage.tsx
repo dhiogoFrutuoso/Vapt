@@ -3,6 +3,8 @@ import { CodeLoginScreen } from '../mobile/CodeLoginScreen';
 import { OnboardingScreen } from '../mobile/OnboardingScreen';
 import { MobileShell } from '../mobile/MobileShell';
 import { PreferencesProvider } from '../mobile/PreferencesContext';
+import { ForceUpdateProvider } from '../mobile/ForceUpdateContext';
+import { ForceUpdateGate } from '../mobile/ForceUpdateGate';
 
 /**
  * `/mobile-view` — a rota que a casca do Capacitor aponta.
@@ -63,7 +65,10 @@ export function MobileViewPage() {
      */
     <PreferencesProvider>
       <DeviceAuthProvider>
-        <MobileRouter />
+        <ForceUpdateProvider>
+          <MobileRouter />
+          <ForceUpdateGate />
+        </ForceUpdateProvider>
       </DeviceAuthProvider>
     </PreferencesProvider>
   );
