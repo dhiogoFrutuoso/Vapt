@@ -4,9 +4,10 @@ import { brl } from '../../lib/format';
 import { getImageUrl } from '../../lib/api';
 import { CategoryGrid } from './CategoryGrid';
 import { MoneyInput } from './MoneyInput';
+import { CashChangeField } from './CashChangeField';
 import { IconRenderer } from '../IconRenderer';
 import { useConfirm } from '../ConfirmModal';
-import { promotionParts, sumItems, type CategoryItem, type OrderItem, type PaymentMethod, type PaymentSplit, type PaymentSplitItem, type PreviewProduct, type TableStatus } from './types';
+import { hasInvalidChangeFor, promotionParts, sumItems, type CategoryItem, type OrderItem, type PaymentMethod, type PaymentSplit, type PaymentSplitItem, type PreviewProduct, type TableStatus } from './types';
 
 /** Comanda normalizada: mesa e retirada usam a mesma tela. */
 export type Ticket = {
@@ -75,8 +76,7 @@ export function OrderSheet({
 
   const splitsTotal = splits.reduce((s, p) => s + p.amount, 0);
   const remaining = Math.max(0, total - splitsTotal);
-  const changeDue = Math.max(0, splitsTotal - total);
-  const isValid = Math.abs(remaining) < 0.01 && splits.every(p => p.amount > 0);
+  const isValid = Math.abs(total - splitsTotal) < 0.01 && splits.every(p => p.amount > 0) && !hasInvalidChangeFor(splits);
 
   function addSplit() {
     setSplits(prev => [...prev, { method: 'dinheiro', amount: remaining > 0 ? parseFloat(remaining.toFixed(2)) : 0 }]);
@@ -86,7 +86,9 @@ export function OrderSheet({
     setSplits(prev => prev.filter((_, i) => i !== index));
   }
   function updateSplit(index: number, patch: Partial<PaymentSplitItem>) {
-    setSplits(prev => prev.map((item, i) => i === index ? { ...item, ...patch } : item));
+    setSplits(prev => prev.map((item, i) => i === index
+      ? { ...item, ...patch, changeFor: patch.method && patch.method !== 'dinheiro' ? undefined : 'changeFor' in patch ? patch.changeFor : item.changeFor }
+      : item));
   }
 
   function handleMethodToggle(method: PaymentMethod) {
@@ -361,21 +363,8 @@ export function OrderSheet({
                     ))}
                   </div>
                   {splits.length === 1 && splits[0].method === 'dinheiro' && (
-                    <div className="phone__field" style={{ marginTop: '12px' }}>
-                      <label htmlFor="fw-ordersheet-change">{copy.changeLabel}</label>
-                      <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666', fontSize: '1rem', pointerEvents: 'none', zIndex: 2 }}>R$</span>
-                        <MoneyInput
-                          value={splits[0].amount}
-                          onChange={(val) => setSplits([{ method: 'dinheiro', amount: val }])}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {changeDue > 0.009 && (
-                    <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-extrabold text-emerald-700">
-                      Troco calculado: {brl(changeDue)}
-                    </p>
+                    <CashChangeField id="fw-ordersheet-change" amount={splits[0].amount} changeFor={splits[0].changeFor}
+                      onChange={(changeFor) => updateSplit(0, { changeFor })} />
                   )}
                   <button
                     type="button"
@@ -388,7 +377,8 @@ export function OrderSheet({
               ) : (
                 <div className="split-pay">
                   {splits.map((split, index) => (
-                    <div key={index} className="split-pay__row">
+                    <div key={index} className="split-pay__group">
+                    <div className="split-pay__row">
                       <select
                         className="split-pay__select"
                         value={split.method}
@@ -417,16 +407,14 @@ export function OrderSheet({
                         </button>
                       )}
                     </div>
+                    {split.method === 'dinheiro' && <CashChangeField id={`fw-ordersheet-change-${index}`} amount={split.amount} changeFor={split.changeFor}
+                      onChange={(changeFor) => updateSplit(index, { changeFor })} />}
+                    </div>
                   ))}
 
                   {remaining > 0.01 && (
                     <p style={{ fontSize: '0.8rem', color: '#f59e0b', margin: '4px 0' }}>
                       Falta: {brl(remaining)}
-                    </p>
-                  )}
-                  {splitsTotal > total + 0.01 && (
-                    <p style={{ fontSize: '0.8rem', color: '#ef4444', margin: '4px 0' }}>
-                      Troco calculado: {brl(splitsTotal - total)}
                     </p>
                   )}
 

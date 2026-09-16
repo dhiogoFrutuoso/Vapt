@@ -6,6 +6,7 @@ import type {
   OrderItem,
   PreviewProduct,
   PreviewPromotion,
+  PaymentSplit,
 } from '../components/phone/types';
 import { brl } from '../lib/format';
 import { io } from 'socket.io-client';
@@ -95,9 +96,10 @@ export function montarTextoPedido(params: {
   itens: OrderItem[];
   subtotal: number;
   taxa: number;
+  payments?: PaymentSplit;
   codigo?: string;
 }): string {
-  const { loja, cliente, telefone, endereco, observacao, itens, subtotal, taxa, codigo } = params;
+  const { loja, cliente, telefone, endereco, observacao, itens, subtotal, taxa, payments = [], codigo } = params;
 
   /* Agrupa por nome: a lista interna tem uma linha por unidade. */
   const contagem = new Map<string, { qtd: number; total: number }>();
@@ -124,6 +126,16 @@ export function montarTextoPedido(params: {
   linhas.push('', `*Subtotal:* ${brl(subtotal)}`);
   if (taxa > 0) linhas.push(`*Entrega:* ${brl(taxa)}`);
   linhas.push(`*Total:* ${brl(subtotal + taxa)}`);
+  if (payments.length > 0) {
+    linhas.push(`*Pagamento:* ${payments.map((payment) => `${payment.method.toUpperCase()} ${brl(payment.amount)}`).join(' + ')}`);
+    for (const payment of payments) {
+      if (payment.method === 'dinheiro' && payment.changeFor != null) {
+        const nonCash = payments.filter((item) => item.method !== 'dinheiro').reduce((sum, item) => sum + item.amount, 0);
+        linhas.push(`*Troco para:* ${brl(payment.changeFor)}`);
+        linhas.push(`*Troco previsto:* ${brl(Math.max(0, payment.changeFor - Math.max(0, subtotal + taxa - nonCash)))}`);
+      }
+    }
+  }
 
   if (observacao) linhas.push('', `*Observação:* ${observacao}`);
   if (codigo) linhas.push('', `Pedido nº ${codigo}`);
@@ -263,6 +275,9 @@ export function ClientMenuPage() {
 
     const endereco = dados.isDelivery
       ? [dados.address.street, dados.address.number].filter(Boolean).join(', ')
+        || (dados.address.lat != null && dados.address.lng != null
+          ? `${dados.address.lat.toFixed(5)}, ${dados.address.lng.toFixed(5)}`
+          : 'Localização informada')
       : '';
 
     let codigo = '';
@@ -278,14 +293,18 @@ export function ClientMenuPage() {
           isDelivery: dados.isDelivery,
           address: dados.isDelivery
             ? {
+                mode: dados.address.mode,
                 street: dados.address.street ?? '',
                 number: dados.address.number ?? '',
                 district: dados.address.district ?? '',
                 city: dados.address.city ?? '',
                 reference: dados.address.reference ?? '',
+                lat: dados.address.lat,
+                lng: dados.address.lng,
               }
             : {},
           items: [...contagem].map(([productId, quantity]) => ({ productId, quantity })),
+          payments: dados.payments,
         }),
       });
 
@@ -313,6 +332,7 @@ export function ClientMenuPage() {
       itens: cart,
       subtotal,
       taxa,
+      payments: dados.payments,
       codigo,
     });
 

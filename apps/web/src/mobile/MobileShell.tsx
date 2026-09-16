@@ -72,7 +72,7 @@ const CARTAO =
 
 export function MobileShell() {
   const { employee, branding, appId, accessToken, logout } = useDeviceAuth();
-  const { idioma, tema, t } = usePreferences();
+  const { idioma, tema, escala, t } = usePreferences();
   const [editando, setEditando] = useState(false);
   const [saindo, setSaindo] = useState(false);
 
@@ -495,11 +495,14 @@ export function MobileShell() {
         {/* ------------------- Barra inferior (só mobile) ------------------- */}
         {visiveis.length > 0 && (
           <nav
-            className="grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white md:hidden
+            className="mobile-shell__bottom-nav grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white md:hidden
               dark:border-white/10 dark:bg-gray-900"
             style={{
-              gridTemplateColumns: `repeat(${visiveis.length}, minmax(0, 1fr))`,
+              gridTemplateColumns: escala >= 130
+                ? `repeat(${visiveis.length}, minmax(4.5rem, 1fr))`
+                : `repeat(${visiveis.length}, minmax(0, 1fr))`,
               paddingBottom: 'env(safe-area-inset-bottom)',
+              overflowX: escala >= 130 ? 'auto' : undefined,
             }}
             aria-label={t('nav.areas')}
           >
@@ -517,7 +520,7 @@ export function MobileShell() {
                   style={{ color: selecionada ? marca : '#9CA3AF' }}
                 >
                   <Icone size={20} />
-                  <span className="truncate text-[10px] font-semibold leading-none">{t(texto)}</span>
+                  <span className={`${escala >= 130 ? 'whitespace-nowrap' : 'truncate'} text-[0.68rem] font-semibold leading-tight`}>{t(texto)}</span>
                 </button>
               );
             })}

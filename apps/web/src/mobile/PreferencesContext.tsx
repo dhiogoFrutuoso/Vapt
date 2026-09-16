@@ -43,6 +43,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     gravarPreferencias(prefs);
   }, [prefs]);
 
+  useEffect(() => () => {
+    const raiz = document.documentElement;
+    raiz.style.removeProperty('zoom');
+    raiz.style.removeProperty('color-scheme');
+    raiz.style.removeProperty('--font');
+    raiz.classList.remove('dark');
+    delete raiz.dataset.vaptScale;
+  }, []);
+
   /*
    * Com o tema em "automático", o aparelho pode trocar sozinho — no anoitecer
    * programado do Android, por exemplo. Sem este ouvinte a interface só

@@ -242,11 +242,14 @@ const pedidoPublicoSchema = z.object({
   isDelivery: z.boolean().optional().default(true),
   address: z
     .object({
+      mode: z.enum(['gps', 'manual']).optional().default('manual'),
       street: z.string().trim().max(160).optional().default(''),
       number: z.string().trim().max(20).optional().default(''),
       district: z.string().trim().max(80).optional().default(''),
       city: z.string().trim().max(80).optional().default(''),
       reference: z.string().trim().max(240).optional().default(''),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
     })
     .optional()
     .default({}),
@@ -259,6 +262,11 @@ const pedidoPublicoSchema = z.object({
     )
     .min(1, 'O pedido esta vazio.')
     .max(40),
+  payments: z.array(z.object({
+    method: z.enum(['pix', 'dinheiro', 'cartao']),
+    amount: z.number().positive().max(999_999),
+    changeFor: z.number().positive().max(999_999).optional(),
+  })).max(6).optional().default([]),
 });
 
 /**
@@ -314,6 +322,20 @@ export const createPublicOrder = asyncHandler(async (req: Request, res: Response
   }
 
   const subtotal = itens.reduce((soma, item) => soma + item.price, 0);
+  if (body.isDelivery && body.address.mode === 'gps' && (body.address.lat == null || body.address.lng == null)) {
+    throw new HttpError(400, 'Confirme a localização no mapa antes de enviar o pedido.');
+  }
+  if (body.payments.length > 0) {
+    const pago = body.payments.reduce((soma, payment) => soma + payment.amount, 0);
+    if (Math.abs(pago - subtotal) > 0.01) {
+      throw new HttpError(400, 'A soma das formas de pagamento deve corresponder ao subtotal do pedido.');
+    }
+    for (const payment of body.payments) {
+      if (payment.changeFor != null && (payment.method !== 'dinheiro' || payment.changeFor + 0.005 < payment.amount)) {
+        throw new HttpError(400, 'Informe um valor de troco válido somente para dinheiro.');
+      }
+    }
+  }
   const agora = Date.now();
   const code = String(Math.floor(1000 + Math.random() * 8999));
   const orderId = `d-${agora}-${Math.floor(Math.random() * 1000)}`;
@@ -328,9 +350,11 @@ export const createPublicOrder = asyncHandler(async (req: Request, res: Response
     phone: body.phone,
     items: itens,
     total: subtotal,
-    payments: [],
+    payments: body.payments,
+    /** Forma escolhida pelo cliente não comprova recebimento de PIX. */
+    paymentDeclaredOnly: true,
     deliveryFee: 0,
-    address: { mode: 'manual', ...body.address },
+    address: body.address,
     notes: body.notes,
     isDelivery: body.isDelivery,
     status: 'novo',

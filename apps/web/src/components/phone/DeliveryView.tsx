@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
-import { addressLabel, mapsUrl, whatsappUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
+import { addressLabel, mapsUrl, paymentCashBalance, whatsappUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
 import { useConfirm } from '../ConfirmModal';
 import { UserRoundCog } from 'lucide-react';
 
@@ -11,7 +11,7 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = {
 
 function formatPayments(payments: PaymentSplit): string {
   if (payments.length === 0) return 'Pendente';
-  return payments.map(p => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
+  return payments.map(p => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}${p.method === 'dinheiro' && p.changeFor != null ? ` · troco para ${brl(p.changeFor)}` : ''}`).join(' + ');
 }
 
 type Props = {
@@ -206,6 +206,16 @@ export function DeliveryView({
                   {formatPayments(order.payments)}
                 </span>
               </div>
+              {(order.deliveryFee ?? 0) > 0 && order.payments.length > 1 && (
+                <p className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-900 dark:bg-orange-950/40 dark:text-orange-100">
+                  Taxa de {brl(order.deliveryFee ?? 0)} incluída na 1ª forma de pagamento ({PAYMENT_LABEL[order.payments[0].method]}).
+                </p>
+              )}
+              {order.payments.some((payment) => payment.method === 'dinheiro' && payment.changeFor != null) && (
+                <p className="cash-change-field__total">{paymentCashBalance(order.payments, order.total) < 0
+                  ? `Cobrar mais ${brl(-paymentCashBalance(order.payments, order.total))} após a taxa de entrega`
+                  : `Troco a levar: ${brl(paymentCashBalance(order.payments, order.total))}`}</p>
+              )}
 
               <div className="phone__delivery-address">
                 <span className="phone__delivery-mode">

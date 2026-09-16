@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { demo } from '../../data/content';
 import { brl, maskPhone } from '../../lib/format';
 import { MoneyInput } from './MoneyInput';
+import { CashChangeField } from './CashChangeField';
 import { MapPicker } from './MapPicker';
 import { IconRenderer } from '../IconRenderer';
-import type { DeliveryAddress, OrderItem, PaymentSplit, PaymentSplitItem, PaymentMethod } from './types';
+import { hasInvalidChangeFor, type DeliveryAddress, type OrderItem, type PaymentSplit, type PaymentSplitItem, type PaymentMethod } from './types';
 import {
-  DEFAULT_MAP_CENTER,
   getCurrentCoordinates,
   getLocationFailureMessage,
   isNativeLocationPlatform,
@@ -26,6 +26,7 @@ type Props = {
     address: string | DeliveryAddress;
     notes: string;
     payments?: PaymentSplit;
+    deliveryFee?: number;
   };
   /** "Salvar alteracoes" no modo edicao, para o botao nao mentir. */
   submitLabel?: string;
@@ -118,15 +119,17 @@ export function CheckoutSheet({
     ? [...copy.payments, { value: 'fiado', label: 'Fiado', iconName: 'wallet' }]
     : copy.payments;
 
-  const total = items.reduce((sum, item) => sum + item.price, 0);
+  const total = items.reduce((sum, item) => sum + item.price, 0) + (initial?.deliveryFee ?? 0);
 
   const [customerName, setCustomerName] = useState(initial?.name ?? '');
   const [phone, setPhone] = useState(initial?.phone ?? '');
-  const [isSplitMode, setIsSplitMode] = useState(false);
+  const [isSplitMode, setIsSplitMode] = useState((initial?.payments?.length ?? 0) > 1);
   const [splits, setSplits] = useState<PaymentSplitItem[]>(
     initial?.payments?.length ? initial.payments.map((payment) => ({ ...payment })) : [{ method: 'pix', amount: total }]
   );
-  const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'done'>(addressObject?.mode === 'gps' ? 'done' : 'idle');
+  const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'done'>(
+    addressObject?.mode === 'gps' && Number.isFinite(addressObject.lat) && Number.isFinite(addressObject.lng) ? 'done' : 'idle'
+  );
   const [manualOpen, setManualOpen] = useState(Boolean(initial?.address) && addressObject?.mode !== 'gps');
   const [manual, setManual] = useState<{ city: string; district: string; street: string; number: string; reference: string; lat?: number; lng?: number }>({
     city: addressObject?.city ?? '',
@@ -155,7 +158,6 @@ export function CheckoutSheet({
 
   const splitsTotal = splits.reduce((sum, s) => sum + s.amount, 0);
   const remaining = Math.max(0, total - splitsTotal);
-  const changeDue = Math.max(0, splitsTotal - total);
 
   function addSplit() {
     setSplits([...splits, { method: 'pix', amount: remaining }]);
@@ -166,7 +168,9 @@ export function CheckoutSheet({
   }
 
   function updateSplit(index: number, updates: Partial<PaymentSplitItem>) {
-    setSplits(splits.map((s, i) => (i === index ? { ...s, ...updates } : s)));
+    setSplits(splits.map((s, i) => (i === index
+      ? { ...s, ...updates, changeFor: updates.method && updates.method !== 'dinheiro' ? undefined : 'changeFor' in updates ? updates.changeFor : s.changeFor }
+      : s)));
   }
 
   async function captureLocation() {
@@ -181,17 +185,14 @@ export function CheckoutSheet({
     } catch (locationError) {
       if (isNativeLocationPlatform()) {
         setTempCoords(null);
+        setManualOpen(true);
         setError(getLocationFailureMessage(locationError));
         return;
       }
 
-      setTempCoords(
-        manual.lat != null && manual.lng != null
-          ? { lat: manual.lat, lng: manual.lng }
-          : DEFAULT_MAP_CENTER
-      );
-      setError('Localização automática indisponível. Ajuste o pino no mapa para continuar.');
-      setMapOpen(true);
+      setTempCoords(null);
+      setManualOpen(true);
+      setError('Localização automática indisponível. Informe o endereço manualmente e tente novamente mais tarde.');
     } finally {
       setGpsState('idle');
     }
@@ -220,6 +221,10 @@ export function CheckoutSheet({
   }
 
   async function handleSubmit() {
+    if (splits.length === 0 || Math.abs(splitsTotal - total) > 0.01 || splits.some((split) => split.amount <= 0) || hasInvalidChangeFor(splits)) {
+      setError('Confira os valores do pagamento e o valor informado para troco.');
+      return;
+    }
     if (customerName.trim().length < 2) {
       setError('Escreva o seu nome para o entregador saber com quem falar.');
       nameRef.current?.focus();
@@ -232,26 +237,27 @@ export function CheckoutSheet({
     }
 
     const hasManual = manual.street.trim() && manual.number.trim();
+    const hasCoords = Number.isFinite(manual.lat) && Number.isFinite(manual.lng);
 
     /* Retirada no balcao dispensa endereco — exigi-lo travaria o cliente
        numa tela que ele nem esta vendo. */
-    if (pedeEndereco && gpsState !== 'done' && !hasManual) {
+    if (pedeEndereco && (gpsState !== 'done' || !hasCoords) && !hasManual) {
       setError('Compartilhe a localização ou informe rua e número.');
       return;
     }
 
     const address: DeliveryAddress =
-      gpsState === 'done' && !hasManual
+      gpsState === 'done' && hasCoords && !hasManual
         ? {
             mode: 'gps',
-            lat: manual.lat || -23.5613,
-            lng: manual.lng || -46.6565,
+            lat: manual.lat,
+            lng: manual.lng,
             reference: manual.reference.trim() || undefined,
           }
         : {
             mode: 'manual',
-            city: manual.city.trim() || 'São Paulo',
-            district: manual.district.trim() || 'Centro',
+            city: manual.city.trim(),
+            district: manual.district.trim(),
             street: manual.street.trim(),
             number: manual.number.trim(),
             reference: manual.reference.trim() || undefined,
@@ -342,6 +348,11 @@ export function CheckoutSheet({
 
       {/* 3. Pagamento */}
       <p className="phone__sheet-label">{copy.checkoutPayment}</p>
+      {(initial?.deliveryFee ?? 0) > 0 && (
+        <p className="mb-2 rounded-xl bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-900 dark:bg-orange-950/40 dark:text-orange-100">
+          Total com taxa de entrega de {brl(initial?.deliveryFee ?? 0)}: {brl(total)}.
+        </p>
+      )}
       
       {!isSplitMode ? (
         <>
@@ -362,21 +373,8 @@ export function CheckoutSheet({
             ))}
           </div>
           {splits.length === 1 && splits[0].method === 'dinheiro' && (
-            <div className="phone__field">
-              <label htmlFor="fw-checkout-change">{copy.changeLabel}</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#666', fontSize: '1rem', pointerEvents: 'none', zIndex: 2 }}>R$</span>
-                <MoneyInput
-                  value={splits[0].amount}
-                  onChange={(val) => setSplits([{ method: 'dinheiro', amount: val }])}
-                />
-              </div>
-            </div>
-          )}
-          {changeDue > 0.009 && (
-            <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-extrabold text-emerald-700">
-              Troco calculado: {brl(changeDue)}
-            </p>
+            <CashChangeField id="fw-checkout-change" amount={splits[0].amount} changeFor={splits[0].changeFor}
+              onChange={(changeFor) => updateSplit(0, { changeFor })} deliveryFeePending={pedeEndereco && !(initial?.deliveryFee ?? 0)} />
           )}
           <button
             type="button"
@@ -389,11 +387,12 @@ export function CheckoutSheet({
       ) : (
         <div className="split-pay">
           {splits.map((split, index) => (
-            <div key={index} className="split-pay__row">
+            <div key={index} className="split-pay__group">
+            <div className="split-pay__row">
               <select
                 className="split-pay__select"
                 value={split.method}
-                onChange={(e) => updateSplit(index, { method: e.target.value as any })}
+                onChange={(e) => updateSplit(index, { method: e.target.value as PaymentMethod })}
               >
                 <option value="pix">PIX</option>
                 <option value="cartao">Cartão</option>
@@ -418,16 +417,14 @@ export function CheckoutSheet({
                 </button>
               )}
             </div>
+            {split.method === 'dinheiro' && <CashChangeField id={`fw-checkout-change-${index}`} amount={split.amount} changeFor={split.changeFor}
+              onChange={(changeFor) => updateSplit(index, { changeFor })} deliveryFeePending={pedeEndereco && !(initial?.deliveryFee ?? 0)} />}
+            </div>
           ))}
 
           {remaining > 0.01 && (
             <p style={{ fontSize: '0.8rem', color: '#f59e0b', margin: '4px 0' }}>
-              Falta: {brl(remaining)} (sem contar a taxa de entrega)
-            </p>
-          )}
-          {splitsTotal > total + 0.01 && (
-            <p style={{ fontSize: '0.8rem', color: '#10b981', margin: '4px 0' }}>
-              Entregador levará troco para {brl(splitsTotal - total)} (descontando a taxa)
+              Falta: {brl(remaining)}{initial?.deliveryFee ? ' (incluindo a taxa de entrega)' : ' (sem contar a taxa de entrega)'}
             </p>
           )}
 
@@ -506,8 +503,10 @@ export function CheckoutSheet({
             type="button"
             className="phone__manual-toggle"
             onClick={() => {
-              setTempCoords({ lat: manual.lat ?? DEFAULT_MAP_CENTER.lat, lng: manual.lng ?? DEFAULT_MAP_CENTER.lng });
-              setMapOpen(true);
+              if (manual.lat != null && manual.lng != null) {
+                setTempCoords({ lat: manual.lat, lng: manual.lng });
+                setMapOpen(true);
+              }
             }}
           >
             Ajustar pino no mapa
@@ -587,7 +586,7 @@ export function CheckoutSheet({
       <button 
         type="button" 
         className="phone__sheet-btn is-primary is-block" 
-        disabled={submitting || !customerName || !phone || (pedeEndereco && !manualOpen && gpsState !== 'done') || splits.length === 0 || splitsTotal < total - 0.01}
+        disabled={submitting || !customerName || !phone || (pedeEndereco && !manualOpen && gpsState !== 'done') || splits.length === 0 || Math.abs(splitsTotal - total) > 0.01 || hasInvalidChangeFor(splits)}
         onClick={() => void handleSubmit()}
       >
         {submitting ? 'Enviando pedido…' : (submitLabel ?? copy.checkoutSubmit)}

@@ -43,12 +43,11 @@ const CHAVE = 'vapt.pref.interface';
 /*
  * Limites da escala.
  *
- * Abaixo de 80% os alvos de toque ficam menores que a ponta de um dedo; acima
- * de 120% a barra de abas com seis itens começa a quebrar no celular. São os
- * extremos em que a tela ainda funciona nas duas plataformas.
+ * A escala amplia também dimensões fixas em px. Em 130% ou mais, a navegação
+ * inferior passa a rolar horizontalmente para não esmagar os rótulos.
  */
-export const ESCALA_MIN = 80;
-export const ESCALA_MAX = 120;
+export const ESCALA_MIN = 90;
+export const ESCALA_MAX = 150;
 export const ESCALA_PADRAO = 100;
 
 export const PADRAO: Preferencias = {
@@ -136,10 +135,10 @@ export function temaEfetivo(tema: Tema): 'claro' | 'escuro' {
 /**
  * Aplica as preferências ao documento.
  *
- * A escala mexe no `font-size` do `<html>` porque o Tailwind dimensiona tudo
- * em `rem` — texto, espaçamentos, raios e alturas. Mudar a raiz escala a
- * interface inteira de forma proporcional; aumentar só a fonte deixaria o
- * texto grande dentro de botões do tamanho antigo.
+ * `font-size` só alcançava medidas em rem; boa parte da casca e dos cards usa
+ * px. `zoom` no documento provoca novo layout e amplia ambos (inclusive
+ * ícones e alvos de toque), sem a sobreposição de `transform: scale()`.
+ * Não combinamos as duas técnicas para evitar uma escala quadrática.
  */
 export function aplicarPreferencias(prefs: Preferencias): void {
   const raiz = document.documentElement;
@@ -151,7 +150,10 @@ export function aplicarPreferencias(prefs: Preferencias): void {
      rolagem, campos nativos e o fundo atrás do quique do scroll. */
   raiz.style.colorScheme = escuro ? 'dark' : 'light';
 
-  raiz.style.fontSize = `${limitar(prefs.escala)}%`;
+  const escala = limitar(prefs.escala);
+  raiz.style.removeProperty('font-size');
+  raiz.style.zoom = `${escala}%`;
+  raiz.dataset.vaptScale = escala >= 130 ? 'large' : 'normal';
 
   /*
    * A tipografia vai na variável `--font`, não em `style.fontFamily`.

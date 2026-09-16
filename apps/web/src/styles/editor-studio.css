@@ -714,7 +714,7 @@
 .studio-root .editor-preview .phone__add-btn,
 .studio-root .editor-preview .phone__sheet-btn,
 .studio-root .editor-preview .takeout-form__submit {
-  min-height: 44px;
+  min-height: 48px;
   border-radius: 999px;
   font-size: 0.85rem;
   padding: 10px 14px;
@@ -771,6 +771,10 @@
 .studio-root .editor-preview .phone__tables {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 148px), 1fr));
   gap: 10px;
+}
+
+.studio-root .editor-preview .svc-grid.svc-grid--takeouts {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .studio-root .editor-preview .takeout-form {

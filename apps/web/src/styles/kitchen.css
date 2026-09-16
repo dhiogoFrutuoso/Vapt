@@ -203,6 +203,28 @@
   letter-spacing: 0.04em;
 }
 
+/* A impressão pertence à comanda, antes dos controles de produção. */
+.kds-card__print {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-900);
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.kds-card__print:hover { border-color: var(--brand); }
+.kds-card__print:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
 /* --------------------- Rodape: fluxo de producao ------------------- */
 .kds-card__foot {
   display: grid;

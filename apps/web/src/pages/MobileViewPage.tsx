@@ -41,10 +41,9 @@ function MobileRouter() {
   if (loading) {
     return (
       <main
-        className="flex min-h-[100dvh] items-center justify-center"
-        style={{ backgroundColor: '#FAF8F5' }}
+        className="flex min-h-[100dvh] items-center justify-center bg-[#FAF8F5] dark:bg-gray-950"
       >
-        <p className="m-0 text-sm font-semibold text-gray-400">Carregando...</p>
+        <p className="m-0 text-sm font-semibold text-gray-600 dark:text-gray-300">Carregando...</p>
       </main>
     );
   }

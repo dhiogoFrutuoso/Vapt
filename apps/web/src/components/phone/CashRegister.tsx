@@ -1,14 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { MoneyInput } from './MoneyInput';
-import { faturamento } from './types';
+import { CashChangeField } from './CashChangeField';
+import { faturamento, hasInvalidChangeFor, paymentChangeDue } from './types';
 import { addressLabel, type CashEntry, type CashMovement, type OrderItem, type OrderSource, type PaymentMethod, type PaymentSplit, type PaymentSplitItem } from './types';
-import { ArrowUpFromLine, ClipboardCopy, FolderOpen, HandCoins, Printer, RotateCcw, X, XCircle } from 'lucide-react';
+import { ArrowRight, ArrowUpFromLine, ClipboardCheck, ClipboardCopy, FolderOpen, HandCoins, Printer, RotateCcw, X, XCircle } from 'lucide-react';
 import { useConfirm } from '../ConfirmModal';
 import { formatReceiptText, PrintTicket, type PrintTicketProps } from './PrintTicket';
 import { printReceipt } from '../../lib/printReceipt';
+import { CashMovementTicket } from './CashMovementTicket';
 
 type Props = {
   entries: CashEntry[];
@@ -77,7 +80,7 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = {
 
 function formatPayments(payments: PaymentSplit): string {
   if (payments.length === 0) return 'Pendente';
-  return payments.map(p => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
+  return payments.map(p => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}${p.method === 'dinheiro' && p.changeFor != null ? ` · troco para ${brl(p.changeFor)}` : ''}`).join(' + ');
 }
 
 /** Busca tolerante: ignora acento e caixa. */
@@ -159,7 +162,19 @@ export function CashRegister({
   const [actionEntry, setActionEntry] = useState<CashEntry | null>(null);
   const [actionAmount, setActionAmount] = useState(0);
   const [actionReason, setActionReason] = useState('');
+  const [showAllMovements, setShowAllMovements] = useState(false);
+  const [printingMovement, setPrintingMovement] = useState<{ movement: CashMovement; draft: boolean } | null>(null);
   const [counted, setCounted] = useState({ dinheiro: 0, cartao: 0, pix: 0 });
+
+  useEffect(() => {
+    if (!printingMovement) return;
+    const timer = window.setTimeout(() => {
+      void printReceipt().catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Não foi possível imprimir a comanda.');
+      });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [printingMovement]);
 
   /* ---- Registro: busca livre e extrato por data ---- */
   const [search, setSearch] = useState('');
@@ -172,6 +187,7 @@ export function CashRegister({
   const [editDeliveryFee, setEditDeliveryFee] = useState(0);
 
   function openEditModal(entry: CashEntry) {
+    setPrintingMovement(null);
     setEditingEntry(entry);
     setEditSplits(
       entry.payments.length > 0
@@ -200,7 +216,9 @@ export function CashRegister({
   }
 
   function updateEditSplit(index: number, patch: Partial<PaymentSplitItem>) {
-    setEditSplits(prev => prev.map((item, i) => i === index ? { ...item, ...patch } : item));
+    setEditSplits(prev => prev.map((item, i) => i === index
+      ? { ...item, ...patch, changeFor: patch.method && patch.method !== 'dinheiro' ? undefined : 'changeFor' in patch ? patch.changeFor : item.changeFor }
+      : item));
   }
 
   function confirmEdit() {
@@ -227,7 +245,7 @@ export function CashRegister({
     : 0;
   const editSplitsTotal = editSplits.reduce((s, p) => s + p.amount, 0);
   const editRemaining = Math.max(0, editTotal - editSplitsTotal);
-  const editIsValid = editRemaining < 0.01 && editSplits.length > 0 && editSplits.every(p => p.amount > 0);
+  const editIsValid = Math.abs(editTotal - editSplitsTotal) < 0.01 && editSplits.length > 0 && editSplits.every(p => p.amount > 0) && !hasInvalidChangeFor(editSplits);
 
   const editingReceipt: PrintTicketProps | null = editingEntry ? {
     storeName,
@@ -279,6 +297,18 @@ export function CashRegister({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível imprimir a comanda.');
     }
+  }
+
+  function printDraftMovement() {
+    if (actionAmount <= 0 || actionReason.trim().length < 3) return;
+    setPrintingMovement({
+      draft: true,
+      movement: {
+        id: 'prévia', type: 'sangria', amount: actionAmount,
+        reason: actionReason.trim(), operatorId: '',
+        operatorName: operatorName || 'Equipe Vapt', createdAt: Date.now(),
+      },
+    });
   }
 
   const couriers = useMemo(() => {
@@ -518,17 +548,30 @@ export function CashRegister({
           )}
 
           {movements.length > 0 && (
-            <div className="mb-4 rounded-2xl bg-slate-50 p-3 text-xs text-slate-600">
-              <strong className="mb-2 block text-slate-900">Movimentos deste turno</strong>
-              {movements.slice(0, 5).map((movement) => (
-                <div key={movement.id} className="flex justify-between gap-3 py-1">
-                  <span>{movement.type === 'sangria' ? 'Saída de dinheiro' : 'Entrada antiga'} · {movement.reason}</span>
-                  <strong className={movement.type === 'sangria' ? 'text-red-600' : 'text-emerald-600'}>
+            <section className="cash-movements" aria-label="Movimentos deste turno">
+              <h4>Movimentos deste turno</h4>
+              {(showAllMovements ? movements : movements.slice(0, 5)).map((movement) => (
+                <div key={movement.id} className="cash-movement">
+                  <div className="cash-movement__details">
+                    <strong>{movement.type === 'sangria' ? 'Saída de dinheiro' : 'Entrada antiga'}</strong>
+                    <span>{movement.reason} · {new Date(movement.createdAt).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <strong className={movement.type === 'sangria' ? 'cash-movement__amount is-outflow' : 'cash-movement__amount'}>
                     {movement.type === 'sangria' ? '− ' : '+ '}{brl(movement.amount)}
                   </strong>
+                  {movement.type === 'sangria' && (
+                    <button type="button" className="cash-movement__print" onClick={() => setPrintingMovement({ movement, draft: false })}>
+                      <Printer size={16} aria-hidden="true" /> Imprimir comanda
+                    </button>
+                  )}
                 </div>
               ))}
-            </div>
+              {movements.length > 5 && (
+                <button type="button" className="cash-movements__more" onClick={() => setShowAllMovements((value) => !value)}>
+                  {showAllMovements ? 'Mostrar menos' : `Ver todas as ${movements.length} movimentações`}
+                </button>
+              )}
+            </section>
           )}
 
           {filterControls}
@@ -579,6 +622,11 @@ export function CashRegister({
                     )}
                     <span className="cash-entry__total">{brl(entry.total)}</span>
                   </div>
+                  {entry.source === 'delivery' && entry.deliveryFee > 0 && entry.payments.length > 1 && (
+                    <p className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-900 dark:bg-orange-950/40 dark:text-orange-100">
+                      Taxa de {brl(entry.deliveryFee)} incluída na 1ª forma de pagamento ({PAYMENT_LABEL[entry.payments[0].method]}).
+                    </p>
+                  )}
 
                   <div className="cash-entry__status">
                     <span className={`cash-badge is-order-${entry.orderStatus}`}>
@@ -749,6 +797,11 @@ export function CashRegister({
                       )}
                       <span className="cash-entry__total">{brl(entry.total)}</span>
                     </div>
+                    {entry.source === 'delivery' && entry.deliveryFee > 0 && entry.payments.length > 1 && (
+                      <p className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-xs font-semibold text-orange-900 dark:bg-orange-950/40 dark:text-orange-100">
+                        Taxa de {brl(entry.deliveryFee)} incluída na 1ª forma de pagamento ({PAYMENT_LABEL[entry.payments[0].method]}).
+                      </p>
+                    )}
 
                     <div className="cash-entry__status">
                       <span className={`cash-badge ${entry.orderStatus === 'cancelado' ? 'is-order-cancelado' : 'is-pay-concluido'}`}>
@@ -820,25 +873,21 @@ export function CashRegister({
       </div>
 
       {tab === 'turno' && (
-        <section className="cash-totals" style={{
-          marginTop: 'auto',
-          flexShrink: 0,
-          zIndex: 50,
-          boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)'
-        }}>
-          <div className="cash-totals__head">
-            <h4>Conferência do turno</h4>
+        <section className="cash-totals cash-totals--close" aria-label="Fechamento do turno">
+          <div className="cash-close__intro">
+            <span className="cash-close__icon" aria-hidden="true"><ClipboardCheck size={19} /></span>
+            <div className="cash-close__copy">
+              <h4>Conferência do turno</h4>
+              <p>Fechamento cego: conte dinheiro, cartão e PIX.</p>
+            </div>
           </div>
-
-          <p className="cash-note">Fechamento cego: conte cada meio de pagamento sem consultar o total calculado pelo sistema.</p>
-
           <button
             type="button"
-            className="phone__sheet-btn is-primary is-block"
+            className="phone__sheet-btn is-primary is-block cash-close__button"
             onClick={handleClose}
             disabled={paid.length === 0}
           >
-            {copy.cashClose}
+            <span>{copy.cashClose}</span><ArrowRight size={17} aria-hidden="true" />
           </button>
 
           {closedMessage && <p className="phone__flash">{closedMessage}</p>}
@@ -846,12 +895,7 @@ export function CashRegister({
       )}
 
       {tab === 'registro' && (
-        <section className="cash-totals" style={{
-          marginTop: 'auto',
-          flexShrink: 0,
-          zIndex: 50,
-          boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.1), 0 -4px 6px -2px rgba(0, 0, 0, 0.05)'
-        }}>
+        <section className="cash-totals cash-totals--register">
           <div className="cash-totals__head">
             <h4>
               {dateFilter
@@ -947,7 +991,8 @@ export function CashRegister({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {editSplits.map((split, index) => (
-                <div key={index} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div key={index} className="cash-payment-split">
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <select
                     value={split.method}
                     onChange={(e) => updateEditSplit(index, { method: e.target.value as PaymentMethod })}
@@ -975,6 +1020,9 @@ export function CashRegister({
                     </button>
                   )}
                 </div>
+                {split.method === 'dinheiro' && <CashChangeField id={`fw-cash-change-${index}`} amount={split.amount} changeFor={split.changeFor}
+                  onChange={(changeFor) => updateEditSplit(index, { changeFor })} />}
+                </div>
               ))}
 
               {editRemaining > 0.01 && (
@@ -982,11 +1030,7 @@ export function CashRegister({
                   Falta: {brl(editRemaining)}
                 </p>
               )}
-              {editSplitsTotal > editTotal + 0.01 && (
-                <p style={{ fontSize: '0.8rem', color: '#047857', background: '#ecfdf5', borderRadius: '10px', padding: '9px 11px', margin: '4px 0', fontWeight: 800 }}>
-                  Troco calculado: {brl(editSplitsTotal - editTotal)}
-                </p>
-              )}
+              {paymentChangeDue(editSplits, editTotal) > 0 && <p className="cash-change-field__total">Troco a devolver: {brl(paymentChangeDue(editSplits, editTotal))}</p>}
 
               <button
                 type="button"
@@ -1035,7 +1079,7 @@ export function CashRegister({
                   ? 'A venda continuará no histórico, marcada como cancelada e fora do faturamento.'
                   : actionModal === 'fiado'
                     ? `Saldo atual: ${brl(Number(actionEntry?.creditOriginalAmount ?? 0) - Number(actionEntry?.creditPaid ?? 0))}`
-                    : 'Valor e motivo ficam registrados com o operador e o horário.'}
+                    : 'Valor e motivo ficam registrados com o operador e o horário. Imprima uma prévia agora ou a comanda definitiva depois de confirmar.'}
             </p>
 
             {actionModal === 'fechar' ? (
@@ -1065,6 +1109,18 @@ export function CashRegister({
                   </label>
                 )}
               </div>
+            )}
+
+            {actionModal === 'sangria' && (
+              <button
+                type="button"
+                className="cash-movement-preview"
+                disabled={actionAmount <= 0 || actionReason.trim().length < 3}
+                onClick={printDraftMovement}
+              >
+                <Printer size={17} aria-hidden="true" /> Imprimir prévia da comanda
+                <span>Não registra a saída</span>
+              </button>
             )}
 
             <div className="mt-6 grid grid-cols-2 gap-3">
@@ -1109,6 +1165,15 @@ export function CashRegister({
       )}
 
       {ConfirmElement}
+      {printingMovement && createPortal(
+        <CashMovementTicket
+          movement={printingMovement.movement}
+          draft={printingMovement.draft}
+          storeName={storeName}
+          storePhone={storePhone}
+        />,
+        document.body
+      )}
     </div>
   );
 }

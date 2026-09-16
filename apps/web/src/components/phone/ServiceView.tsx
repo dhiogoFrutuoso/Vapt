@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
-import { Printer } from 'lucide-react';
+import { Plus, Printer, X } from 'lucide-react';
+import { useConfirm } from '../ConfirmModal';
 import { demo } from '../../data/content';
 import { brl, maskPhone } from '../../lib/format';
 import { sumItems, type PreviewTable, type TableStatus, type TakeoutOrder } from './types';
@@ -51,6 +52,7 @@ export function ServiceView({
   serviceFeeRate = 0,
 }: Props) {
   const copy = demo.preview;
+  const { confirm, ConfirmElement } = useConfirm();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [printing, setPrinting] = useState<
@@ -93,7 +95,7 @@ export function ServiceView({
 
         {interactive && (
           <form
-            className="takeout-form mx-auto flex w-full max-w-sm flex-col gap-3"
+            className="takeout-form"
             onSubmit={handleCreate}
           >
             <label className="takeout-form__field w-full">
@@ -120,7 +122,7 @@ export function ServiceView({
               className="takeout-form__submit w-full"
               disabled={name.trim().length < 2}
             >
-              + {copy.takeoutCreate}
+              <Plus size={18} aria-hidden="true" /> {copy.takeoutCreate}
             </button>
           </form>
         )}
@@ -128,9 +130,9 @@ export function ServiceView({
         {takeouts.length === 0 ? (
           <p className="cat-empty">{copy.takeoutEmpty}</p>
         ) : (
-          <div className="svc-grid">
+          <div className="svc-grid svc-grid--takeouts">
             {takeouts.map((takeout) => (
-              <article key={takeout.id} className={`svc-card is-${takeout.status}`}>
+              <article key={takeout.id} className={`svc-card svc-card--takeout is-${takeout.status}`}>
                 <button
                   type="button"
                   className="svc-card__open"
@@ -173,10 +175,18 @@ export function ServiceView({
                     {onCancelTakeout && <button
                       type="button"
                       className="svc-card__cancel"
-                      onClick={() => onCancelTakeout(takeout.id)}
+                      onClick={() => confirm({
+                        title: `Cancelar retirada #${takeout.label}?`,
+                        message: `A retirada de ${takeout.customerName} será cancelada e os itens lançados serão perdidos.`,
+                        confirmText: 'Cancelar retirada',
+                        cancelText: 'Manter retirada',
+                        isDestructive: true,
+                        onConfirm: () => onCancelTakeout(takeout.id),
+                      })}
                       title={copy.cancelOrder}
+                      aria-label={`Cancelar retirada #${takeout.label} de ${takeout.customerName}`}
                     >
-                      ✕
+                      <X size={18} aria-hidden="true" />
                     </button>}
                   </div>
                 )}
@@ -283,6 +293,7 @@ export function ServiceView({
           width={80}
         />
       )}
+      {ConfirmElement}
     </div>
   );
 }

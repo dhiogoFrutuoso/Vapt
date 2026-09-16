@@ -438,6 +438,56 @@
   margin-top: 7px;
 }
 
+.split-pay__group,
+.cash-payment-split {
+  display: grid;
+  gap: 6px;
+}
+
+.cash-change-field {
+  display: grid;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.cash-change-field label {
+  color: var(--ink-700);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.cash-change-field label span { font-weight: 500; }
+.cash-change-field__input { position: relative; }
+.cash-change-field__input > span {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  color: var(--ink-500);
+  pointer-events: none;
+}
+.cash-change-field__hint,
+.cash-change-field__error { margin: 0; font-size: 0.58rem; line-height: 1.4; }
+.cash-change-field__hint { color: var(--ink-500); }
+.cash-change-field__error { color: #b91c1c; }
+.cash-change-field__total { margin: 0; font-size: 0.7rem; font-weight: 800; color: #047857; }
+
+.money-input {
+  width: 100%;
+  padding: 6px 8px 6px 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-900);
+  background: var(--surface);
+  font-size: 0.85rem;
+}
+.money-input:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
 .split-pay__row {
   display: flex;
   gap: 6px;
@@ -879,6 +929,29 @@
   text-align: center;
   line-height: 1.2;
 }
+
+/* Na recepção, recusa e impressão permanecem lado a lado também no APK. */
+.phone__delivery-actions.recep-card__actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.recep-card__actions .phone__sheet-btn { font-size: 0.62rem; }
+
+.recep-card__actions > :first-child:nth-last-child(3) {
+  grid-column: 1 / -1;
+}
+
+.phone__delivery-actions .recep-card__print {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.recep-card__print svg { flex: 0 0 auto; }
+.recep-card__print:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .phone__flash--float {
   position: absolute;

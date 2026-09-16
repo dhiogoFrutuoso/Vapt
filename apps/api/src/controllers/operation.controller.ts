@@ -120,6 +120,7 @@ const orderItem = z.object({
 const payment = z.object({
   method: z.enum(['pix', 'dinheiro', 'cartao', 'fiado']),
   amount: z.number().min(0).max(999_999),
+  changeFor: z.number().min(0).max(999_999).optional(),
 });
 
 const address = z.object({
@@ -357,10 +358,29 @@ function somarItens(itens: Array<{ price: number }>): number {
   return itens.reduce((total, item) => total + Number(item.price ?? 0), 0);
 }
 
-function validarPagamentos(total: number, pagamentos: Array<{ amount: number }>): void {
+/** A taxa entra uma vez, na primeira forma escolhida; as demais parcelas não mudam. */
+function pagamentosComTaxa(
+  pagamentos: ReadonlyArray<{ method: string; amount: number; changeFor?: number | null }>,
+  taxa: number
+) {
+  return pagamentos.map((pagamento, indice) => indice === 0
+    ? { method: pagamento.method, amount: Math.round((pagamento.amount + taxa) * 100) / 100, changeFor: pagamento.changeFor ?? undefined }
+    : { method: pagamento.method, amount: pagamento.amount, changeFor: pagamento.changeFor ?? undefined });
+}
+
+function validarPagamentos(total: number, pagamentos: Array<{ method: string; amount: number; changeFor?: number }>): void {
   if (pagamentos.length === 0) return;
+  for (const pagamento of pagamentos) {
+    if (pagamento.changeFor != null && pagamento.method !== 'dinheiro') {
+      throw new HttpError(400, 'Troco só pode ser informado para pagamento em dinheiro.');
+    }
+    if (pagamento.changeFor != null && pagamento.changeFor + 0.005 < pagamento.amount) {
+      throw new HttpError(400, 'O valor entregue em dinheiro não cobre a parcela em dinheiro.');
+    }
+  }
   const informado = pagamentos.reduce((soma, pagamento) => soma + Number(pagamento.amount ?? 0), 0);
   if (informado + 0.005 < total) throw new HttpError(400, 'O pagamento não cobre o total do pedido.');
+  if (informado > total + 0.005) throw new HttpError(400, 'Registre o troco no campo próprio, sem aumentar o valor da venda.');
 }
 
 /** Número curto mostrado ao cliente. Não é identificador — só rótulo. */
@@ -731,11 +751,12 @@ function aplicar(
       pedido.phone = comando.phone;
       pedido.set('items', comando.items);
       pedido.set('payments', comando.payments);
+      pedido.paymentDeclaredOnly = false;
       pedido.set('address', comando.address);
       pedido.notes = comando.notes;
       pedido.isDelivery = comando.isDelivery;
       pedido.total = somarItens(comando.items) + Number(pedido.deliveryFee ?? 0);
-      validarPagamentos(somarItens(comando.items), comando.payments);
+      validarPagamentos(Number(pedido.total), comando.payments);
 
       /*
        * O lançamento no caixa acompanha a edição.
@@ -787,8 +808,17 @@ function aplicar(
       }
 
       const subtotal = somarItens(pedido.items);
+      const total = Math.round((subtotal + comando.fee) * 100) / 100;
+      const pagamentosAtualizados = pagamentosComTaxa(pedido.payments, comando.fee);
+      if (pagamentosAtualizados.length > 0) {
+        const soma = pagamentosAtualizados.reduce((valor, pagamento) => valor + pagamento.amount, 0);
+        if (Math.abs(soma - total) > 0.005) {
+          throw new HttpError(409, 'As formas de pagamento não correspondem ao total do pedido. Corrija o pedido antes de despachar.');
+        }
+      }
       pedido.deliveryFee = comando.fee;
-      pedido.total = subtotal + comando.fee;
+      pedido.total = total;
+      pedido.set('payments', pagamentosAtualizados);
       pedido.status = pedido.isDelivery === false ? 'entregue' : 'aceito';
 
       let entregadorId = comando.employeeId ?? '';
@@ -805,7 +835,7 @@ function aplicar(
 
       /* Pago só no PIX já entra fechado; o resto fica pendente até a entrega. */
       const pagoAntes =
-        pedido.payments.length > 0 && pedido.payments.every((p) => p.method === 'pix');
+        comando.fee === 0 && !pedido.paymentDeclaredOnly && pedido.payments.length > 0 && pedido.payments.every((p) => p.method === 'pix');
       const credito = pedido.payments
         .filter((payment) => payment.method === 'fiado')
         .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
@@ -822,8 +852,8 @@ function aplicar(
         subtotal,
         serviceFee: 0,
         deliveryFee: comando.fee,
-        total: subtotal + comando.fee,
-        payments: pedido.payments,
+        total,
+        payments: pagamentosAtualizados,
         orderStatus: 'feito',
         paymentStatus: pagoAntes ? 'concluido' : 'pendente',
         creditStatus: credito > 0 ? 'open' : 'none',
@@ -887,6 +917,11 @@ function aplicar(
     case 'pedido.voltar': {
       const pedido = operacao.deliveries.find((d) => d.id === comando.pedidoId);
       if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
+      const taxaAnterior = Number(pedido.deliveryFee ?? 0);
+      if (pedido.payments.length > 0 && Number(pedido.payments[0].amount) + 0.005 < taxaAnterior) {
+        throw new HttpError(409, 'Corrija a primeira forma de pagamento antes de devolver o pedido à recepção.');
+      }
+      pedido.set('payments', pagamentosComTaxa(pedido.payments, -taxaAnterior));
       pedido.status = 'novo';
       pedido.deliveryFee = 0;
       pedido.total = somarItens(pedido.items);

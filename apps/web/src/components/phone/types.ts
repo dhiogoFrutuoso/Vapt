@@ -138,9 +138,38 @@ export type PreviewTable = {
 
 export type PaymentMethod = 'pix' | 'dinheiro' | 'cartao' | 'fiado';
 
-/** Uma parcela de pagamento. Vários itens formam um split (ex.: parte PIX, parte dinheiro). */
-export type PaymentSplitItem = { method: PaymentMethod; amount: number };
+/** `amount` é o valor da conta; `changeFor` é a nota entregue em dinheiro, nunca receita. */
+export type PaymentSplitItem = { method: PaymentMethod; amount: number; changeFor?: number };
 export type PaymentSplit = PaymentSplitItem[];
+
+/** Aplica a taxa somente à primeira parcela, mantendo a ordem escolhida pelo cliente. */
+export function paymentsWithDeliveryFee(payments: PaymentSplit, fee: number): PaymentSplit {
+  return payments.map((payment, index) => index === 0
+    ? { ...payment, amount: Math.round((payment.amount + fee) * 100) / 100 }
+    : { ...payment });
+}
+
+/** Diferença entre cédulas informadas e valor efetivo devido em dinheiro. */
+export function paymentCashBalance(payments: PaymentSplit, total: number): number {
+  const cash = payments.filter((payment) => payment.method === 'dinheiro' && payment.changeFor != null);
+  if (cash.length === 0) return 0;
+  const nonCash = payments
+    .filter((payment) => payment.method !== 'dinheiro')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const cashTendered = payments
+    .filter((payment) => payment.method === 'dinheiro')
+    .reduce((sum, payment) => sum + (payment.changeFor ?? payment.amount), 0);
+  return Math.round((cashTendered - Math.max(0, total - nonCash)) * 100) / 100;
+}
+
+export function paymentChangeDue(payments: PaymentSplit, total: number): number {
+  return Math.max(0, paymentCashBalance(payments, total));
+}
+
+export function hasInvalidChangeFor(payments: PaymentSplit): boolean {
+  return payments.some((payment) => payment.changeFor != null &&
+    (payment.method !== 'dinheiro' || payment.changeFor + 0.005 < payment.amount));
+}
 
 export type DeliveryStatus = 'novo' | 'aceito' | 'a_caminho' | 'entregue';
 
@@ -166,6 +195,8 @@ export type DeliveryOrder = {
   items: OrderItem[];
   total: number;
   payments: PaymentSplit;
+  /** Escolha do cliente no cardápio público; ainda não confirma recebimento. */
+  paymentDeclaredOnly?: boolean;
   /** Taxa de entrega definida pela recepção ao despachar. */
   deliveryFee?: number;
   address: DeliveryAddress;

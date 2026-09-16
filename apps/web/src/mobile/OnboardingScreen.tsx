@@ -27,10 +27,11 @@ export function maskCpf(value: string): string {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
-const LABEL = 'mb-1.5 block text-sm font-semibold text-gray-700';
+const LABEL = 'mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200';
 const INPUT =
-  'w-full rounded-2xl border border-solid border-gray-200 dark:border-white/10 bg-white px-4 py-3.5 text-[1rem] ' +
-  'text-gray-900 outline-none transition-colors focus:border-[color:var(--marca)]';
+  'w-full rounded-2xl border border-solid border-gray-200 bg-white px-4 py-3.5 text-[1rem] ' +
+  'text-gray-900 outline-none transition-colors focus:border-[color:var(--marca)] ' +
+  'dark:border-white/10 dark:bg-gray-900 dark:text-gray-50';
 
 type Props = {
   /** Formulário reaproveitado em "Meu Perfil": ali há botão de voltar. */
@@ -83,15 +84,15 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
 
   return (
     <main
-      className="min-h-[100dvh] px-6 py-10"
-      style={{ backgroundColor: '#FAF8F5', ['--marca' as string]: branding.primaryColor }}
+      className="min-h-[100dvh] bg-[#FAF8F5] px-6 py-10 dark:bg-gray-950"
+      style={{ ['--marca' as string]: branding.primaryColor }}
     >
       <div className="mx-auto w-full max-w-sm">
         <header className="mb-8">
           <h1 className="m-0 text-2xl font-extrabold text-gray-900 dark:text-gray-50">
             {modo === 'onboarding' ? 'Complete seu cadastro' : 'Meus dados'}
           </h1>
-          <p className="m-0 mt-2 text-[0.95rem] leading-relaxed text-gray-500 dark:text-gray-400 dark:text-gray-500">
+          <p className="m-0 mt-2 text-[0.95rem] leading-relaxed text-gray-500 dark:text-gray-300">
             {modo === 'onboarding'
               ? `Antes de começar em ${branding.storeName}, precisamos destes dados.`
               : 'Você pode corrigir seus dados quando quiser.'}
@@ -113,7 +114,7 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
               placeholder="(11) 99999-9999"
               onChange={(e) => setPhone(maskPhone(e.target.value))}
             />
-            {erros.phone && <small className="mt-1.5 block text-sm text-red-600">{erros.phone}</small>}
+            {erros.phone && <small className="mt-1.5 block text-sm text-red-600 dark:text-red-300">{erros.phone}</small>}
           </div>
 
           <div>
@@ -129,7 +130,7 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
               placeholder="000.000.000-00"
               onChange={(e) => setCpf(maskCpf(e.target.value))}
             />
-            {erros.cpf && <small className="mt-1.5 block text-sm text-red-600">{erros.cpf}</small>}
+            {erros.cpf && <small className="mt-1.5 block text-sm text-red-600 dark:text-red-300">{erros.cpf}</small>}
           </div>
 
           <div>
@@ -145,11 +146,11 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
               onChange={(e) => setBirthDate(e.target.value)}
             />
             {erros.birthDate && (
-              <small className="mt-1.5 block text-sm text-red-600">{erros.birthDate}</small>
+              <small className="mt-1.5 block text-sm text-red-600 dark:text-red-300">{erros.birthDate}</small>
             )}
           </div>
 
-          <p className="m-0 text-sm leading-relaxed text-gray-400 dark:text-gray-500">
+          <p className="m-0 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
             A foto de perfil é opcional e pode ser adicionada depois, em Meu Perfil.
           </p>
 
@@ -168,8 +169,8 @@ export function OnboardingScreen({ modo = 'onboarding', onDone, onCancel }: Prop
               type="button"
               onClick={onCancel}
               disabled={enviando}
-              className="w-full rounded-full border border-solid border-gray-200 dark:border-white/10 bg-white px-6 py-3.5
-                text-[0.95rem] font-bold text-gray-600"
+              className="w-full rounded-full border border-solid border-gray-200 bg-white px-6 py-3.5
+                text-[0.95rem] font-bold text-gray-600 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100"
             >
               Cancelar
             </button>

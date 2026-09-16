@@ -115,6 +115,7 @@ export function AppViews({
     address: string | import('../components/phone/types').DeliveryAddress;
     notes: string;
     payments?: PaymentSplit;
+    deliveryFee?: number;
     isDelivery?: boolean;
   } | null>(null);
   const isAdmin = permissions.includes('administracao');
@@ -211,6 +212,7 @@ export function AppViews({
       address: { ...pedido.address },
       notes: pedido.notes ?? '',
       payments: pedido.payments.map((payment) => ({ ...payment })),
+      deliveryFee: pedido.deliveryFee ?? 0,
       isDelivery: pedido.isDelivery !== false,
     });
     setEditandoPedidoId(id);
@@ -283,16 +285,22 @@ export function AppViews({
 
     const nome = pedido?.customerName ?? 'cliente';
     const taxa = fee.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const total = Math.round(((pedido?.items.reduce((sum, item) => sum + item.price, 0) ?? 0) + fee) * 100) / 100;
+    const totalFormatado = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const primeiraForma = pedido?.payments[0] ? ({ pix: 'PIX', dinheiro: 'dinheiro', cartao: 'cartão', fiado: 'fiado' } as const)[pedido.payments[0].method] : null;
+    const avisoDivisao = fee > 0 && (pedido?.payments.length ?? 0) > 1 && primeiraForma
+      ? ` A taxa foi incluída na primeira forma de pagamento (${primeiraForma}).`
+      : '';
     const mensagem =
       pedido?.isDelivery === false
         ? `Olá ${nome}, seu pedido está pronto para retirada no balcão! Pode vir buscar.`
-        : `Olá ${nome}, seu pedido saiu para entrega! Taxa: ${taxa}. Previsão de chegada: 30 minutos.`;
+        : `Olá ${nome}, seu pedido saiu para entrega! Taxa: ${taxa}. Total atualizado: ${totalFormatado}.${avisoDivisao} Previsão de chegada: 30 minutos.`;
 
     try {
       await navigator.clipboard.writeText(mensagem);
-      toast.success('Despachado. Mensagem copiada — é só colar no WhatsApp.');
+      toast.success(`Despachado. Mensagem copiada — é só colar no WhatsApp.${avisoDivisao}`, { duration: 6000 });
     } catch {
-      toast.success('Pedido despachado.');
+      toast.success(`Pedido despachado.${avisoDivisao}`, { duration: 6000 });
       toast('Não consegui copiar a mensagem: o navegador bloqueou a área de transferência.', {
         duration: 6000,
       });

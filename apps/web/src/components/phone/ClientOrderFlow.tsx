@@ -67,6 +67,7 @@ type Props = {
     address: string | DeliveryAddress;
     notes: string;
     payments?: PaymentSplit;
+    deliveryFee?: number;
     isDelivery?: boolean;
   };
 

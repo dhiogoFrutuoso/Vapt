@@ -10,6 +10,7 @@ import {
   type OrderSource,
 } from './types';
 import { Printer } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { PrintTicket } from './PrintTicket';
 import { printReceipt } from '../../lib/printReceipt';
 import toast from 'react-hot-toast';
@@ -179,10 +180,12 @@ function TicketCard({
   render,
   showStationLabels,
   onSetStatus,
+  onPrint,
 }: {
   render: TicketRender;
   showStationLabels: boolean;
   onSetStatus: Props['onSetStatus'];
+  onPrint: (ticket: KitchenTicket) => void;
 }) {
   const { ticket, stationBlocks, combos, stations } = render;
 
@@ -249,6 +252,10 @@ function TicketCard({
         ))}
       </div>
 
+      <button type="button" className="kds-card__print" onClick={() => onPrint(ticket)}>
+        <Printer size={16} aria-hidden="true" /> Imprimir {ticket.label}
+      </button>
+
       <footer className="kds-card__foot">
         {KITCHEN_FLOW.map((status) => (
           <button
@@ -282,12 +289,11 @@ export function KitchenView({
   onSetStatus,
   storeName = 'Vapt',
 }: Props) {
-  const [printing, setPrinting] = useState<KitchenTicket | null>(null);
+  const [printing, setPrinting] = useState<{ ticket: KitchenTicket; station?: string } | null>(null);
   useEffect(() => {
     if (!printing) return;
     const id = window.setTimeout(() => {
       void printReceipt().catch(() => toast.error('Não foi possível imprimir a comanda.'));
-      setPrinting(null);
     }, 50);
     return () => window.clearTimeout(id);
   }, [printing]);
@@ -377,30 +383,21 @@ export function KitchenView({
               render={render}
               showStationLabels={isAll}
               onSetStatus={onSetStatus}
+              onPrint={(ticket) => setPrinting({ ticket, station: isAll ? undefined : activeStation })}
             />
           ))}
         </ul>
       )}
-      {visible.length > 0 && (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {visible.map(({ ticket }) => (
-            <button key={ticket.id} type="button" className="phone__sheet-btn" onClick={() => setPrinting(ticket)}>
-              <Printer size={16} aria-hidden="true" /> Imprimir {ticket.label}
-            </button>
-          ))}
-        </div>
-      )}
-
       {printing && (
-        <PrintTicket
+        createPortal(<PrintTicket
           storeName={storeName}
-          label={printing.label}
-          origin={printing.origin}
-          customerName={printing.customerName}
-          items={printing.items}
+          label={printing.ticket.label}
+          origin={printing.ticket.origin}
+          customerName={printing.ticket.customerName}
+          items={printing.ticket.items}
           width={80}
-          station={isAll ? undefined : activeStation}
-        />
+          station={printing.station}
+        />, document.body)
       )}
     </div>
   );

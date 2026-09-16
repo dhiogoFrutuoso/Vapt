@@ -1,8 +1,9 @@
 import toast from 'react-hot-toast';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { brl } from '../../lib/format';
 import { useConfirm } from '../ConfirmModal';
-import { addressLabel, mapsUrl, type CategoryItem, type DeliveryOrder, type PaymentMethod, type PaymentSplit, type PreviewProduct } from './types';
+import { addressLabel, mapsUrl, paymentCashBalance, paymentsWithDeliveryFee, type CategoryItem, type DeliveryOrder, type PaymentMethod, type PaymentSplit, type PreviewProduct } from './types';
 import { demo } from '../../data/content';
 import { ArrowLeft, Boxes, PackageCheck, PackageX, Printer, X } from 'lucide-react';
 import { PrintTicket } from './PrintTicket';
@@ -19,7 +20,7 @@ const PAYMENT_LABEL: Record<PaymentMethod, string> = {
 
 function formatPayments(payments: PaymentSplit): string {
   if (payments.length === 0) return 'Pendente';
-  return payments.map((p) => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}`).join(' + ');
+  return payments.map((p) => `${PAYMENT_LABEL[p.method]} ${brl(p.amount)}${p.method === 'dinheiro' && p.changeFor != null ? ` · troco para ${brl(p.changeFor)}` : ''}`).join(' + ');
 }
 
 /** Aceita "8", "8,50" e "8.50" — o recepcionista digita como quiser. */
@@ -54,6 +55,7 @@ function ReceptionOrderItem({
   defaultFee,
   onAccept,
   onReject,
+  onPrint,
   onEdit,
   deliveryPeople,
   confirm,
@@ -62,6 +64,7 @@ function ReceptionOrderItem({
   defaultFee: number;
   onAccept: ReceptionViewProps['onAccept'];
   onReject: ReceptionViewProps['onReject'];
+  onPrint: (order: DeliveryOrder) => void;
   onEdit?: ReceptionViewProps['onEdit'];
   deliveryPeople: Array<{ id: string; name: string }>;
   confirm: ReturnType<typeof useConfirm>['confirm'];
@@ -74,6 +77,7 @@ function ReceptionOrderItem({
   const feeValid = !Number.isNaN(parsed) && parsed >= 0;
   const itemsTotal = d.items.reduce((sum, item) => sum + item.price, 0);
   const hasCredit = d.payments.some((payment) => payment.method === 'fiado');
+  const updatedPayments = paymentsWithDeliveryFee(d.payments, feeValid && d.isDelivery !== false ? parsed : 0);
 
   /** Atalhos de taxa: gratis e o valor padrao do app, sem repetir. */
   const presets = defaultFee > 0 ? [0, defaultFee] : [0];
@@ -125,6 +129,11 @@ function ReceptionOrderItem({
         <strong>{brl(d.total)}</strong>
         <span>{formatPayments(d.payments)}</span>
       </div>
+      {d.payments.some((payment) => payment.method === 'dinheiro' && payment.changeFor != null) && (
+        <p className="cash-change-field__total">{paymentCashBalance(d.payments, itemsTotal + (feeValid && d.isDelivery !== false ? parsed : 0)) < 0
+          ? `Valor informado insuficiente após taxa: faltam ${brl(-paymentCashBalance(d.payments, itemsTotal + (feeValid && d.isDelivery !== false ? parsed : 0)))}`
+          : `Troco após taxa: ${brl(paymentCashBalance(d.payments, itemsTotal + (feeValid && d.isDelivery !== false ? parsed : 0)))}`}</p>
+      )}
 
       {d.isDelivery !== false && <div className="phone__delivery-address">
         <span className="phone__delivery-mode">
@@ -187,13 +196,19 @@ function ReceptionOrderItem({
             Total: <strong>{brl(itemsTotal + (feeValid ? parsed : 0))}</strong>
           </span>
         </div>
+        {parsed > 0 && feeValid && d.payments.length > 0 && (
+          <p className="mt-2 rounded-xl bg-orange-50 px-3 py-2 text-xs font-semibold leading-relaxed text-orange-900 dark:bg-orange-950/40 dark:text-orange-100" role="status">
+            Ao despachar, a taxa de {brl(parsed)} será incluída {d.payments.length > 1 ? 'na 1ª forma de pagamento' : 'no pagamento'} ({PAYMENT_LABEL[d.payments[0].method]}).
+            {' '}Pagamento atualizado: {formatPayments(updatedPayments)}.
+          </p>
+        )}
       </div> : (
         <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
           Aguardando a Gestão definir taxa e entregador.
         </p>
       )}
 
-      <div className="phone__delivery-actions" style={{ marginTop: 10 }}>
+      <div className="phone__delivery-actions recep-card__actions" style={{ marginTop: 10 }}>
         {onEdit && (
           <button type="button" className="phone__sheet-btn" onClick={() => onEdit(d.id)}>
             Editar pedido
@@ -215,6 +230,9 @@ function ReceptionOrderItem({
         >
           Recusar
         </button>}
+        <button type="button" className="phone__sheet-btn recep-card__print" onClick={() => onPrint(d)} aria-label={`Imprimir comanda do pedido ${d.code}`}>
+          <Printer size={16} aria-hidden="true" /> Imprimir comanda
+        </button>
       </div>
 
       {dispatchOpen && (
@@ -262,14 +280,13 @@ export function ReceptionView({
   onToggleAvailability,
 }: ReceptionViewProps) {
   const { confirm, ConfirmElement } = useConfirm();
-  const [printing, setPrinting] = useState<DeliveryOrder | null>(null);
+  const [printing, setPrinting] = useState<{ order: DeliveryOrder } | null>(null);
   const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   useEffect(() => {
     if (!printing) return;
     const id = window.setTimeout(() => {
       void printReceipt().catch(() => toast.error('Não foi possível imprimir a comanda.'));
-      setPrinting(null);
     }, 50);
     return () => window.clearTimeout(id);
   }, [printing]);
@@ -329,7 +346,7 @@ export function ReceptionView({
         </div>
         <p className="cat-hint">Pagamento, inclusive fiado, itens e cliente aparecem completos antes da confirmação.</p>
         <ul className="phone__deliveries">
-          {retiradas.map((d) => <ReceptionOrderItem key={d.id} d={d} defaultFee={0} onAccept={onAccept} onReject={onReject} onEdit={onEdit} confirm={confirm} deliveryPeople={deliveryPeople} />)}
+          {retiradas.map((d) => <ReceptionOrderItem key={d.id} d={d} defaultFee={0} onAccept={onAccept} onReject={onReject} onPrint={(order) => setPrinting({ order })} onEdit={onEdit} confirm={confirm} deliveryPeople={deliveryPeople} />)}
         </ul>
       </>}
 
@@ -352,6 +369,7 @@ export function ReceptionView({
               defaultFee={defaultFee}
               onAccept={onAccept}
               onReject={onReject}
+              onPrint={(order) => setPrinting({ order })}
               onEdit={onEdit}
               confirm={confirm}
               deliveryPeople={deliveryPeople}
@@ -366,33 +384,23 @@ export function ReceptionView({
         </p>
       )}
 
-      {(novos.length > 0 || retiradas.length > 0) && (
-        <div className="mt-4 grid gap-2">
-          {[...retiradas, ...novos].map((order) => (
-            <button key={order.id} type="button" className="phone__sheet-btn" onClick={() => setPrinting(order)}>
-              <Printer size={16} aria-hidden="true" /> Imprimir comanda #{order.code}
-            </button>
-          ))}
-        </div>
-      )}
-
       {printing && (
-        <PrintTicket
+        createPortal(<PrintTicket
           storeName={storeName}
           storePhone={storePhone}
-          label={`${printing.isDelivery === false ? 'Retirada' : 'Entrega'} #${printing.code}`}
-          origin={printing.isDelivery === false ? 'retirada' : 'delivery'}
-          customerName={printing.customerName}
-          phone={printing.phone}
-          address={printing.isDelivery === false ? undefined : addressLabel(printing.address)}
-          addressReference={printing.isDelivery === false ? undefined : printing.address.reference}
-          notes={printing.notes}
-          items={printing.items}
-          deliveryFee={printing.deliveryFee}
-          payments={printing.payments}
+          label={`${printing.order.isDelivery === false ? 'Retirada' : 'Entrega'} #${printing.order.code}`}
+          origin={printing.order.isDelivery === false ? 'retirada' : 'delivery'}
+          customerName={printing.order.customerName}
+          phone={printing.order.phone}
+          address={printing.order.isDelivery === false ? undefined : addressLabel(printing.order.address)}
+          addressReference={printing.order.isDelivery === false ? undefined : printing.order.address.reference}
+          notes={printing.order.notes}
+          items={printing.order.items}
+          deliveryFee={printing.order.deliveryFee}
+          payments={printing.order.payments}
           operatorName={operatorName}
           width={80}
-        />
+        />, document.body)
       )}
 
       {availabilityOpen && (

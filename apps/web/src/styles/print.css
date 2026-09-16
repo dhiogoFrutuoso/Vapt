@@ -23,6 +23,9 @@
 }
 
 @media print {
+  /* A preferência visual não altera largura nem tipografia da bobina. */
+  html { zoom: 1 !important; }
+
   /* ---------------- Só a comanda sobrevive ao papel ---------------- */
   body * {
     visibility: hidden !important;
@@ -296,4 +299,29 @@
  */
 .print-ticket__feed {
   height: 8mm;
+}
+
+.print-ticket__movement-title {
+  margin: 2mm 0;
+  text-align: center;
+  font-size: 1.35em;
+  font-weight: 700;
+}
+
+.print-ticket__movement-draft {
+  margin: 1mm 0 3mm;
+  padding: 1mm 0;
+  border-top: 1px dashed #000;
+  border-bottom: 1px dashed #000;
+  text-align: center;
+  font-weight: 700;
+}
+
+.print-ticket__movement-label { margin: 2mm 0 0; font-weight: 700; }
+.print-ticket__movement-reason { margin: 0 0 3mm; overflow-wrap: anywhere; }
+.print-ticket__movement-signature {
+  margin: 10mm 0 0;
+  padding-top: 1mm;
+  border-top: 1px solid #000;
+  text-align: center;
 }

@@ -36,7 +36,6 @@ export function ConfirmModal({
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onCancel();
-      if (e.key === 'Enter') onConfirm();
       if (e.key === 'Tab' && cardRef.current) {
         const focusable = [...cardRef.current.querySelectorAll<HTMLElement>('button, input, select, textarea')]
           .filter((node) => !node.hasAttribute('disabled'));

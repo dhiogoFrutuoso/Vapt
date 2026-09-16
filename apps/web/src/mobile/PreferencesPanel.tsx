@@ -42,7 +42,7 @@ const CAMPO =
 const ROTULO =
   'flex items-center gap-2 text-[0.9rem] font-bold text-gray-900 dark:text-gray-100';
 
-const AJUDA = 'm-0 mt-2 text-[0.78rem] leading-relaxed text-gray-400 dark:text-gray-500';
+const AJUDA = 'm-0 mt-2 text-[0.78rem] leading-relaxed text-gray-500 dark:text-gray-300';
 
 export function PreferencesPanel({ marca }: { marca: string }) {
   const { tema, escala, fonte, idioma, definir, t } = usePreferences();
@@ -122,7 +122,7 @@ export function PreferencesPanel({ marca }: { marca: string }) {
           style={{ accentColor: marca }}
         />
 
-        <div className="mt-1 flex items-center justify-between text-[0.72rem] text-gray-400 dark:text-gray-500">
+        <div className="mt-1 flex items-center justify-between text-[0.72rem] text-gray-500 dark:text-gray-300">
           <span>{ESCALA_MIN}%</span>
           <span>{ESCALA_MAX}%</span>
         </div>

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 
 type Props = {
+  id?: string;
   value: number;
   onChange: (val: number) => void;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
 };
 
-export function MoneyInput({ value, onChange }: Props) {
+export function MoneyInput({ id, value, onChange, ariaDescribedBy, ariaInvalid }: Props) {
   // Guarda o que o usuário está digitando (em formato de string)
   const [local, setLocal] = useState<string | null>(null);
 
@@ -26,8 +29,12 @@ export function MoneyInput({ value, onChange }: Props) {
 
   return (
     <input
+      id={id}
+      className="money-input"
       type="text"
       inputMode="decimal"
+      aria-describedby={ariaDescribedBy}
+      aria-invalid={ariaInvalid}
       value={display}
       onChange={(e) => {
         let val = e.target.value;
@@ -45,15 +52,6 @@ export function MoneyInput({ value, onChange }: Props) {
       }}
       onBlur={() => {
         setLocal(null);
-      }}
-      style={{
-        width: '100%',
-        padding: '6px 8px 6px 30px',
-        borderRadius: '6px',
-        border: '1px solid #cbd5e1',
-        fontSize: '0.85rem',
-        color: '#000',
-        backgroundColor: '#fff'
       }}
     />
   );

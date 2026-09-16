@@ -75,6 +75,8 @@ const paymentSchema = new Schema(
   {
     method: { type: String, enum: ['pix', 'dinheiro', 'cartao', 'fiado'], required: true },
     amount: { type: Number, required: true, min: 0, max: 999_999 },
+    /** Valor da cédula entregue; não integra faturamento nem fechamento. */
+    changeFor: { type: Number, min: 0, max: 999_999 },
   },
   { _id: false }
 );
@@ -139,6 +141,8 @@ const deliverySchema = new Schema(
     items: { type: [orderItemSchema], default: [] },
     total: { type: Number, default: 0, min: 0 },
     payments: { type: [paymentSchema], default: [] },
+    /** Pedido público informa preferência, não pagamento confirmado. */
+    paymentDeclaredOnly: { type: Boolean, default: false },
     deliveryFee: { type: Number, default: 0, min: 0, max: 999 },
     address: { type: addressSchema, default: () => ({}) },
     status: { type: String, enum: ['novo', 'aceito', 'a_caminho', 'entregue'], default: 'novo' },

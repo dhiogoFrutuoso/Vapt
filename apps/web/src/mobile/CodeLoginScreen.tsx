@@ -65,7 +65,7 @@ export function CodeLoginScreen() {
           >
             Vapt
           </p>
-          <p className="m-0 mt-1 text-sm text-gray-400 dark:text-gray-500">{VAPT_BRANDING.tagline}</p>
+          <p className="m-0 mt-1 text-sm text-gray-500 dark:text-gray-300">{VAPT_BRANDING.tagline}</p>
         </header>
 
         <form onSubmit={handleSubmit} noValidate>
@@ -109,7 +109,7 @@ export function CodeLoginScreen() {
           />
 
           {erro && (
-            <p id="code-error" className="mt-3 text-center text-sm font-medium text-red-600">
+            <p id="code-error" className="mt-3 text-center text-sm font-medium text-red-600 dark:text-red-300">
               {erro}
             </p>
           )}
@@ -125,7 +125,7 @@ export function CodeLoginScreen() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm leading-relaxed text-gray-400 dark:text-gray-500">
+        <p className="mt-8 text-center text-sm leading-relaxed text-gray-500 dark:text-gray-300">
           O código é fornecido pelo responsável do restaurante e vale só neste aparelho.
         </p>
       </div>

@@ -11,58 +11,82 @@ export class LocationFailure extends Error {
   }
 }
 
-export const DEFAULT_MAP_CENTER: Coordinates = { lat: -23.5613, lng: -46.6565 };
+function withTimeout<T>(operation: Promise<T>, milliseconds: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('location timeout')), milliseconds);
+    operation.then(
+      (value) => { window.clearTimeout(timer); resolve(value); },
+      (error) => { window.clearTimeout(timer); reject(error); }
+    );
+  });
+}
 
 async function getNativeCoordinates(): Promise<Coordinates> {
   const { Geolocation } = await import('@capacitor/geolocation');
-  let permissions: PermissionStatus;
+  if (!Capacitor.isPluginAvailable('Geolocation')) {
+    throw new LocationFailure('unavailable', 'A localização nativa não está disponível nesta instalação. Atualize o APK e tente novamente.');
+  }
+  let permissions: PermissionStatus | undefined;
 
   try {
     permissions = await Geolocation.checkPermissions();
   } catch {
-    throw new LocationFailure(
-      'services-disabled',
-      'Ative a localização (GPS) do aparelho e toque novamente.'
-    );
+    // O plugin também rejeita checkPermissions quando não consegue ler o serviço
+    // do sistema. getCurrentPosition solicita a permissão nativa por conta própria.
+    // Não confundir esta falha com GPS desligado antes de tentar a captura.
   }
 
-  const granted = () =>
-    permissions.location === 'granted' || permissions.coarseLocation === 'granted';
+  const granted = () => permissions?.location === 'granted' || permissions?.coarseLocation === 'granted';
 
-  if (!granted()) {
+  if (permissions && !granted()) {
     try {
       permissions = await Geolocation.requestPermissions({
         permissions: ['location', 'coarseLocation'],
       });
     } catch {
-      throw new LocationFailure(
-        'services-disabled',
-        'Ative a localização (GPS) do aparelho e toque novamente.'
-      );
+      // A tentativa direta abaixo ainda aciona o diálogo nativo do Android.
     }
   }
 
-  if (!granted()) {
+  if (permissions && !granted() && permissions.location === 'denied' && permissions.coarseLocation === 'denied') {
     throw new LocationFailure(
       'permission-denied',
       'Permita o acesso à localização nas configurações do Android e toque novamente.'
     );
   }
 
-  try {
-    const position = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: permissions.location === 'granted',
-      timeout: 15_000,
-      maximumAge: 0,
-    });
-
-    return { lat: position.coords.latitude, lng: position.coords.longitude };
-  } catch {
-    throw new LocationFailure(
-      'unavailable',
-      'Não foi possível obter a posição atual. Vá para um local aberto, ative o GPS e tente novamente.'
-    );
+  let lastError: unknown;
+  const accuracyAttempts = permissions?.location === 'granted' || permissions == null ? [true, false] : [false];
+  for (const highAccuracy of accuracyAttempts) {
+    try {
+      // O timeout do plugin é ignorado no Android 6.x; esta proteção evita
+      // deixar o usuário preso indefinidamente enquanto busca satélites.
+      const position = await withTimeout(
+        Geolocation.getCurrentPosition({ enableHighAccuracy: highAccuracy, timeout: 12_000, maximumAge: 5_000 }),
+        highAccuracy ? 15_000 : 10_000
+      );
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+      lastError = new Error('location unavailable');
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      if (/permission|denied|not authorized/.test(message)) {
+        throw new LocationFailure('permission-denied', 'Permita o acesso à localização para o Vapt nas configurações do Android.');
+      }
+      if (/location services are not enabled|location disabled/.test(message)) {
+        throw new LocationFailure('services-disabled', 'Ative a localização geral do Android e tente novamente. A permissão do Vapt sozinha não liga o serviço do aparelho.');
+      }
+      if (/not implemented|not available on android/.test(message)) {
+        throw new LocationFailure('unavailable', 'O plugin de localização não está presente neste APK. Instale a versão atualizada do aplicativo.');
+      }
+    }
   }
+  const message = lastError instanceof Error ? lastError.message.toLowerCase() : String(lastError).toLowerCase();
+  throw new LocationFailure('unavailable', /google play services/.test(message)
+    ? 'Os serviços de localização do Google não estão disponíveis neste aparelho. Informe o endereço manualmente ou ajuste o pino no mapa.'
+    : 'Não foi possível obter a posição atual. Tente novamente em local aberto ou ajuste o pino no mapa.');
 }
 
 function getBrowserCoordinates(): Promise<Coordinates> {

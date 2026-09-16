@@ -1,5 +1,5 @@
 import { brl } from '../../lib/format';
-import { NO_STATION, type ComboPart, type OrderItem, type OrderSource, type PaymentMethod, type PaymentSplit } from './types';
+import { NO_STATION, paymentCashBalance, type ComboPart, type OrderItem, type OrderSource, type PaymentMethod, type PaymentSplit } from './types';
 
 /**
  * Comanda de expedição para impressora térmica.
@@ -109,6 +109,12 @@ export function formatReceiptText(props: PrintTicketProps): string {
     ...(props.payments?.length
       ? ['FORMA DE PAGAMENTO', ...props.payments.map((payment) => `${PAYMENT_LABEL[payment.method]} ${brl(payment.amount)}`)]
       : ['PAGAMENTO PENDENTE']),
+    ...(props.payments ?? []).filter((payment) => payment.method === 'dinheiro' && payment.changeFor != null)
+      .map((payment) => `TROCO PARA: ${brl(payment.changeFor ?? 0)}`),
+    (props.payments ?? []).some((payment) => payment.method === 'dinheiro' && payment.changeFor != null)
+      ? paymentCashBalance(props.payments ?? [], total) < 0
+        ? `VALOR ADICIONAL A COBRAR: ${brl(-paymentCashBalance(props.payments ?? [], total))}`
+        : `TROCO A DEVOLVER: ${brl(paymentCashBalance(props.payments ?? [], total))}` : '',
     '',
     `USUÁRIO: ${props.operatorName || 'Equipe Vapt'}`,
     '',
@@ -327,6 +333,12 @@ export function PrintTicket({
             <span>{PAYMENT_LABEL[payment.method]}</span><span>{brl(payment.amount)}</span>
           </div>
         ))}
+        {payments.filter((payment) => payment.method === 'dinheiro' && payment.changeFor != null).map((payment, index) => (
+          <div className="print-ticket__line" key={`change-${index}`}><span>Troco para</span><span>{brl(payment.changeFor ?? 0)}</span></div>
+        ))}
+        {payments.some((payment) => payment.method === 'dinheiro' && payment.changeFor != null) && (
+          <div className="print-ticket__line"><strong>{paymentCashBalance(payments, total) < 0 ? 'Adicional a cobrar' : 'Troco a devolver'}</strong><strong>{brl(Math.abs(paymentCashBalance(payments, total)))}</strong></div>
+        )}
       </div>
 
       <p className="print-ticket__operator">Usuário: {operatorName || 'Equipe Vapt'}</p>

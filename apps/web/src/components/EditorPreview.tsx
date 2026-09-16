@@ -11,7 +11,7 @@ import { ReceptionView } from './phone/ReceptionView';
 import { KitchenView } from './phone/KitchenView';
 import { ImportOrderPanel } from './phone/ImportOrderPanel';
 import { IconRenderer } from './IconRenderer';
-import { addressLabel, NEXT_STATUS, NO_STATION, sumItems } from './phone/types';
+import { addressLabel, NEXT_STATUS, NO_STATION, paymentsWithDeliveryFee, sumItems } from './phone/types';
 import type { PedidoImportado } from '../lib/parseWhatsappOrder';
 import type {
   CashEntry,
@@ -140,6 +140,8 @@ export function EditorPreview({
     phone: string;
     address: string;
     notes: string;
+    payments?: PaymentSplit;
+    deliveryFee?: number;
   } | null>(null);
 
   /** Cozinha: praca selecionada e status por "comandaId::saguao". */
@@ -375,6 +377,8 @@ export function EditorPreview({
       phone: pedido.phone ?? '',
       address: pedido.address.mode === 'manual' ? addressLabel(pedido.address) : '',
       notes: '',
+      payments: pedido.payments.map((payment) => ({ ...payment })),
+      deliveryFee: pedido.deliveryFee ?? 0,
     });
     setEditandoPedidoId(id);
     setView('menu');
@@ -398,7 +402,7 @@ export function EditorPreview({
       customerName: data.customerName,
       phone: data.phone,
       items: cart,
-      total: itemsTotal + deliveryFee,
+      total: itemsTotal,
       payments: data.payments,
       address: data.address,
       status: 'novo',
@@ -427,6 +431,11 @@ export function EditorPreview({
         )
       );
 
+      setCashEntries((list) => list.map((entry) => entry.id === `c-${editandoPedidoId}`
+        ? { ...entry, customerName: data.customerName, phone: data.phone, items: cart, payments: data.payments,
+            address: data.address, subtotal: itemsTotal, total: itemsTotal + entry.deliveryFee }
+        : entry));
+
       setCart([]);
       setCheckoutOpen(false);
       setEditandoPedidoId(null);
@@ -454,12 +463,13 @@ export function EditorPreview({
 
     if (order) {
       const itemsTotal = sumItems(order.items);
-      const totalWithFee = itemsTotal + fee;
-      const paidUpfront = order.payments.length > 0 && order.payments.every((p) => p.method === 'pix');
+      const totalWithFee = Math.round((itemsTotal + fee) * 100) / 100;
+      const paymentsWithFee = paymentsWithDeliveryFee(order.payments, fee);
+      const paidUpfront = fee === 0 && order.payments.length > 0 && order.payments.every((p) => p.method === 'pix');
 
       setDeliveries((list) =>
         list.map((item) =>
-          item.id === id ? { ...item, deliveryFee: fee, total: totalWithFee, status: item.isDelivery === false ? 'entregue' : 'aceito' } : item
+          item.id === id ? { ...item, deliveryFee: fee, total: totalWithFee, payments: paymentsWithFee, status: item.isDelivery === false ? 'entregue' : 'aceito' } : item
         )
       );
 
@@ -477,7 +487,7 @@ export function EditorPreview({
           serviceFee: 0,
           deliveryFee: fee,
           total: totalWithFee,
-          payments: order.payments,
+          payments: paymentsWithFee,
           orderStatus: 'feito',
           paymentStatus: paidUpfront ? 'concluido' : 'pendente',
           createdAt: Date.now(),
@@ -823,8 +833,11 @@ export function EditorPreview({
               onAdvance={advanceDelivery}
               onRevert={(id) => {
                 setDeliveries((list) =>
-                  list.map((d) => (d.id === id ? { ...d, status: 'novo', total: sumItems(d.items) } : d))
+                  list.map((d) => (d.id === id
+                    ? { ...d, status: 'novo', deliveryFee: 0, payments: paymentsWithDeliveryFee(d.payments, -(d.deliveryFee ?? 0)), total: sumItems(d.items) }
+                    : d))
                 );
+                setCashEntries((list) => list.filter((entry) => entry.id !== `c-${id}`));
                 showFlash('De volta à recepção!');
               }}
               onCancel={(id) => {

@@ -1,0 +1,39 @@
+/* Escala alta: o zoom do documento amplia px, rem, ícones e controles.
+   Estes ajustes evitam que grades operacionais fiquem espremidas no celular. */
+html[data-vapt-scale='large'] .mobile-shell__bottom-nav {
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+html[data-vapt-scale='large'] .mobile-shell__bottom-nav > button {
+  min-height: 48px;
+  scroll-snap-align: start;
+}
+
+@media (max-width: 767px) {
+  html[data-vapt-scale='large'] .editor-preview--app :is(
+    .management-summary,
+    .management-breakdown,
+    .management-audit__filter-grid,
+    .cash-overview
+  ) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-vapt-scale='large'] .editor-preview--app .cash-overview > div:first-child {
+    grid-column: auto;
+  }
+
+  html[data-vapt-scale='large'] .editor-preview--app .kds-card__foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-vapt-scale='large'] .editor-preview--app :is(
+    .kds-btn,
+    .kds-card__print,
+    .phone__delivery-actions .phone__sheet-btn
+  ) {
+    min-height: 42px;
+  }
+}
