@@ -2,11 +2,13 @@ import toast from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 import { brl } from '../../lib/format';
 import { useConfirm } from '../ConfirmModal';
-import { addressLabel, mapsUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
+import { addressLabel, mapsUrl, type CategoryItem, type DeliveryOrder, type PaymentMethod, type PaymentSplit, type PreviewProduct } from './types';
 import { demo } from '../../data/content';
-import { Printer } from 'lucide-react';
+import { ArrowLeft, Boxes, PackageCheck, PackageX, Printer, X } from 'lucide-react';
 import { PrintTicket } from './PrintTicket';
 import { printReceipt } from '../../lib/printReceipt';
+import { CategoryGrid } from './CategoryGrid';
+import { IconRenderer } from '../IconRenderer';
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   pix: 'PIX',
@@ -37,10 +39,14 @@ interface ReceptionViewProps {
   /** Taxa configurada no editor: entra pre-preenchida e vira atalho. */
   defaultFee?: number;
   deliveryPeople?: Array<{ id: string; name: string }>;
-  onAccept: (id: string, fee: number, employeeId?: string) => void;
-  onReject: (id: string) => void;
-  onReassign?: (id: string, employeeId: string) => void;
+  onAccept?: (id: string, fee: number, employeeId?: string) => void;
+  onReject?: (id: string) => void;
   storeName?: string;
+  storePhone?: string;
+  operatorName?: string;
+  products?: PreviewProduct[];
+  categories?: CategoryItem[];
+  onToggleAvailability?: (productId: string, available: boolean) => void;
 }
 
 function ReceptionOrderItem({
@@ -73,6 +79,7 @@ function ReceptionOrderItem({
   const presets = defaultFee > 0 ? [0, defaultFee] : [0];
 
   function handleAccept() {
+    if (!onAccept) return;
     if (!feeValid) {
       toast.error('Insira um valor válido para a taxa de entrega.');
       return;
@@ -85,7 +92,7 @@ function ReceptionOrderItem({
       setDispatchOpen(true);
       return;
     }
-    onAccept(d.id, parsed);
+    onAccept(d.id, 0);
   }
 
   return (
@@ -119,7 +126,7 @@ function ReceptionOrderItem({
         <span>{formatPayments(d.payments)}</span>
       </div>
 
-      <div className="phone__delivery-address">
+      {d.isDelivery !== false && <div className="phone__delivery-address">
         <span className="phone__delivery-mode">
           {d.address.mode === 'gps' ? demo.preview.deliveryGps : 'Endereço informado'}
         </span>
@@ -129,16 +136,20 @@ function ReceptionOrderItem({
             {d.address.district} — {d.address.city}
           </span>
         )}
-      </div>
+      </div>}
 
-      {d.address.reference && (
+      {d.isDelivery !== false && d.address.reference && (
         <p className="phone__delivery-reference">
           <strong>{demo.preview.deliveryReference}:</strong> {d.address.reference}
         </p>
       )}
 
-      {/* Taxa da entrega: definida por pedido, antes de ir para o entregador. */}
-      <div className="recep-fee">
+      {/* Definir taxa e autoria é uma ação administrativa. */}
+      {onAccept && d.isDelivery === false ? (
+        <button type="button" className="recep-pickup-confirm" onClick={handleAccept}>
+          <PackageCheck size={17} aria-hidden="true" /> Confirmar retirada no balcão
+        </button>
+      ) : onAccept ? <div className="recep-fee">
         <div className="recep-fee__row">
           <label className="recep-fee__field">
             <span>Valor da entrega</span>
@@ -176,7 +187,11 @@ function ReceptionOrderItem({
             Total: <strong>{brl(itemsTotal + (feeValid ? parsed : 0))}</strong>
           </span>
         </div>
-      </div>
+      </div> : (
+        <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500">
+          Aguardando a Gestão definir taxa e entregador.
+        </p>
+      )}
 
       <div className="phone__delivery-actions" style={{ marginTop: 10 }}>
         {onEdit && (
@@ -184,10 +199,8 @@ function ReceptionOrderItem({
             Editar pedido
           </button>
         )}
-        <a className="phone__sheet-btn" href={mapsUrl(d.address)} target="_blank" rel="noreferrer">
-          Abrir mapa
-        </a>
-        <button
+        {d.isDelivery !== false && <a className="phone__sheet-btn" href={mapsUrl(d.address)} target="_blank" rel="noreferrer">Abrir mapa</a>}
+        {onReject && <button
           type="button"
           className="phone__sheet-btn"
           onClick={() => {
@@ -201,7 +214,7 @@ function ReceptionOrderItem({
           }}
         >
           Recusar
-        </button>
+        </button>}
       </div>
 
       {dispatchOpen && (
@@ -225,7 +238,7 @@ function ReceptionOrderItem({
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3">
               <button type="button" className="rounded-2xl border border-solid border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700" onClick={() => setDispatchOpen(false)}>Voltar</button>
-              <button type="button" className="rounded-2xl border-0 bg-[#F95D2A] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40" disabled={!employeeId} onClick={() => { onAccept(d.id, parsed, employeeId); setDispatchOpen(false); }}>Confirmar despacho</button>
+              <button type="button" className="rounded-2xl border-0 bg-[#F95D2A] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40" disabled={!employeeId} onClick={() => { onAccept?.(d.id, parsed, employeeId); setDispatchOpen(false); }}>Confirmar despacho</button>
             </div>
           </div>
         </div>
@@ -241,11 +254,17 @@ export function ReceptionView({
   onAccept,
   onReject,
   onEdit,
-  onReassign,
   storeName = 'Vapt',
+  storePhone,
+  operatorName,
+  products = [],
+  categories = [],
+  onToggleAvailability,
 }: ReceptionViewProps) {
   const { confirm, ConfirmElement } = useConfirm();
   const [printing, setPrinting] = useState<DeliveryOrder | null>(null);
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   useEffect(() => {
     if (!printing) return;
     const id = window.setTimeout(() => {
@@ -254,22 +273,75 @@ export function ReceptionView({
     }, 50);
     return () => window.clearTimeout(id);
   }, [printing]);
-  const novos = deliveries.filter((d) => d.status === 'novo');
+  const retiradas = deliveries.filter((d) => d.status === 'novo' && d.isDelivery === false);
+  const novos = deliveries.filter((d) => d.status === 'novo' && d.isDelivery !== false);
   const despachados = deliveries.filter((d) => d.status === 'aceito' || d.status === 'a_caminho').length;
+  const availabilityCategories = categories.length > 0
+      ? categories
+      : Array.from(new Set(products.map((product) => product.category || demo.preview.uncategorized))).map((name) => ({
+          _id: name,
+          name,
+          image: null,
+        }));
+  const categoryProducts = selectedCategory
+    ? products.filter((product) => (product.category || demo.preview.uncategorized) === selectedCategory.name)
+    : [];
+
+  function toggleProduct(product: PreviewProduct) {
+    if (!product.id || !onToggleAvailability) return;
+    const available = product.available !== false;
+    confirm({
+      title: available ? 'Marcar item como esgotado' : 'Reativar item',
+      message: available
+        ? `${product.name} continuará visível para o cliente, mas ficará cinza e indisponível para compra.`
+        : `${product.name} ficará disponível para compra imediatamente.`,
+      confirmText: available ? 'Marcar esgotado' : 'Reativar item',
+      isDestructive: available,
+      onConfirm: () => onToggleAvailability(product.id!, !available),
+    });
+  }
 
   return (
     <div className="phone__body">
-      <p className="phone__role">Recepção · fila de despacho</p>
+      <p className="phone__role">Recepção · retiradas e despacho</p>
 
-      <div className="phone__section-title">
-        Novos pedidos
+      {onToggleAvailability && products.length > 0 && (
+        <button
+          type="button"
+          className="recep-menu-control"
+          onClick={() => { setSelectedCategory(null); setAvailabilityOpen(true); }}
+        >
+          <span className="recep-menu-control__icon"><Boxes size={20} aria-hidden="true" /></span>
+          <span>
+            <strong>Disponibilidade do cardápio</strong>
+            <small>{products.filter((product) => product.available === false).length > 0
+              ? `${products.filter((product) => product.available === false).length} item(ns) esgotado(s)`
+              : 'Todos os itens estão disponíveis'}</small>
+          </span>
+          <span aria-hidden="true">→</span>
+        </button>
+      )}
+
+      {retiradas.length > 0 && <>
+        <div className="phone__section-title">
+          Retiradas pedidas pelo cliente
+          <span className="phone__section-count">{retiradas.length}</span>
+        </div>
+        <p className="cat-hint">Pagamento, inclusive fiado, itens e cliente aparecem completos antes da confirmação.</p>
+        <ul className="phone__deliveries">
+          {retiradas.map((d) => <ReceptionOrderItem key={d.id} d={d} defaultFee={0} onAccept={onAccept} onReject={onReject} onEdit={onEdit} confirm={confirm} deliveryPeople={deliveryPeople} />)}
+        </ul>
+      </>}
+
+      <div className="phone__section-title reception-dispatch-title">
+        Despache de entregas
         <span className="phone__section-count">{novos.length}</span>
       </div>
 
       {novos.length === 0 ? (
         <div className="phone__empty">
           <strong>Fila limpa</strong>
-          <p>Os pedidos do cliente caem aqui para você definir a taxa e despachar.</p>
+          <p>As entregas do cliente caem aqui para você definir a taxa e despachar.</p>
         </div>
       ) : (
         <ul className="phone__deliveries">
@@ -294,38 +366,9 @@ export function ReceptionView({
         </p>
       )}
 
-      {onReassign && deliveries.some((d) => d.status !== 'novo') && (
-        <section className="mt-5 rounded-3xl border border-solid border-slate-200 bg-white p-4">
-          <h3 className="m-0 text-sm font-extrabold text-slate-900">Responsáveis pelas entregas</h3>
-          <div className="mt-3 space-y-2">
-            {deliveries.filter((d) => d.status !== 'novo').map((order) => (
-              <div key={order.id} className="flex items-center gap-2 text-sm">
-                <span className="w-16 font-bold text-slate-700">#{order.code}</span>
-                <select
-                  aria-label={`Entregador do pedido ${order.code}`}
-                  className="min-w-0 flex-1 rounded-xl border border-solid border-slate-200 bg-white px-3 py-2"
-                  value={order.deliveredById ?? ''}
-                  onChange={(event) => {
-                    if (event.target.value) onReassign(order.id, event.target.value);
-                  }}
-                >
-                  <option value="">Sem entregador</option>
-                  {deliveryPeople.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
-                </select>
-                {onEdit && (
-                  <button type="button" className="phone__sheet-btn" onClick={() => onEdit(order.id)}>
-                    Editar
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {novos.length > 0 && (
+      {(novos.length > 0 || retiradas.length > 0) && (
         <div className="mt-4 grid gap-2">
-          {novos.map((order) => (
+          {[...retiradas, ...novos].map((order) => (
             <button key={order.id} type="button" className="phone__sheet-btn" onClick={() => setPrinting(order)}>
               <Printer size={16} aria-hidden="true" /> Imprimir comanda #{order.code}
             </button>
@@ -336,15 +379,78 @@ export function ReceptionView({
       {printing && (
         <PrintTicket
           storeName={storeName}
-          label={`Entrega #${printing.code}`}
-          origin="delivery"
+          storePhone={storePhone}
+          label={`${printing.isDelivery === false ? 'Retirada' : 'Entrega'} #${printing.code}`}
+          origin={printing.isDelivery === false ? 'retirada' : 'delivery'}
           customerName={printing.customerName}
           phone={printing.phone}
-          address={addressLabel(printing.address)}
+          address={printing.isDelivery === false ? undefined : addressLabel(printing.address)}
+          addressReference={printing.isDelivery === false ? undefined : printing.address.reference}
+          notes={printing.notes}
           items={printing.items}
           deliveryFee={printing.deliveryFee}
+          payments={printing.payments}
+          operatorName={operatorName}
           width={80}
         />
+      )}
+
+      {availabilityOpen && (
+        <div className="recep-menu-modal" role="dialog" aria-modal="true" aria-labelledby="availability-title">
+          <div className="recep-menu-modal__sheet">
+            <header className="recep-menu-modal__head">
+              <button
+                type="button"
+                className="recep-menu-modal__back"
+                onClick={() => selectedCategory ? setSelectedCategory(null) : setAvailabilityOpen(false)}
+                aria-label={selectedCategory ? 'Voltar às categorias' : 'Fechar disponibilidade do cardápio'}
+              >
+                {selectedCategory ? <ArrowLeft size={20} /> : <X size={20} />}
+              </button>
+              <div>
+                <span>Recepção</span>
+                <h2 id="availability-title">{selectedCategory?.name ?? 'Disponibilidade do cardápio'}</h2>
+              </div>
+            </header>
+
+            <div className="recep-menu-modal__body">
+              {!selectedCategory ? (
+                <>
+                  <p className="recep-menu-modal__intro">Abra uma categoria e marque rapidamente o que acabou. A mudança chega ao cardápio do cliente em tempo real.</p>
+                  <CategoryGrid categories={availabilityCategories} products={products} onSelect={setSelectedCategory} />
+                </>
+              ) : categoryProducts.length === 0 ? (
+                <div className="phone__empty"><p>Nenhum item nesta categoria.</p></div>
+              ) : (
+                <ul className="recep-products">
+                  {categoryProducts.map((product) => {
+                    const available = product.available !== false;
+                    return (
+                      <li key={product.id ?? product.name} className={available ? '' : 'is-sold-out'}>
+                        <span className="recep-products__thumb">
+                          {product.imageUrl ? <img src={product.imageUrl} alt="" /> : <IconRenderer name={product.iconName} size={24} />}
+                        </span>
+                        <span className="recep-products__copy">
+                          <strong>{product.name}</strong>
+                          <small>{available ? 'Disponível para compra' : 'Esgotado no cardápio do cliente'}</small>
+                        </span>
+                        <button
+                          type="button"
+                          className={available ? 'is-available' : 'is-paused'}
+                          onClick={() => toggleProduct(product)}
+                          aria-label={`${available ? 'Marcar' : 'Retirar'} ${product.name} como ${available ? 'esgotado' : 'disponível'}`}
+                        >
+                          {available ? <PackageCheck size={17} /> : <PackageX size={17} />}
+                          {available ? 'Disponível' : 'Esgotado'}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {ConfirmElement}

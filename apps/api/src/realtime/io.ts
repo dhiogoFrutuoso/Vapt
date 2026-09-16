@@ -36,12 +36,16 @@ export type EventoPedido = {
 export type EventoAtualizacaoObrigatoria = {
   latestVersion: string;
   minVersion: string;
+  buildId: string;
+  tenantBuilds: Record<string, string>;
+  reason: string;
   forceUpdate: boolean;
   downloadUrls: { apk: string; exe: string };
   changelog: string[];
 };
 
 let io: SocketServer | null = null;
+const SALA_ATUALIZACOES = 'app:updates';
 
 /** Nome da sala. Uma função para não haver duas convenções no código. */
 function sala(appId: string): string {
@@ -60,12 +64,17 @@ function salaPublica(appId: string): string {
  *            mas é CONFERIDO contra a posse do aplicativo;
  *   app    → Bearer token do funcionário, que já carrega o appId assinado.
  */
-async function autenticar(socket: Socket): Promise<{ appId: string; publico?: boolean } | null> {
-  const { token, appId, publicAppId } = socket.handshake.auth as {
+async function autenticar(socket: Socket): Promise<{ appId: string; publico?: boolean; atualizacoes?: boolean } | null> {
+  const { token, appId, publicAppId, updates } = socket.handshake.auth as {
     token?: string;
     appId?: string;
     publicAppId?: string;
+    updates?: boolean;
   };
+
+  /* Canal público e deliberadamente limitado ao broadcast de versão. Ele
+     permite bloquear inclusive a tela de login, antes de existir sessão. */
+  if (!token && updates === true) return { appId: 'updates', atualizacoes: true };
 
   /* O cardápio público recebe apenas eventos públicos, em sala separada. */
   if (!token && publicAppId) {
@@ -126,7 +135,9 @@ export function initRealtime(server: HttpServer): SocketServer {
         return;
       }
 
-      await socket.join(auth.publico ? salaPublica(auth.appId) : sala(auth.appId));
+      await socket.join(
+        auth.atualizacoes ? SALA_ATUALIZACOES : auth.publico ? salaPublica(auth.appId) : sala(auth.appId)
+      );
       socket.data.appId = auth.appId;
       socket.emit('ready', { appId: auth.appId });
     })();
@@ -171,6 +182,12 @@ export function emitOperationChanged(appId: string, dados: { tipo: string; por: 
   io.to(sala(appId)).emit('operation_changed', dados);
 }
 
+/** Cadastro da equipe mudou; clientes autorizados recarregam a lista sanitizada. */
+export function emitTeamChanged(appId: string, dados: { employeeId: string }): void {
+  if (!io) return;
+  io.to(sala(appId)).emit('team_changed', dados);
+}
+
 /** Disponibilidade não contém dados internos e chega também ao cardápio público. */
 export function emitMenuItemAvailabilityChanged(
   appId: string,
@@ -203,7 +220,7 @@ export function emitSessionRevoked(appId: string, employeeId: string, motivo: st
 /** Publicação global: todas as salas e todos os restaurantes recebem. */
 export function emitForceUpdatePublished(dados: EventoAtualizacaoObrigatoria): void {
   if (!io) return;
-  io.emit('app:force_update_published', dados);
+  io.to(SALA_ATUALIZACOES).emit('app:force_update_published', dados);
 }
 
 export function getIO(): SocketServer | null {

@@ -178,6 +178,8 @@ const cashEntrySchema = new Schema(
     label: { type: String, required: true, trim: true, maxlength: 120 },
     customerName: { type: String, trim: true, maxlength: 80, default: '' },
     phone: { type: String, trim: true, maxlength: 30, default: '' },
+    address: { type: addressSchema, default: undefined },
+    notes: { type: String, trim: true, maxlength: 300, default: '' },
     items: { type: [orderItemSchema], default: [] },
     subtotal: { type: Number, default: 0 },
     serviceFee: { type: Number, default: 0 },
@@ -286,6 +288,23 @@ const operationSchema = new Schema(
               dinheiro: { type: Number, default: 0 },
               cartao: { type: Number, default: 0 },
               pix: { type: Number, default: 0 },
+            },
+            movements: {
+              type: [
+                new Schema(
+                  {
+                    id: { type: String, required: true },
+                    type: { type: String, enum: ['sangria', 'suprimento'], required: true },
+                    amount: { type: Number, required: true, min: 0.01 },
+                    reason: { type: String, required: true, trim: true, maxlength: 200 },
+                    operatorId: { type: String, required: true },
+                    operatorName: { type: String, default: '' },
+                    createdAt: { type: Number, required: true },
+                  },
+                  { _id: false }
+                ),
+              ],
+              default: [],
             },
             operatorId: { type: String, required: true },
             operatorName: { type: String, default: '' },

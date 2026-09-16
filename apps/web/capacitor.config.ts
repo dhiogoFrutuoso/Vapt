@@ -5,14 +5,13 @@ import type { CapacitorConfig } from '@capacitor/cli';
  *
  * ATUALIZACAO OTA
  * ---------------
- * `server.url` faz a WebView carregar a rota isolada `/mobile-view` direto do
- * servidor. Todo deploy na Vercel troca a interface do aplicativo na proxima
- * abertura — sem loja, sem reinstalacao, sem plugin de live update.
+ * O bundle local e o padrao de producao. Assim o JavaScript instalado e os
+ * plugins nativos sincronizados pertencem sempre a mesma versao do APK.
+ * `VAPT_APP_URL` continua disponivel para homologacao/OTA intencional.
  *
  * SOBRE O PAINEL DE EDICAO
  * ------------------------
- * Com `server.url`, o APK deixa de conter qualquer HTML ou JavaScript: nao ha
- * painel dentro do arquivo instalado, o que atende a regra pela raiz.
+ * O `webDir` aponta somente para `dist-app`, que nao contem o painel.
  *
  * O que sobra e risco de NAVEGACAO — a WebView aponta para o dominio que
  * tambem hospeda `/painel`. Duas travas cuidam disso:
@@ -23,11 +22,11 @@ import type { CapacitorConfig } from '@capacitor/cli';
  *      painel exige o cookie httpOnly do dono, que a sessao Bearer do
  *      funcionario nao possui.
  *
- * A trava que falta — impedir a digitacao de `/painel` na propria WebView —
- * exige servir o bundle isolado (`dist-app`) num caminho proprio do dominio.
- * Enquanto isso nao existe, `webDir` continua apontando para `dist-app` para
- * que uma build sem `server.url` ja caia no bundle certo, e nunca no do site.
+ * Quando a URL remota for ativada, ela deve apontar para o bundle isolado e
+ * ser publicada junto com a mesma versao nativa dos plugins.
  */
+const appUrl = process.env.VAPT_APP_URL?.trim();
+
 const config: CapacitorConfig = {
   appId: 'com.vapt.equipe',
   appName: 'Vapt Equipe',
@@ -50,14 +49,7 @@ const config: CapacitorConfig = {
 
   server: {
     androidScheme: 'https',
-
-    /*
-     * Endereco da rota isolada. Trocavel por variavel de ambiente para que
-     * uma build de homologacao aponte para outro dominio sem editar o
-     * arquivo — e para que uma build offline seja possivel deixando a
-     * variavel como string vazia.
-     */
-    url: process.env.VAPT_APP_URL ?? 'https://vapt-web.vercel.app/mobile-view',
+    ...(appUrl ? { url: appUrl } : {}),
 
     /*
      * `false`: nada de http puro. O token do funcionario viaja em toda

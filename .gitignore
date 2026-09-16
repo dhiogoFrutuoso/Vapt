@@ -17,6 +17,32 @@ dist/
 dist-app/
 release/
 android/
+
+# O projeto Android continua majoritariamente gerado pelo Capacitor, mas estes
+# pontos nativos fazem parte do produto e precisam sobreviver a um clone.
+!apps/web/android/
+apps/web/android/*
+!apps/web/android/app/
+apps/web/android/app/*
+!apps/web/android/app/build.gradle
+!apps/web/android/app/src/
+apps/web/android/app/src/*
+!apps/web/android/app/src/main/
+apps/web/android/app/src/main/*
+!apps/web/android/app/src/main/AndroidManifest.xml
+!apps/web/android/app/src/main/java/
+apps/web/android/app/src/main/java/*
+!apps/web/android/app/src/main/java/com/
+apps/web/android/app/src/main/java/com/*
+!apps/web/android/app/src/main/java/com/vapt/
+apps/web/android/app/src/main/java/com/vapt/*
+!apps/web/android/app/src/main/java/com/vapt/equipe/
+!apps/web/android/app/src/main/java/com/vapt/equipe/*.java
+!apps/web/android/app/src/main/res/
+apps/web/android/app/src/main/res/*
+!apps/web/android/app/src/main/res/xml/
+apps/web/android/app/src/main/res/xml/*
+!apps/web/android/app/src/main/res/xml/file_paths.xml
 build/
 out/
 .next/

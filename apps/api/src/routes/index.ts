@@ -69,12 +69,13 @@ import {
 
 import { authLimiter, writeLimiter } from '../middlewares/rateLimiter.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
-import { requireDevice } from '../middlewares/requireDevice.js';
+import { requireDevice, requirePermission } from '../middlewares/requireDevice.js';
 import {
   getOperation,
   runOperationCommand,
 } from '../controllers/operation.controller.js';
 import { getDeviceMenu, setDeviceProductAvailability } from '../controllers/deviceMenu.controller.js';
+import { listDeviceTeam, updateDeviceEmployee } from '../controllers/deviceTeam.controller.js';
 import { upload } from '../middlewares/upload.js';
 import { adminRoutes } from './adminRoutes.js';
 import { getPublicAppVersion } from '../controllers/appVersion.controller.js';
@@ -177,6 +178,8 @@ router.get('/device/sessions', requireDevice, deviceSessions);
  */
 router.get('/device/menu', requireDevice, getDeviceMenu);
 router.patch('/device/menu/products/:productId/availability', requireDevice, setDeviceProductAvailability);
+router.get('/device/team', requireDevice, requirePermission('administracao'), listDeviceTeam);
+router.patch('/device/team/employees/:empId', requireDevice, requirePermission('administracao'), updateDeviceEmployee);
 router.get('/device/operation', requireDevice, getOperation);
 router.post('/device/operation', requireDevice, runOperationCommand);
 

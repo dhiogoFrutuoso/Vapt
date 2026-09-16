@@ -15,6 +15,7 @@ import { useDeviceAuth } from './DeviceAuthContext';
 import { OnboardingScreen } from './OnboardingScreen';
 import { PreferencesPanel } from './PreferencesPanel';
 import { usePreferences } from './PreferencesContext';
+import { temaEfetivo } from './preferences';
 import type { Chave as ChaveTexto } from './i18n';
 import { AppViews } from './AppViews';
 import { useOperation } from './useOperation';
@@ -71,7 +72,7 @@ const CARTAO =
 
 export function MobileShell() {
   const { employee, branding, appId, accessToken, logout } = useDeviceAuth();
-  const { idioma, t } = usePreferences();
+  const { idioma, tema, t } = usePreferences();
   const [editando, setEditando] = useState(false);
   const [saindo, setSaindo] = useState(false);
 
@@ -101,7 +102,7 @@ export function MobileShell() {
     employee?.id ?? null,
     aoRevogar
   );
-  const { menu } = useMenu(accessToken, appId);
+  const { menu, recarregar: recarregarMenu } = useMenu(accessToken, appId);
 
   const [atualizando, setAtualizando] = useState(false);
 
@@ -154,6 +155,7 @@ export function MobileShell() {
    * lia o valor novo.
    */
   const marca = menu.branding.primaryColor || branding.primaryColor;
+  const temaDaInterface = temaEfetivo(tema);
   const abaAtual = ABAS.find((a) => a.chave === ativa);
 
   async function handleLogout() {
@@ -271,7 +273,7 @@ export function MobileShell() {
 
   return (
     <div
-      className="flex h-[100dvh] overflow-hidden bg-[#FAF8F5] dark:bg-gray-950"
+      className="mobile-shell flex h-[100dvh] overflow-hidden bg-[#FAF8F5] dark:bg-gray-950"
       style={{ ['--marca' as string]: marca }}
     >
       {/* --------------------- Coluna lateral (md+) --------------------- */}
@@ -452,7 +454,7 @@ export function MobileShell() {
              * `.phone__*` e `.cash-*` são escopados por dentro delas.
              */
             <div
-              className={`editor-preview editor-preview--app theme-${menu.branding.theme}`}
+              className={`editor-preview editor-preview--app theme-${temaDaInterface}`}
               style={
                 {
                   '--brand': marca,
@@ -470,15 +472,18 @@ export function MobileShell() {
                   categories={menu.categories}
                   stations={menu.stations}
                   storeName={menu.storeName || branding.storeName}
+                  storePhone={menu.delivery.whatsapp}
                   logoUrl={menu.branding.logoUrl ?? branding.logoUrl}
                   brandColor={marca}
-                  theme={menu.branding.theme}
+                  theme={temaDaInterface}
                   deliveryFee={menu.delivery.fee}
                   courierPaidPerDelivery={menu.delivery.courierPaidPerDelivery}
                   waiterCommissionRate={menu.dining.waiterCommissionRate}
                   onIrPara={setAtiva}
                   employeeId={employee.id}
+                  employeeName={employee.name}
                   equipe={menu.equipe}
+                  onTeamChanged={recarregarMenu}
                   permissions={employee.permissions}
                   isDeliveryman={employee.isDeliveryman ?? employee.permissions.includes('entregador')}
                 />

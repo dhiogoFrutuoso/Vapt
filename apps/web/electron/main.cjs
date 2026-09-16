@@ -11,7 +11,9 @@ const {
   shell,
 } = require('electron');
 const fs = require('node:fs');
+const https = require('node:https');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 
 /**
@@ -145,7 +147,104 @@ function gravarCofre(dados) {
   }
 }
 
+function limparCredenciaisDoCofre() {
+  const cofre = lerCofre();
+  delete cofre['vapt.device.access'];
+  delete cofre['vapt.device.refresh'];
+  gravarCofre(cofre);
+}
+
+function validarUrlDoInstalador(value) {
+  const url = new URL(String(value));
+  if (url.protocol !== 'https:' || !url.pathname.toLowerCase().endsWith('.exe')) {
+    throw new Error('URL de instalador inválida.');
+  }
+  return url;
+}
+
+function baixarInstalador(url, destino, webContents, redirecionamentos = 0) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, { timeout: 30_000 }, (response) => {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        response.resume();
+        if (redirecionamentos >= 5) return reject(new Error('Redirecionamentos demais no download.'));
+        try {
+          return resolve(
+            baixarInstalador(
+              validarUrlDoInstalador(new URL(response.headers.location, url).toString()),
+              destino,
+              webContents,
+              redirecionamentos + 1
+            )
+          );
+        } catch (error) {
+          return reject(error);
+        }
+      }
+
+      if (response.statusCode !== 200) {
+        response.resume();
+        return reject(new Error(`Download recusado (${response.statusCode}).`));
+      }
+
+      const total = Number(response.headers['content-length'] ?? 0);
+      let transferred = 0;
+      const file = fs.createWriteStream(destino, { flags: 'w', mode: 0o600 });
+
+      response.on('data', (chunk) => {
+        transferred += chunk.length;
+        const percent = total > 0 ? Math.min(99, Math.round((transferred / total) * 100)) : 0;
+        if (!webContents.isDestroyed()) {
+          webContents.send('vapt:update:progress', { percent, transferred, total });
+        }
+      });
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close(() => {
+          if (!webContents.isDestroyed()) {
+            webContents.send('vapt:update:progress', { percent: 100, transferred, total });
+          }
+          resolve(destino);
+        });
+      });
+      file.on('error', reject);
+      response.on('error', reject);
+    });
+
+    request.on('timeout', () => request.destroy(new Error('Tempo limite do download excedido.')));
+    request.on('error', reject);
+  });
+}
+
+async function instalarAtualizacao(evento, value) {
+  const url = validarUrlDoInstalador(value);
+  const destino = path.join(app.getPath('temp'), 'Vapt-Setup-update.exe');
+  try {
+    fs.rmSync(destino, { force: true });
+    await baixarInstalador(url, destino, evento.sender);
+    const cabecalho = Buffer.alloc(2);
+    const arquivo = fs.openSync(destino, 'r');
+    fs.readSync(arquivo, cabecalho, 0, 2, 0);
+    fs.closeSync(arquivo);
+    if (cabecalho.toString('ascii') !== 'MZ') throw new Error('O arquivo recebido não é um executável válido.');
+
+    /* Se o usuário cancelar o NSIS, não pode reabrir a versão antiga ainda
+       autenticada. A atualização bem-sucedida pede novo login uma vez. */
+    limparCredenciaisDoCofre();
+    const instalador = spawn(destino, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true });
+    instalador.unref();
+    setTimeout(() => app.quit(), 120);
+    return true;
+  } catch (error) {
+    try { fs.rmSync(destino, { force: true }); } catch { /* arquivo já removido */ }
+    console.error('[update] Falha ao instalar atualização:', error.message);
+    throw error;
+  }
+}
+
 function registrarCofre() {
+  const gatesAtivos = new Set();
   ipcMain.handle('vapt:secure:get', (_evento, chave) => {
     /*
      * A lista de chaves e conferida AQUI, no lado privilegiado. Confiar na
@@ -186,21 +285,69 @@ function registrarCofre() {
     return true;
   });
 
-  ipcMain.handle('vapt:update:open', async (_evento, value) => {
+  ipcMain.handle('vapt:update:install', instalarAtualizacao);
+  ipcMain.handle('vapt:update:exit', () => {
+    limparCredenciaisDoCofre();
+    setTimeout(() => app.quit(), 50);
+    return true;
+  });
+  ipcMain.handle('vapt:update:gate-active', (evento, ativo) => {
+    if (ativo) gatesAtivos.add(evento.sender.id);
+    else gatesAtivos.delete(evento.sender.id);
+    return true;
+  });
+
+  app.on('browser-window-created', (_event, janela) => {
+    janela.on('close', () => {
+      if (gatesAtivos.has(janela.webContents.id)) limparCredenciaisDoCofre();
+      gatesAtivos.delete(janela.webContents.id);
+    });
+  });
+
+  const arquivoImpressora = () => path.join(app.getPath('userData'), 'printer.json');
+  const lerImpressora = () => {
     try {
-      const url = new URL(String(value));
-      if (url.protocol !== 'https:' || !url.pathname.toLowerCase().endsWith('.exe')) return false;
-      await shell.openExternal(url.toString());
-      return true;
+      const data = JSON.parse(fs.readFileSync(arquivoImpressora(), 'utf8'));
+      return typeof data.deviceName === 'string' ? data.deviceName.slice(0, 240) : '';
     } catch {
-      return false;
+      return '';
     }
+  };
+
+  ipcMain.handle('vapt:printer:list', async (evento) => {
+    const printers = await evento.sender.getPrintersAsync();
+    return printers.map((printer) => ({
+      name: printer.name,
+      displayName: printer.displayName || printer.name,
+      isDefault: printer.isDefault === true,
+      status: Number(printer.status ?? 0),
+    }));
+  });
+
+  ipcMain.handle('vapt:printer:get', () => ({ deviceName: lerImpressora() }));
+
+  ipcMain.handle('vapt:printer:save', async (evento, rawDeviceName) => {
+    const deviceName = String(rawDeviceName ?? '').trim().slice(0, 240);
+    if (deviceName) {
+      const printers = await evento.sender.getPrintersAsync();
+      if (!printers.some((printer) => printer.name === deviceName)) {
+        return { success: false, error: 'A impressora selecionada não está mais disponível.' };
+      }
+    }
+    fs.writeFileSync(arquivoImpressora(), JSON.stringify({ deviceName }), { encoding: 'utf8', mode: 0o600 });
+    return { success: true, deviceName };
   });
 
   ipcMain.handle('vapt:print:receipt', (evento) =>
     new Promise((resolve) => {
+      const deviceName = lerImpressora();
       evento.sender.print(
-        { silent: true, printBackground: false, margins: { marginType: 'none' } },
+        {
+          silent: Boolean(deviceName),
+          deviceName: deviceName || undefined,
+          printBackground: false,
+          margins: { marginType: 'none' },
+        },
         (success, failureReason) => resolve({ success, error: success ? null : failureReason })
       );
     })

@@ -670,6 +670,14 @@
   padding: 12px 12px 16px;
 }
 
+.phone__screen--app .editor-preview .reception-workspace > .phone__body {
+  flex: none;
+  min-height: auto;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+
 /* Barra inferior travada no rodape do chassi. */
 .phone__screen--app .editor-preview .phone__tabs {
   flex-shrink: 0;

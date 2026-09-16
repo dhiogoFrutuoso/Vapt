@@ -108,7 +108,7 @@ export type Comando =
     }
   | { tipo: 'caixa.cancelar'; lancamentoId: string; motivo?: string }
   | { tipo: 'caixa.fechar'; counted: { dinheiro: number; cartao: number; pix: number } }
-  | { tipo: 'caixa.movimento'; movementType: 'sangria' | 'suprimento'; amount: number; reason: string }
+  | { tipo: 'caixa.movimento'; movementType: 'sangria'; amount: number; reason: string }
   | { tipo: 'caixa.reabrir'; lancamentoId: string }
   | { tipo: 'fiado.abater'; lancamentoId: string; amount: number }
   | { tipo: 'pedido.entregador'; pedidoId: string; employeeId: string }

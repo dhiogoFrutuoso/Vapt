@@ -34,6 +34,16 @@ contextBridge.exposeInMainWorld('vaptSecure', {
   get: (chave) => ipcRenderer.invoke('vapt:secure:get', String(chave)),
   set: (chave, valor) => ipcRenderer.invoke('vapt:secure:set', String(chave), String(valor)),
   remove: (chave) => ipcRenderer.invoke('vapt:secure:remove', String(chave)),
-  openUpdate: (url) => ipcRenderer.invoke('vapt:update:open', String(url)),
+  installUpdate: (url) => ipcRenderer.invoke('vapt:update:install', String(url)),
+  exitApp: () => ipcRenderer.invoke('vapt:update:exit'),
+  setUpdateGateActive: (active) => ipcRenderer.invoke('vapt:update:gate-active', Boolean(active)),
+  onUpdateProgress: (listener) => {
+    const handler = (_event, progress) => listener(progress);
+    ipcRenderer.on('vapt:update:progress', handler);
+    return () => ipcRenderer.removeListener('vapt:update:progress', handler);
+  },
   printReceipt: () => ipcRenderer.invoke('vapt:print:receipt'),
+  listPrinters: () => ipcRenderer.invoke('vapt:printer:list'),
+  getPrinter: () => ipcRenderer.invoke('vapt:printer:get'),
+  savePrinter: (deviceName) => ipcRenderer.invoke('vapt:printer:save', String(deviceName ?? '')),
 });

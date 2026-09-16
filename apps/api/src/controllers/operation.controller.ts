@@ -268,7 +268,7 @@ const comandoSchema = z.discriminatedUnion('tipo', [
   }),
   z.object({
     tipo: z.literal('caixa.movimento'),
-    movementType: z.enum(['sangria', 'suprimento']),
+    movementType: z.literal('sangria'),
     amount: z.number().positive().max(999_999),
     reason: textoLimpo(200).pipe(z.string().min(3)),
   }),
@@ -313,35 +313,35 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'mesa.abrir': ['salao'],
   'mesa.status': ['salao'],
   'mesa.item.adicionar': ['salao'],
-  'mesa.item.remover': ['salao'],
+  'mesa.item.remover': ['administracao'],
 
   'retirada.criar': ['recepcao'],
   'retirada.status': ['recepcao'],
-  'retirada.remover': ['recepcao'],
+  'retirada.remover': ['administracao'],
   'retirada.item.adicionar': ['recepcao'],
-  'retirada.item.remover': ['recepcao'],
+  'retirada.item.remover': ['administracao'],
 
   'comanda.pagar': ['salao', 'recepcao', 'caixa'],
-  'comanda.cancelar': ['salao', 'recepcao', 'caixa'],
+  'comanda.cancelar': ['administracao'],
 
   'pedido.criar': ['cliente', 'recepcao'],
-  'pedido.atualizar': ['cliente', 'recepcao'],
-  'pedido.aceitar': ['recepcao', 'entregador'],
-  'pedido.rejeitar': ['recepcao'],
-  'pedido.avancar': ['entregador', 'recepcao'],
-  'pedido.voltar': ['entregador', 'recepcao'],
-  'pedido.cancelar': ['entregador', 'recepcao'],
+  'pedido.atualizar': ['administracao'],
+  'pedido.aceitar': ['administracao'],
+  'pedido.rejeitar': ['administracao'],
+  'pedido.avancar': ['entregador'],
+  'pedido.voltar': ['administracao'],
+  'pedido.cancelar': ['administracao'],
 
   'caixa.pagamento': ['caixa'],
-  'caixa.editar': ['caixa'],
-  'caixa.cancelar': ['caixa'],
+  'caixa.editar': ['administracao'],
+  'caixa.cancelar': ['administracao'],
   'caixa.fechar': ['caixa'],
   'caixa.movimento': ['caixa'],
   'caixa.reabrir': ['administracao'],
   'fiado.abater': ['caixa'],
 
-  /* Recepção reatribui porque é quem descobre a troca ao ligar para o cliente. */
-  'pedido.entregador': ['recepcao', 'caixa'],
+  /* Autoria financeira e operacional: somente a Gestão pode alterar. */
+  'pedido.entregador': ['administracao'],
 
   'cozinha.status': ['cozinha'],
 };
@@ -462,13 +462,18 @@ async function carregar(appId: string): Promise<Carregada> {
 }
 
 /** Devolve o estado como o aplicativo espera consumir. */
-function serializar(operacao: OperationDoc, permissions: string[] = []) {
+function serializar(operacao: OperationDoc, permissions: string[] = [], employeeId = '') {
   const admin = permissions.includes('administracao');
   const can = (...needed: string[]) => admin || needed.some((permission) => permissions.includes(permission));
+  const deliveries = can('cliente', 'recepcao', 'cozinha', 'entregador')
+    ? permissions.includes('entregador') && !admin && !permissions.includes('recepcao') && !permissions.includes('cozinha')
+      ? operacao.deliveries.filter((delivery) => delivery.deliveredById === employeeId)
+      : operacao.deliveries
+    : [];
   return {
     tables: can('salao', 'cozinha') ? operacao.tables : [],
     takeouts: can('recepcao', 'cozinha') ? operacao.takeouts : [],
-    deliveries: can('cliente', 'recepcao', 'cozinha', 'entregador') ? operacao.deliveries : [],
+    deliveries,
     cashEntries: can('caixa') ? operacao.cashEntries : [],
     cashArchive: can('caixa') ? operacao.cashArchive : [],
     cashMovements: can('caixa') ? operacao.cashMovements : [],
@@ -491,7 +496,7 @@ export const getOperation = asyncHandler(async (req: Request, res: Response) => 
   // A sincronização das mesas pode ter alterado o documento.
   if (operacao.isNew || operacao.isModified()) await operacao.save();
 
-  return res.json({ ok: true, data: serializar(operacao, req.device!.perms) });
+  return res.json({ ok: true, data: serializar(operacao, req.device!.perms, req.device!.sub) });
 });
 
 /* ------------------------------------------------------------------ */
@@ -761,6 +766,9 @@ function aplicar(
         lancamento.subtotal = subtotal;
         lancamento.total = subtotal + Number(lancamento.deliveryFee ?? 0);
         lancamento.customerName = comando.customerName;
+        lancamento.phone = comando.phone;
+        lancamento.set('address', comando.address);
+        lancamento.notes = comando.notes;
         lancamento.editadoEm = agora();
         lancamento.editadoPor = quem;
       }
@@ -781,10 +789,9 @@ function aplicar(
       const subtotal = somarItens(pedido.items);
       pedido.deliveryFee = comando.fee;
       pedido.total = subtotal + comando.fee;
-      pedido.status = 'aceito';
+      pedido.status = pedido.isDelivery === false ? 'entregue' : 'aceito';
 
       let entregadorId = comando.employeeId ?? '';
-      if (permissoes.includes('entregador') && !permissoes.includes('recepcao')) entregadorId = quem;
       if (pedido.isDelivery && !entregadorId) {
         throw new HttpError(400, 'Selecione um entregador ativo antes de despachar.');
       }
@@ -805,10 +812,12 @@ function aplicar(
 
       operacao.cashEntries.unshift({
         id: `c-${pedido.id}`,
-        source: 'delivery',
-        label: `Entrega #${pedido.code}`,
+        source: pedido.isDelivery === false ? 'retirada' : 'delivery',
+        label: `${pedido.isDelivery === false ? 'Retirada' : 'Entrega'} #${pedido.code}`,
         customerName: pedido.customerName,
         phone: pedido.phone,
+        address: pedido.address,
+        notes: pedido.notes,
         items: pedido.items,
         subtotal,
         serviceFee: 0,
@@ -845,31 +854,22 @@ function aplicar(
       const pedido = operacao.deliveries.find((d) => d.id === comando.pedidoId);
       if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
 
+      const admin = permissoes.includes('administracao');
+      if (!admin && pedido.deliveredById !== quem) {
+        throw new HttpError(403, 'Esta entrega está atribuída a outro entregador.');
+      }
+      if (pedido.status === 'novo') {
+        throw new HttpError(409, 'A Gestão precisa atribuir um entregador antes de iniciar a entrega.');
+      }
+
       const proximo = proximoStatus[pedido.status];
       pedido.status = proximo;
 
-      if (permissoes.includes('entregador') && entregadores.has(quem)) {
-        pedido.deliveredById = quem;
-        pedido.deliveredByName = nomeDe(quem);
-        const espelho = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`);
-        if (espelho) {
-          espelho.deliveredById = quem;
-          espelho.deliveredByName = nomeDe(quem);
-        }
-      }
-
       /* Entregue quita o lançamento pendente: o entregador recebeu na porta. */
       if (proximo === 'entregue') {
-        /*
-         * Autoria por PADRÃO é quem tocou no botão. Na prática é quase sempre
-         * o entregador certo, e deixar em branco esperando alguém preencher
-         * produziria um placar vazio toda noite. A recepção corrige quando
-         * houver troca.
-         */
-        if (!pedido.deliveredById) {
-          pedido.deliveredById = quem;
-          pedido.deliveredByName = nomeDe(quem);
-        }
+        /* A autoria é definida pela Gestão no despacho e nunca é inferida
+           pelo aparelho que avançou o status. */
+        if (!pedido.deliveredById) throw new HttpError(409, 'Entrega sem responsável. A Gestão precisa atribuir um entregador.');
 
         const lancamento = operacao.cashEntries.find(
           (e) => e.id === `c-${pedido.id}` && e.paymentStatus === 'pendente'
@@ -905,6 +905,9 @@ function aplicar(
     case 'caixa.pagamento': {
       const lancamento = operacao.cashEntries.find((e) => e.id === comando.lancamentoId);
       if (!lancamento) throw new HttpError(404, 'Lancamento nao encontrado.');
+      if (lancamento.paymentStatus === 'concluido') {
+        throw new HttpError(409, 'Venda já concluída. Somente a Gestão pode corrigi-la.');
+      }
       validarPagamentos(Number(lancamento.total ?? 0), comando.payments);
       lancamento.set('payments', comando.payments);
       lancamento.paymentStatus = 'concluido';
@@ -953,6 +956,15 @@ function aplicar(
         counted: comando.counted,
         expected,
         difference,
+        movements: operacao.cashMovements.map((movement) => ({
+          id: movement.id,
+          type: movement.type,
+          amount: movement.amount,
+          reason: movement.reason,
+          operatorId: movement.operatorId,
+          operatorName: movement.operatorName,
+          createdAt: movement.createdAt,
+        })),
         operatorId: quem,
         operatorName: nomeDe(quem),
         createdAt: agora(),
@@ -963,6 +975,12 @@ function aplicar(
       operacao.set(
         'cashEntries',
         operacao.cashEntries.filter((e) => e.paymentStatus !== 'concluido')
+      );
+      /* O fechamento encerra também a fila diária do entregador. O histórico
+         financeiro continua preservado em cashArchive. */
+      operacao.set(
+        'deliveries',
+        operacao.deliveries.filter((delivery) => delivery.status !== 'entregue')
       );
       operacao.lastClosedAt = new Date();
       operacao.lastClosedBy = quem;
@@ -982,11 +1000,11 @@ function aplicar(
         createdAt: agora(),
       } as never);
       auditar(
-        `caixa.${comando.movementType}`,
+        'caixa.saida',
         '',
-        `${comando.movementType === 'sangria' ? 'Sangria' : 'Suprimento'} de R$ ${comando.amount.toFixed(2)}: ${comando.reason}`
+        `Saída de dinheiro de R$ ${comando.amount.toFixed(2)}: ${comando.reason}`
       );
-      return comando.movementType === 'sangria' ? 'Sangria registrada.' : 'Suprimento registrado.';
+      return 'Saída de dinheiro registrada.';
     }
 
     case 'caixa.reabrir': {
@@ -1156,7 +1174,7 @@ export const runOperationCommand = asyncHandler(async (req: Request, res: Respon
     try {
       await operacao.save();
       emitOperationChanged(appId, { tipo: comando.tipo, por: quem });
-      return res.json({ ok: true, data: { ...serializar(operacao, minhas), mensagem } });
+      return res.json({ ok: true, data: { ...serializar(operacao, minhas, quem), mensagem } });
     } catch (erro) {
       const nome = (erro as { name?: string })?.name;
       if (nome !== 'VersionError' && nome !== 'ParallelSaveError') throw erro;

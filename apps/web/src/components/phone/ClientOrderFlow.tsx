@@ -187,9 +187,7 @@ export function ClientOrderFlow({
           observacao={notes}
           onObservacaoChange={setNotes}
           onClose={() => setCheckoutOpen(false)}
-          onSubmit={(dados) =>
-            void onSubmit({ ...dados, notes, isDelivery })
-          }
+          onSubmit={(dados) => onSubmit({ ...dados, notes, isDelivery })}
         />
       )}
     </div>

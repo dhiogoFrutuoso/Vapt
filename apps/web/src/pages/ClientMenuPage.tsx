@@ -66,6 +66,7 @@ type CardapioPublico = {
     category: string;
     imageUrl: string | null;
     isFeatured: boolean;
+    available: boolean;
   }>;
   promotions: Array<{
     id: string;
@@ -172,11 +173,18 @@ export function ClientMenuPage() {
       auth: { publicAppId: id },
       transports: ['polling', 'websocket'],
     });
-    socket.on('menu_item_availability_changed', async () => {
+    socket.on('menu_item_availability_changed', async (event: { productId: string; available: boolean }) => {
       try {
         const response = await fetch(`${BASE}/public/apps/${encodeURIComponent(id)}`);
         const payload = await response.json();
-        if (response.ok && payload.ok !== false) setCardapio(payload.data as CardapioPublico);
+        if (response.ok && payload.ok !== false) {
+          const next = payload.data as CardapioPublico;
+          setCardapio(next);
+          if (!event.available) {
+            const exhausted = next.products.find((product) => product.id === event.productId);
+            if (exhausted) setCart((current) => current.filter((item) => item.name !== exhausted.name));
+          }
+        }
       } catch {
         /* A próxima reconexão ou recarga recupera o estado; o carrinho atual é preservado. */
       }
@@ -204,6 +212,7 @@ export function ClientMenuPage() {
         category: p.category,
         imageUrl: p.imageUrl,
         isFeatured: p.isFeatured,
+        available: p.available,
       })),
     [cardapio]
   );

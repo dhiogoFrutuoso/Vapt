@@ -28,9 +28,9 @@ const destino = join(raizProjeto, 'releases');
  * release e é ele que deve ser publicado; sem keystore, o debug é o que
  * existe.
  */
+const variante = process.argv[2] === 'release' ? 'release' : 'debug';
 const CANDIDATOS = [
-  join(raizWeb, 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk'),
-  join(raizWeb, 'android', 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk'),
+  join(raizWeb, 'android', 'app', 'build', 'outputs', 'apk', variante, `app-${variante}.apk`),
 ];
 
 const origem = CANDIDATOS.find((c) => existsSync(c));

@@ -11,8 +11,9 @@ import { emitMenuItemAvailabilityChanged } from '../realtime/io.js';
  *
  * POR QUE NÃO REUSAR `/public/apps/:id`
  * -------------------------------------
- * A rota pública é o que o CLIENTE vê: sem saguões, sem produtos
- * indisponíveis, sem a comissão do garçom, e barrada em aplicativo de teste.
+ * A rota pública é o que o CLIENTE vê: sem saguões, sem a comissão do
+ * garçom e barrada em aplicativo de teste. Itens indisponíveis seguem
+ * visíveis lá apenas como "esgotados", sem possibilidade de compra.
  * A equipe precisa exatamente do que falta ali — o saguão roteia o item para
  * a praça certa na cozinha, e o item esgotado ainda aparece para quem lança
  * uma comanda de mesa.
@@ -152,7 +153,7 @@ export const setDeviceProductAvailability = asyncHandler(async (req: Request, re
   const productId = z.string().min(1).parse(req.params.productId);
   const { available } = z.object({ available: z.boolean() }).parse(req.body);
   const permissions = req.device!.perms ?? [];
-  if (!permissions.includes('cozinha') && !permissions.includes('administracao')) {
+  if (!permissions.includes('administracao')) {
     throw new HttpError(403, 'Sua função não permite alterar o cardápio.');
   }
 

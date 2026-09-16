@@ -272,6 +272,9 @@ export type CashEntry = {
   customerName: string;
   /** Telefone do cliente, quando informado. Usado na busca do Registro. */
   phone?: string;
+  /** Cópia do destino, preservada para reimpressão mesmo após o fechamento. */
+  address?: DeliveryAddress;
+  notes?: string;
   items: OrderItem[];
   /** Soma dos itens. */
   subtotal: number;
@@ -320,6 +323,8 @@ export type CashClosure = {
   counted: Record<'dinheiro' | 'cartao' | 'pix', number>;
   expected: Record<'dinheiro' | 'cartao' | 'pix', number>;
   difference: Record<'dinheiro' | 'cartao' | 'pix', number>;
+  /** Saídas preservadas junto do fechamento; registros antigos podem não ter. */
+  movements?: CashMovement[];
   operatorId: string;
   operatorName: string;
   createdAt: number;
@@ -352,7 +357,7 @@ export function faturamento(entries: CashEntry[]): number {
 export function totalEntregue(orders: DeliveryOrder[]): number {
   return orders
     .filter((o) => o.status === 'entregue')
-    .reduce((total, o) => total + (o.total ?? 0), 0);
+    .reduce((total, o) => total + Math.max(0, Number(o.deliveryFee ?? 0)), 0);
 }
 
 /** Total dos itens de uma comanda. */

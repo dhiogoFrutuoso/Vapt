@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "build:app": "vite build --config vite.app.config.ts --mode app",
     "build:win": "npm run build:app && electron-builder --win --publish never",
-    "build:android": "npx cap sync android && cd android && .\\gradlew.bat assembleDebug && cd .. && node scripts/mover-apk.mjs",
+    "build:android": "npm run build:app && npx cap sync android && cd android && .\\gradlew.bat assembleDebug && cd .. && node scripts/mover-apk.mjs debug",
+    "build:android:release": "npm run build:app && npx cap sync android && cd android && .\\gradlew.bat assembleRelease && cd .. && node scripts/mover-apk.mjs release",
     "app:desktop": "npm run build:app && electron .",
     "deploy:apps": "node scripts/deploy-apps.mjs",
     "build:apps": "node scripts/build-apps.mjs"

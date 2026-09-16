@@ -123,16 +123,27 @@
   letter-spacing: 0.02em;
 }
 
+.print-ticket__store-contact,
+.print-ticket__printed,
+.print-ticket__non-fiscal {
+  margin: 0 0 1mm;
+  text-align: center;
+  font-weight: 700;
+}
+
+.print-ticket__non-fiscal {
+  margin: 2mm 0 4mm;
+  font-size: 1.05em;
+}
+
 /* Tipo do pedido em destaque: é a primeira coisa que a expedição lê. */
 .print-ticket__type {
-  margin: 0 0 2mm;
-  padding: 1mm 0;
-  border-top: 1px dashed #000;
-  border-bottom: 1px dashed #000;
-  font-size: 1.35em;
+  margin: 0 0 1mm;
+  padding: 0;
+  border: 0;
+  font-size: 1em;
   font-weight: 700;
-  text-align: center;
-  text-transform: uppercase;
+  text-align: left;
 }
 
 .print-ticket__client {
@@ -173,6 +184,14 @@
   margin: 0 0 1mm;
   font-weight: 700;
   text-transform: uppercase;
+  border-bottom: 1px solid #000;
+}
+
+.print-ticket__items-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  margin-bottom: 1mm;
   border-bottom: 1px solid #000;
 }
 
@@ -229,6 +248,20 @@
   border-top: 1px dashed #000;
 }
 
+.print-ticket__payments {
+  margin-top: 3mm;
+}
+
+.print-ticket__payments > strong {
+  display: block;
+  margin-bottom: 1mm;
+}
+
+.print-ticket__operator {
+  margin: 4mm 0 0;
+  font-weight: 700;
+}
+
 .print-ticket__line {
   display: flex;
   justify-content: space-between;
@@ -244,9 +277,17 @@
 }
 
 .print-ticket__footer {
-  margin-top: 3mm;
+  margin: 4mm 0 0;
   text-align: center;
-  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.print-ticket__signature {
+  margin: 3mm 0 0;
+  padding-top: 1mm;
+  border-top: 1px dashed #000;
+  text-align: center;
+  font-size: 0.8em;
 }
 
 /*

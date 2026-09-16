@@ -8,10 +8,8 @@ import {
   type KitchenTicket,
   type OrderItem,
   type OrderSource,
-  type PreviewProduct,
 } from './types';
-import { PackageCheck, PackageX, Printer } from 'lucide-react';
-import { useConfirm } from '../ConfirmModal';
+import { Printer } from 'lucide-react';
 import { PrintTicket } from './PrintTicket';
 import { printReceipt } from '../../lib/printReceipt';
 import toast from 'react-hot-toast';
@@ -31,8 +29,6 @@ type Props = {
   /** Estado de produção por (comanda, saguão). */
   statusOf: (ticketId: string, station: string) => KitchenStatus;
   onSetStatus: (ticketId: string, stations: string[], status: KitchenStatus) => void;
-  products?: PreviewProduct[];
-  onToggleAvailability?: (productId: string, available: boolean) => void;
   storeName?: string;
 };
 
@@ -284,11 +280,8 @@ export function KitchenView({
   onChangeStation,
   statusOf,
   onSetStatus,
-  products = [],
-  onToggleAvailability,
   storeName = 'Vapt',
 }: Props) {
-  const { confirm, ConfirmElement } = useConfirm();
   const [printing, setPrinting] = useState<KitchenTicket | null>(null);
   useEffect(() => {
     if (!printing) return;
@@ -341,49 +334,6 @@ export function KitchenView({
         <span aria-hidden="true">👨‍🍳</span>
         Cozinha · {pending} {pending === 1 ? 'comanda na fila' : 'comandas na fila'}
       </p>
-
-      {onToggleAvailability && products.length > 0 && (
-        <section className="mb-4 rounded-3xl border border-solid border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="m-0 text-sm font-extrabold text-slate-900 dark:text-white">Disponibilidade do cardápio</h3>
-              <p className="m-0 mt-1 text-xs text-slate-500">A alteração chega ao cliente em tempo real.</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {products.map((product) => {
-              const available = product.available !== false;
-              return (
-                <button
-                  key={product.id ?? product.name}
-                  type="button"
-                  className={`flex items-center gap-3 rounded-2xl border border-solid px-3 py-3 text-left text-sm font-bold transition ${
-                    available
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-red-200 bg-red-50 text-red-800'
-                  }`}
-                  onClick={() => {
-                    if (!product.id) return;
-                    confirm({
-                      title: available ? 'Pausar produto' : 'Reativar produto',
-                      message: available
-                        ? `${product.name} deixará de aparecer no cardápio público imediatamente.`
-                        : `${product.name} voltará a aparecer no cardápio público imediatamente.`,
-                      confirmText: available ? 'Pausar agora' : 'Reativar agora',
-                      isDestructive: available,
-                      onConfirm: () => onToggleAvailability(product.id!, !available),
-                    });
-                  }}
-                >
-                  {available ? <PackageCheck size={18} aria-hidden="true" /> : <PackageX size={18} aria-hidden="true" />}
-                  <span className="min-w-0 flex-1 truncate">{product.name}</span>
-                  <span className="text-[10px] uppercase tracking-wider">{available ? 'Disponível' : 'Pausado'}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* ------------------------- Filtro de saguões ------------------------- */}
       <div className="kds-stations" role="tablist" aria-label="Saguões da cozinha">
@@ -452,7 +402,6 @@ export function KitchenView({
           station={isAll ? undefined : activeStation}
         />
       )}
-      {ConfirmElement}
     </div>
   );
 }

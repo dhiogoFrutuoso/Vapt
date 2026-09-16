@@ -13,14 +13,16 @@ type Props = {
 
 export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: Props) {
   const copy = demo.preview;
+  const soldOut = product.available === false;
 
   return (
-    <li className="phone__item">
+    <li className={`phone__item ${soldOut ? 'is-sold-out' : ''}`} aria-disabled={soldOut || undefined}>
       <div className="phone__item-main">
         <div className="phone__item-text">
           <strong>
             {product.name}
             {product.isPromo && <span className="cash-badge is-order-feito" style={{ marginLeft: 6 }}>Oferta</span>}
+            {soldOut && <span className="phone__sold-out-badge">Esgotado</span>}
           </strong>
           {product.description && <p>{product.description}</p>}
           <span className="phone__price">
@@ -42,7 +44,11 @@ export function ProductRow({ product, quantity, interactive, onAdd, onRemove }: 
         </div>
       </div>
 
-      {interactive &&
+      {interactive && soldOut && (
+        <div className="phone__sold-out" role="status">Produto esgotado</div>
+      )}
+
+      {interactive && !soldOut &&
         (product.pricingType === 'weight' ? (
           <div className="phone__stepper">
             <input

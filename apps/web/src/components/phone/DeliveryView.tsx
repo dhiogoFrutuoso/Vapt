@@ -3,6 +3,7 @@ import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { addressLabel, mapsUrl, whatsappUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
 import { useConfirm } from '../ConfirmModal';
+import { UserRoundCog } from 'lucide-react';
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro', fiado: 'Fiado',
@@ -17,9 +18,10 @@ type Props = {
   orders: DeliveryOrder[];
   interactive: boolean;
   onAdvance: (id: string) => void;
-  onClaim?: (id: string) => void;
-  onRevert: (id: string) => void;
-  onCancel: (id: string) => void;
+  onRevert?: (id: string) => void;
+  onCancel?: (id: string) => void;
+  deliveryPeople?: Array<{ id: string; name: string }>;
+  onReassign?: (id: string, employeeId: string) => void;
 };
 
 /** Texto de busca de um pedido: junta tudo que o entregador poderia digitar. */
@@ -61,16 +63,22 @@ function normalize(value: string): string {
  * e "Concluídas" (entregue) — com busca que varre qualquer informação do pedido:
  * nome, telefone, código, item, endereço, referência, forma de pagamento ou valor.
  */
-export function DeliveryView({ orders, interactive, onAdvance, onClaim, onRevert, onCancel }: Props) {
+export function DeliveryView({
+  orders,
+  interactive,
+  onAdvance,
+  onRevert,
+  onCancel,
+  deliveryPeople = [],
+  onReassign,
+}: Props) {
   const copy = demo.preview;
   const [tab, setTab] = useState<'pending' | 'done'>('pending');
   const { confirm, ConfirmElement } = useConfirm();
   const [search, setSearch] = useState('');
+  const [assignmentDraft, setAssignmentDraft] = useState<Record<string, string>>({});
 
-  const pending = useMemo(
-    () => orders.filter((order) => order.status !== 'entregue' && (order.status !== 'novo' || Boolean(onClaim))),
-    [orders, onClaim]
-  );
+  const pending = useMemo(() => orders.filter((order) => order.status !== 'entregue' && order.status !== 'novo'), [orders]);
   const done = useMemo(() => orders.filter((order) => order.status === 'entregue'), [orders]);
 
   const visible = useMemo(() => {
@@ -217,6 +225,43 @@ export function DeliveryView({ orders, interactive, onAdvance, onClaim, onRevert
                 </p>
               )}
 
+              {onReassign && order.status !== 'novo' ? (
+                <div className="deliv-owner">
+                  <label className="deliv-owner__field">
+                    <span><UserRoundCog size={14} aria-hidden="true" /> Entregador responsável</span>
+                    <select
+                      value={assignmentDraft[order.id] ?? order.deliveredById ?? ''}
+                      onChange={(event) => setAssignmentDraft((current) => ({ ...current, [order.id]: event.target.value }))}
+                      aria-label={`Entregador responsável pelo pedido ${order.code}`}
+                    >
+                      <option value="">Selecione o entregador</option>
+                      {!deliveryPeople.some((person) => person.id === order.deliveredById) && order.deliveredById && (
+                        <option value={order.deliveredById}>{order.deliveredByName || 'Funcionário removido'}</option>
+                      )}
+                      {deliveryPeople.map((person) => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="deliv-owner__button"
+                    disabled={!assignmentDraft[order.id] || assignmentDraft[order.id] === order.deliveredById}
+                    onClick={() => {
+                      const employeeId = assignmentDraft[order.id];
+                      if (!employeeId) return;
+                      onReassign(order.id, employeeId);
+                    }}
+                  >
+                    Trocar autoria
+                  </button>
+                </div>
+              ) : order.deliveredByName ? (
+                <p className="deliv-owner__readonly">
+                  <UserRoundCog size={13} aria-hidden="true" /> Responsável: <strong>{order.deliveredByName}</strong>
+                </p>
+              ) : null}
+
               <div className="phone__delivery-actions">
                 <a className="phone__sheet-btn" href={mapsUrl(order.address)} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e2e8f0', color: '#334155' }}>
                   🗺️ {copy.deliveryMaps}
@@ -224,15 +269,15 @@ export function DeliveryView({ orders, interactive, onAdvance, onClaim, onRevert
                 <button
                   type="button"
                   className="phone__sheet-btn is-primary"
-                  onClick={() => order.status === 'novo' && onClaim ? onClaim(order.id) : onAdvance(order.id)}
+                  onClick={() => onAdvance(order.id)}
                   disabled={!interactive || order.status === 'entregue'}
                 >
                   {copy.deliveryActions[order.status]}
                 </button>
               </div>
-              {order.status !== 'entregue' && (
+              {order.status !== 'entregue' && (onRevert || onCancel) && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <button
+                  {onRevert && <button
                     type="button"
                     onClick={() => {
                       confirm({
@@ -246,8 +291,8 @@ export function DeliveryView({ orders, interactive, onAdvance, onClaim, onRevert
                     style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#475569', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
                   >
                     ↩️ P/ Recepção
-                  </button>
-                  <button
+                  </button>}
+                  {onCancel && <button
                     type="button"
                     onClick={() => {
                       confirm({
@@ -261,7 +306,7 @@ export function DeliveryView({ orders, interactive, onAdvance, onClaim, onRevert
                     style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
                   >
                     🗑️ Excluir
-                  </button>
+                  </button>}
                 </div>
               )}
             </li>

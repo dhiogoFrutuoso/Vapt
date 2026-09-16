@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { MoneyInput } from './MoneyInput';
 import { faturamento } from './types';
-import type { CashEntry, CashMovement, OrderItem, OrderSource, PaymentMethod, PaymentSplit, PaymentSplitItem } from './types';
-import { ArrowDownToLine, ArrowUpFromLine, HandCoins, Pencil, RotateCcw, XCircle } from 'lucide-react';
+import { addressLabel, type CashEntry, type CashMovement, type OrderItem, type OrderSource, type PaymentMethod, type PaymentSplit, type PaymentSplitItem } from './types';
+import { ArrowUpFromLine, ClipboardCopy, FolderOpen, HandCoins, Printer, RotateCcw, X, XCircle } from 'lucide-react';
 import { useConfirm } from '../ConfirmModal';
+import { formatReceiptText, PrintTicket, type PrintTicketProps } from './PrintTicket';
+import { printReceipt } from '../../lib/printReceipt';
 
 type Props = {
   entries: CashEntry[];
@@ -23,10 +26,15 @@ type Props = {
    */
   onCancelEntry?: (id: string, motivo: string) => void;
   movements?: CashMovement[];
-  onCashMovement?: (type: 'sangria' | 'suprimento', amount: number, reason: string) => void;
+  onCashMovement?: (type: 'sangria', amount: number, reason: string) => void;
+  /** Abre o pedido de delivery na aba Cliente para incluir itens do cardápio. */
+  onEditDeliveryItems?: (entry: CashEntry) => void;
   onCreditPayment?: (id: string, amount: number) => void;
   onReopenEntry?: (id: string) => void;
   onCloseRegister: (counted: { dinheiro: number; cartao: number; pix: number }) => void;
+  storeName?: string;
+  storePhone?: string;
+  operatorName?: string;
 };
 
 type PeriodValue = '2h' | '6h' | '24h' | 'hoje' | 'tudo';
@@ -101,6 +109,7 @@ function matchesSearch(entry: CashEntry, term: string): boolean {
     entry.customerName,
     entry.label,
     entry.phone ?? '',
+    entry.deliveredByName ?? '',
     SOURCE_LABEL[entry.source],
     brl(entry.total),
     entry.total.toFixed(2),
@@ -132,6 +141,10 @@ export function CashRegister({
   onCreditPayment,
   onReopenEntry,
   onCloseRegister,
+  onEditDeliveryItems,
+  storeName = 'Vapt',
+  storePhone,
+  operatorName,
 }: Props) {
   const copy = demo.preview;
 
@@ -139,9 +152,10 @@ export function CashRegister({
   const [period, setPeriod] = useState<PeriodValue>('24h');
   const [source, setSource] = useState<'todos' | OrderSource>('todos');
   const [paymentFilter, setPaymentFilter] = useState<'todos' | PaymentMethod>('todos');
+  const [courierFilter, setCourierFilter] = useState('todos');
   const [closedMessage, setClosedMessage] = useState<string | null>(null);
   const { confirm, ConfirmElement } = useConfirm();
-  const [actionModal, setActionModal] = useState<'sangria' | 'suprimento' | 'fechar' | 'cancelar' | 'fiado' | null>(null);
+  const [actionModal, setActionModal] = useState<'sangria' | 'fechar' | 'cancelar' | 'fiado' | null>(null);
   const [actionEntry, setActionEntry] = useState<CashEntry | null>(null);
   const [actionAmount, setActionAmount] = useState(0);
   const [actionReason, setActionReason] = useState('');
@@ -192,7 +206,7 @@ export function CashRegister({
   function confirmEdit() {
     if (!editingEntry) return;
     const save = () => {
-      if (onEditEntry && editingEntry.paymentStatus === 'concluido') {
+      if (onEditEntry) {
         onEditEntry(editingEntry.id, { payments: editSplits, items: editItems, deliveryFee: editDeliveryFee });
       } else onUpdatePayments(editingEntry.id, editSplits);
       closeEditModal();
@@ -215,6 +229,68 @@ export function CashRegister({
   const editRemaining = Math.max(0, editTotal - editSplitsTotal);
   const editIsValid = editRemaining < 0.01 && editSplits.length > 0 && editSplits.every(p => p.amount > 0);
 
+  const editingReceipt: PrintTicketProps | null = editingEntry ? {
+    storeName,
+    storePhone,
+    label: editingEntry.label,
+    origin: editingEntry.source,
+    customerName: editingEntry.customerName || 'Cliente',
+    phone: editingEntry.phone,
+    address: editingEntry.address
+      ? [addressLabel(editingEntry.address), editingEntry.address.district, editingEntry.address.city].filter(Boolean).join(' · ')
+      : undefined,
+    addressReference: editingEntry.address?.reference,
+    notes: editingEntry.notes,
+    items: editItems,
+    subtotal: editItems.reduce((sum, item) => sum + item.price, 0),
+    serviceFee: editingEntry.serviceFee,
+    deliveryFee: editDeliveryFee,
+    payments: editSplits,
+    createdAt: editingEntry.createdAt,
+    operatorName,
+    width: 80,
+  } : null;
+
+  async function copyEditingReceipt() {
+    if (!editingReceipt) return;
+    try {
+      const content = formatReceiptText(editingReceipt);
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(content);
+      else {
+        const field = document.createElement('textarea');
+        field.value = content;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Cópia bloqueada.');
+      }
+      toast.success('Comanda copiada com a mesma formatação da impressão.');
+    } catch {
+      toast.error('Não foi possível copiar a comanda neste dispositivo.');
+    }
+  }
+
+  async function printEditingReceipt() {
+    try {
+      await printReceipt();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível imprimir a comanda.');
+    }
+  }
+
+  const couriers = useMemo(() => {
+    const unique = new Map<string, string>();
+    for (const entry of [...entries, ...archive]) {
+      if (entry.source === 'delivery' && entry.deliveredById) {
+        unique.set(entry.deliveredById, entry.deliveredByName || 'Entregador removido');
+      }
+    }
+    return Array.from(unique, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }, [entries, archive]);
+
   /* ---- Filtros do turno ---- */
   const filtered = useMemo(() => {
     const start = periodStart(period);
@@ -222,12 +298,13 @@ export function CashRegister({
     return entries
       .filter((entry) => entry.createdAt >= start)
       .filter((entry) => (source === 'todos' ? true : entry.source === source))
+      .filter((entry) => courierFilter === 'todos' || (entry.source === 'delivery' && entry.deliveredById === courierFilter))
       .filter((entry) => {
         if (paymentFilter === 'todos') return true;
         return entry.payments.some(p => p.method === paymentFilter);
       })
       .sort((a, b) => b.createdAt - a.createdAt);
-  }, [entries, period, source, paymentFilter]);
+  }, [entries, period, source, courierFilter, paymentFilter]);
 
   /** Cancelado não entra em nenhum total: não houve dinheiro. */
   const valid = useMemo(() => filtered.filter((entry) => entry.orderStatus !== 'cancelado'), [filtered]);
@@ -289,12 +366,13 @@ export function CashRegister({
         return when >= start;
       })
       .filter((entry) => (source === 'todos' ? true : entry.source === source))
+      .filter((entry) => courierFilter === 'todos' || (entry.source === 'delivery' && entry.deliveredById === courierFilter))
       .filter((entry) => {
         if (paymentFilter === 'todos') return true;
         return entry.payments.some(p => p.method === paymentFilter);
       })
       .filter((entry) => matchesSearch(entry, search));
-  }, [history, period, dateFilter, source, paymentFilter, search]);
+  }, [history, period, dateFilter, source, courierFilter, paymentFilter, search]);
 
   /*
    * O total do Registro PULA os cancelados.
@@ -309,12 +387,13 @@ export function CashRegister({
    */
   const historyTotal = useMemo(() => faturamento(historyFiltered), [historyFiltered]);
 
-  const hasRegistroFilter = Boolean(search.trim() || dateFilter || source !== 'todos' || paymentFilter !== 'todos');
+  const hasRegistroFilter = Boolean(search.trim() || dateFilter || source !== 'todos' || courierFilter !== 'todos' || paymentFilter !== 'todos');
 
   function clearRegistroFilters() {
     setSearch('');
     setDateFilter('');
     setSource('todos');
+    setCourierFilter('todos');
     setPaymentFilter('todos');
   }
 
@@ -364,12 +443,31 @@ export function CashRegister({
           ))}
         </select>
       </label>
+
+      {couriers.length > 0 && (
+        <label className="cash-filter">
+          <span>Entregador</span>
+          <select
+            value={courierFilter}
+            onChange={(event) => {
+              const next = event.target.value;
+              setCourierFilter(next);
+              if (next !== 'todos') setSource('delivery');
+            }}
+          >
+            <option value="todos">Todos os entregadores</option>
+            {couriers.map((courier) => (
+              <option key={courier.id} value={courier.id}>{courier.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 
   return (
-    <div className="phone__body" style={{ position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, width: '90%', maxWidth: 'none', margin: '0 auto', overflow: 'hidden', padding: 0 }}>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 24px 24px' }}>
+    <div className="phone__body cash-shell">
+      <div className="cash-scroll">
       <p className="phone__role">
         <span aria-hidden="true">💰</span>
         {copy.cashTitle}
@@ -403,13 +501,18 @@ export function CashRegister({
         <>
           <p className="cat-hint">{copy.cashHint}</p>
 
+          <section className="cash-overview" aria-label="Resumo do turno">
+            <div className="is-primary"><span>Recebido</span><strong>{brl(totals.received)}</strong></div>
+            <div><span>Pendente</span><strong>{brl(totals.pending)}</strong></div>
+            <div><span>Taxas de entrega</span><strong>{brl(totals.deliveryFees)}</strong></div>
+          </section>
+
           {onCashMovement && (
-            <div className="mb-4 grid grid-cols-2 gap-2">
-              <button type="button" className="phone__sheet-btn" onClick={() => { setActionModal('sangria'); setActionAmount(0); setActionReason(''); }}>
-                <ArrowUpFromLine size={16} aria-hidden="true" /> Sangria
-              </button>
-              <button type="button" className="phone__sheet-btn" onClick={() => { setActionModal('suprimento'); setActionAmount(0); setActionReason(''); }}>
-                <ArrowDownToLine size={16} aria-hidden="true" /> Suprimento
+            <div className="cash-actions-bar">
+              <button type="button" className="cash-outflow-button" onClick={() => { setActionModal('sangria'); setActionAmount(0); setActionReason(''); }}>
+                <span><ArrowUpFromLine size={17} aria-hidden="true" /></span>
+                <span><strong>Saída de dinheiro</strong><small>Registre despesas e retiradas do caixa</small></span>
+                <span aria-hidden="true">→</span>
               </button>
             </div>
           )}
@@ -419,8 +522,10 @@ export function CashRegister({
               <strong className="mb-2 block text-slate-900">Movimentos deste turno</strong>
               {movements.slice(0, 5).map((movement) => (
                 <div key={movement.id} className="flex justify-between gap-3 py-1">
-                  <span>{movement.type === 'sangria' ? 'Sangria' : 'Suprimento'} · {movement.reason}</span>
-                  <strong>{brl(movement.amount)}</strong>
+                  <span>{movement.type === 'sangria' ? 'Saída de dinheiro' : 'Entrada antiga'} · {movement.reason}</span>
+                  <strong className={movement.type === 'sangria' ? 'text-red-600' : 'text-emerald-600'}>
+                    {movement.type === 'sangria' ? '− ' : '+ '}{brl(movement.amount)}
+                  </strong>
                 </div>
               ))}
             </div>
@@ -447,6 +552,10 @@ export function CashRegister({
                   </header>
 
                   <p className="cash-entry__client">{entry.customerName}</p>
+
+                  {entry.source === 'delivery' && entry.deliveredByName && (
+                    <p className="cash-entry__courier">Entregador: <strong>{entry.deliveredByName}</strong></p>
+                  )}
 
                   <ul className="cash-entry__items">
                     {entry.items.map((item, index) => (
@@ -502,11 +611,13 @@ export function CashRegister({
                     dinheiro. Sem isto a única saída seria um estorno falso,
                     que suja o histórico mais do que a correção.
                   */}
-                  {entry.orderStatus !== 'cancelado' && (
+                  {entry.orderStatus !== 'cancelado' && (entry.paymentStatus === 'pendente' || onEditEntry || onCreditPayment || onCancelEntry) && (
                     <div className="cash-entry__acoes">
-                      <button type="button" className="cash-entry__edit" onClick={() => openEditModal(entry)}>
-                        <Pencil size={15} aria-hidden="true" /> Editar pagamento
-                      </button>
+                      {(entry.paymentStatus === 'pendente' || onEditEntry) && (
+                        <button type="button" className="cash-entry__edit" onClick={() => openEditModal(entry)}>
+                          <FolderOpen size={15} aria-hidden="true" /> Abrir
+                        </button>
+                      )}
 
                       {onCreditPayment && ['open', 'partial'].includes(entry.creditStatus ?? 'none') && (
                         <button type="button" className="cash-entry__edit" onClick={() => { setActionEntry(entry); setActionAmount(0); setActionModal('fiado'); }}>
@@ -545,6 +656,12 @@ export function CashRegister({
           <p className="cat-hint">
             Histórico de tudo que já foi pago, inclusive de turnos fechados. Busque por cliente, telefone ou valor.
           </p>
+
+          <section className="cash-register-summary" aria-label="Resumo do registro filtrado">
+            <span><small>Encontrado</small><strong>{brl(historyTotal)}</strong></span>
+            <span><small>Lançamentos</small><strong>{historyFiltered.length}</strong></span>
+            <span><small>Histórico total</small><strong>{history.length}</strong></span>
+          </section>
 
           {/* ---------------------- Busca e extrato por data ---------------------- */}
           <div className="cash-search">
@@ -615,6 +732,10 @@ export function CashRegister({
                       {entry.phone && <span className="cash-entry__phone"> · {entry.phone}</span>}
                     </p>
 
+                    {entry.source === 'delivery' && entry.deliveredByName && (
+                      <p className="cash-entry__courier">Entregador: <strong>{entry.deliveredByName}</strong></p>
+                    )}
+
                     <div className="cash-entry__values">
                       {entry.deliveryFee > 0 && (
                         <span>
@@ -654,7 +775,7 @@ export function CashRegister({
                     <div className="cash-entry__acoes">
                       {onEditEntry && (
                         <button type="button" className="cash-entry__edit" onClick={() => openEditModal(entry)}>
-                          <Pencil size={15} aria-hidden="true" /> Corrigir
+                          <FolderOpen size={15} aria-hidden="true" /> Abrir
                         </button>
                       )}
                       {onReopenEntry && (
@@ -757,43 +878,33 @@ export function CashRegister({
       {/* ========================= Modal de Edição ========================= */}
       {editingEntry && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-          }}
+          className="cash-order-modal"
           onClick={closeEditModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cash-order-modal-title"
         >
           <div
-            style={{
-              background: '#fff',
-              borderRadius: '12px',
-              padding: '20px',
-              width: '90%',
-              maxWidth: '380px',
-              maxHeight: '80vh',
-              overflowY: 'auto',
-              color: '#000',
-            }}
+            className="cash-order-modal__sheet"
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <strong style={{ fontSize: '1rem' }}>Editar pagamento</strong>
-              <button type="button" onClick={closeEditModal} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#666' }}>✕</button>
+            <div className="cash-order-modal__head">
+              <div><span>Detalhes do pedido</span><strong id="cash-order-modal-title">{editingEntry.label}</strong></div>
+              <button type="button" onClick={closeEditModal} aria-label="Fechar pedido"><X size={20} aria-hidden="true" /></button>
             </div>
 
-            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '8px' }}>
-              {editingEntry.label} — {editingEntry.customerName}
-            </p>
-            <p style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px' }}>
-              Total: {brl(editingEntry.total)}
-            </p>
+            <div className="cash-order-modal__summary">
+              <span><small>Cliente</small><strong>{editingEntry.customerName}</strong></span>
+              <span><small>Total atual</small><strong>{brl(editTotal)}</strong></span>
+              <span><small>Situação</small><strong>{editingEntry.paymentStatus === 'concluido' ? 'Pago' : 'Pendente'}</strong></span>
+            </div>
 
-            {onEditEntry && editingEntry.paymentStatus === 'concluido' && (
+            <div className="cash-order-modal__tools">
+              <button type="button" onClick={() => void copyEditingReceipt()}><ClipboardCopy size={17} aria-hidden="true" /><span><strong>Copiar formatação</strong><small>Pronta para colar no WhatsApp</small></span></button>
+              <button type="button" onClick={() => void printEditingReceipt()}><Printer size={17} aria-hidden="true" /><span><strong>Imprimir comanda</strong><small>Usar a impressora conectada</small></span></button>
+            </div>
+
+            {onEditEntry && (
               <div className="mb-4 space-y-2 rounded-2xl bg-slate-50 p-3">
                 <strong className="block text-xs uppercase tracking-wider text-slate-500">Itens e valores</strong>
                 {editItems.map((item, index) => (
@@ -813,9 +924,17 @@ export function CashRegister({
                     </button>
                   </div>
                 ))}
-                <button type="button" className="w-full rounded-xl border border-dashed border-slate-300 bg-transparent px-3 py-2 text-xs font-bold text-slate-600" onClick={() => setEditItems((current) => [...current, { name: 'Novo item', price: 0 }])}>
-                  Adicionar item
-                </button>
+                {editingEntry.source === 'delivery' && onEditDeliveryItems && (
+                  <button
+                    type="button"
+                    className="cash-catalog-button"
+                    onClick={() => { const entry = editingEntry; closeEditModal(); onEditDeliveryItems(entry); }}
+                  >
+                    <span>＋</span>
+                    <span><strong>Adicionar item pelo cardápio</strong><small>Você continuará a edição na aba Cliente</small></span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                )}
                 {editingEntry.source === 'delivery' && (
                   <label className="block">
                     <span className="mb-1 block text-xs font-bold text-slate-600">Taxa de entrega</span>
@@ -878,11 +997,11 @@ export function CashRegister({
               </button>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+            <div className="cash-order-modal__actions">
               <button
                 type="button"
                 onClick={closeEditModal}
-                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', color: '#334155', fontSize: '0.9rem' }}
+                className="is-secondary"
               >
                 Cancelar
               </button>
@@ -890,21 +1009,12 @@ export function CashRegister({
                 type="button"
                 onClick={confirmEdit}
                 disabled={!editIsValid}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: editIsValid ? 'var(--brand, #f97316)' : '#e2e8f0',
-                  color: editIsValid ? '#fff' : '#94a3b8',
-                  cursor: editIsValid ? 'pointer' : 'not-allowed',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                }}
+                className="is-primary"
               >
                 Confirmar
               </button>
             </div>
+            {editingReceipt && <PrintTicket {...editingReceipt} />}
           </div>
         </div>
       )}
@@ -914,8 +1024,7 @@ export function CashRegister({
           <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900">
             <h3 className="m-0 text-lg font-extrabold text-slate-950 dark:text-white">
               {actionModal === 'fechar' && 'Fechamento cego'}
-              {actionModal === 'sangria' && 'Registrar sangria'}
-              {actionModal === 'suprimento' && 'Registrar suprimento'}
+              {actionModal === 'sangria' && 'Registrar saída de dinheiro'}
               {actionModal === 'cancelar' && `Cancelar ${actionEntry?.label ?? 'venda'}`}
               {actionModal === 'fiado' && 'Abater valor fiado'}
             </h3>
@@ -975,7 +1084,7 @@ export function CashRegister({
                       ? 'Os lançamentos concluídos serão arquivados. Confirma o fechamento do turno?'
                       : modal === 'cancelar'
                         ? 'Esta venda ficará fora do faturamento. Deseja confirmar?'
-                        : `Confirma ${modal === 'sangria' ? 'a sangria' : modal === 'suprimento' ? 'o suprimento' : 'o abatimento'} de ${brl(actionAmount)}?`,
+                        : `Confirma ${modal === 'sangria' ? 'a saída de dinheiro' : 'o abatimento'} de ${brl(actionAmount)}?`,
                     confirmText: 'Confirmar ação',
                     isDestructive: true,
                     onConfirm: () => {
@@ -984,7 +1093,7 @@ export function CashRegister({
                         setClosedMessage('Turno fechado. As diferenças estão disponíveis somente para a Gestão.');
                         window.setTimeout(() => setClosedMessage(null), 4000);
                       } else if (modal === 'cancelar' && entry && onCancelEntry) onCancelEntry(entry.id, actionReason.trim());
-                      else if ((modal === 'sangria' || modal === 'suprimento') && onCashMovement) onCashMovement(modal, actionAmount, actionReason.trim());
+                      else if (modal === 'sangria' && onCashMovement) onCashMovement(modal, actionAmount, actionReason.trim());
                       else if (modal === 'fiado' && entry && onCreditPayment) onCreditPayment(entry.id, actionAmount);
                       setActionModal(null);
                       setActionEntry(null);

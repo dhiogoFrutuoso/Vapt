@@ -44,6 +44,10 @@ export function MenuView({
   const featured = products.filter((product) => product.isFeatured);
 
   const activePromotions = promotions.filter((p) => p.active);
+  const promotionAvailable = (promo: PreviewPromotion) => {
+    const ids = promo.type === 'combo' ? promo.comboItems : [promo.targetProductId].filter(Boolean) as string[];
+    return ids.length > 0 && ids.every((id) => products.some((product) => product.id === id && product.available !== false));
+  };
 
   let categoryProducts: PreviewProduct[] = [];
   if (selectedCategory) {
@@ -60,6 +64,7 @@ export function MenuView({
           iconName: targetProd?.iconName || 'Star',
           category: 'Combos e Promoções',
           isPromo: true,
+          available: promotionAvailable(promo),
           components: promotionParts(promo, products),
         };
       });
@@ -172,6 +177,7 @@ export function MenuView({
                       originalPrice: originalTotal > promo.promotionalPrice ? originalTotal : undefined,
                       iconName: promo.type === 'combo' ? 'package' : 'tag',
                       isPromo: true,
+                      available: promotionAvailable(promo),
                       components: promotionParts(promo, products),
                     };
 

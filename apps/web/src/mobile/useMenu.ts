@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { deviceApi } from './deviceApi';
 import type {
@@ -82,6 +82,16 @@ export function useMenu(token: string | null, appId?: string | null) {
   const [menu, setMenu] = useState<Menu>(VAZIO);
   const [carregando, setCarregando] = useState(true);
 
+  const buscar = useCallback(async () => {
+    if (!token) return;
+    try {
+      const dados = await deviceApi.get<Menu>('/device/menu');
+      setMenu({ ...VAZIO, ...dados });
+    } finally {
+      setCarregando(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     if (!token) return;
     let vivo = true;
@@ -117,10 +127,11 @@ export function useMenu(token: string | null, appId?: string | null) {
         ),
       }));
     });
+    socket.on('team_changed', () => void buscar());
     return () => {
       socket.close();
     };
-  }, [token, appId]);
+  }, [token, appId, buscar]);
 
-  return { menu, carregando };
+  return { menu, carregando, recarregar: buscar };
 }

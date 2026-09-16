@@ -111,10 +111,7 @@ export const getPublicApp = asyncHandler(async (req: Request, res: Response) => 
         imageUrl: imageUrl(c.image),
       })),
 
-      products: (app.products ?? [])
-        // Item indisponivel nao aparece: o cliente nao deve pedir o que acabou.
-        .filter((p: Record<string, any>) => p.available !== false)
-        .map((p: Record<string, any>) => ({
+      products: (app.products ?? []).map((p: Record<string, any>) => ({
           id: String(p._id),
           name: p.name,
           description: p.description ?? '',
@@ -123,6 +120,7 @@ export const getPublicApp = asyncHandler(async (req: Request, res: Response) => 
           category: p.category ?? '',
           imageUrl: imageUrl(p.image),
           isFeatured: p.isFeatured === true,
+          available: p.available !== false,
         })),
 
       promotions: (app.promotions ?? [])

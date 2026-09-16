@@ -1,33 +1,68 @@
 import { Capacitor } from '@capacitor/core';
+import type { PermissionStatus } from '@capacitor/geolocation';
 
 export type Coordinates = { lat: number; lng: number };
+export type LocationFailureReason = 'permission-denied' | 'services-disabled' | 'unavailable';
+
+export class LocationFailure extends Error {
+  constructor(public readonly reason: LocationFailureReason, message: string) {
+    super(message);
+    this.name = 'LocationFailure';
+  }
+}
 
 export const DEFAULT_MAP_CENTER: Coordinates = { lat: -23.5613, lng: -46.6565 };
 
 async function getNativeCoordinates(): Promise<Coordinates> {
   const { Geolocation } = await import('@capacitor/geolocation');
-  let permissions = await Geolocation.checkPermissions();
+  let permissions: PermissionStatus;
 
-  if (
-    permissions.location === 'prompt' ||
-    permissions.location === 'prompt-with-rationale' ||
-    permissions.coarseLocation === 'prompt' ||
-    permissions.coarseLocation === 'prompt-with-rationale'
-  ) {
-    permissions = await Geolocation.requestPermissions();
+  try {
+    permissions = await Geolocation.checkPermissions();
+  } catch {
+    throw new LocationFailure(
+      'services-disabled',
+      'Ative a localização (GPS) do aparelho e toque novamente.'
+    );
   }
 
-  if (permissions.location === 'denied' && permissions.coarseLocation === 'denied') {
-    throw new Error('Permissão de localização negada.');
+  const granted = () =>
+    permissions.location === 'granted' || permissions.coarseLocation === 'granted';
+
+  if (!granted()) {
+    try {
+      permissions = await Geolocation.requestPermissions({
+        permissions: ['location', 'coarseLocation'],
+      });
+    } catch {
+      throw new LocationFailure(
+        'services-disabled',
+        'Ative a localização (GPS) do aparelho e toque novamente.'
+      );
+    }
   }
 
-  const position = await Geolocation.getCurrentPosition({
-    enableHighAccuracy: true,
-    timeout: 10_000,
-    maximumAge: 0,
-  });
+  if (!granted()) {
+    throw new LocationFailure(
+      'permission-denied',
+      'Permita o acesso à localização nas configurações do Android e toque novamente.'
+    );
+  }
 
-  return { lat: position.coords.latitude, lng: position.coords.longitude };
+  try {
+    const position = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: permissions.location === 'granted',
+      timeout: 15_000,
+      maximumAge: 0,
+    });
+
+    return { lat: position.coords.latitude, lng: position.coords.longitude };
+  } catch {
+    throw new LocationFailure(
+      'unavailable',
+      'Não foi possível obter a posição atual. Vá para um local aberto, ative o GPS e tente novamente.'
+    );
+  }
 }
 
 function getBrowserCoordinates(): Promise<Coordinates> {
@@ -47,6 +82,16 @@ function getBrowserCoordinates(): Promise<Coordinates> {
 
 export async function getCurrentCoordinates(): Promise<Coordinates> {
   return Capacitor.isNativePlatform() ? getNativeCoordinates() : getBrowserCoordinates();
+}
+
+export function isNativeLocationPlatform(): boolean {
+  return Capacitor.isNativePlatform();
+}
+
+export function getLocationFailureMessage(error: unknown): string {
+  return error instanceof LocationFailure
+    ? error.message
+    : 'Não foi possível obter sua posição atual. Verifique a localização do aparelho e tente novamente.';
 }
 
 export async function reverseGeocodeCoordinates(coords: Coordinates) {

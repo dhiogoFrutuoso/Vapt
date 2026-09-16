@@ -54,6 +54,7 @@ type Props = {
   categories: CategoryItem[];
   stations: string[];
   storeName: string;
+  storePhone?: string;
   logoUrl: string | null;
   brandColor: string;
   theme: 'claro' | 'escuro';
@@ -64,6 +65,7 @@ type Props = {
   onIrPara: (aba: Props['aba']) => void;
   /** Funcionário logado, para carimbar autoria e reatribuir entregas. */
   employeeId: string;
+  employeeName: string;
   /** Equipe, para o seletor de entregador. */
   equipe?: Array<{
     id: string;
@@ -72,6 +74,7 @@ type Props = {
     permissions: string[];
     isDeliveryman: boolean;
   }>;
+  onTeamChanged?: () => void | Promise<void>;
   permissions: string[];
   isDeliveryman: boolean;
 };
@@ -85,6 +88,7 @@ export function AppViews({
   categories,
   stations,
   storeName,
+  storePhone,
   logoUrl,
   brandColor,
   theme,
@@ -93,9 +97,10 @@ export function AppViews({
   waiterCommissionRate,
   onIrPara,
   employeeId,
+  employeeName,
   equipe = [],
+  onTeamChanged,
   permissions,
-  isDeliveryman,
 }: Props) {
   /* ------------------------- Estado local da tela ------------------------- */
 
@@ -112,6 +117,7 @@ export function AppViews({
     payments?: PaymentSplit;
     isDelivery?: boolean;
   } | null>(null);
+  const isAdmin = permissions.includes('administracao');
 
   const openTable = useMemo(
     () => estado.tables.find((t) => t.id === openTableId) ?? null,
@@ -133,8 +139,10 @@ export function AppViews({
     try {
       const mensagem = await executar(comando);
       if (mensagem) toast.success(mensagem);
+      return true;
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : 'Não foi possível concluir a ação.');
+      return false;
     }
   }
 
@@ -238,7 +246,8 @@ export function AppViews({
           isDelivery: data.isDelivery,
         };
 
-    await rodar(comando);
+    const criado = await rodar(comando);
+    if (!criado) return;
 
     setCart([]);
     setEditandoPedidoId(null);
@@ -446,42 +455,56 @@ export function AppViews({
   if (aba === 'recepcao') {
     return (
       <>
-        <ReceptionView
-          deliveries={estado.deliveries}
-          defaultFee={deliveryFee}
-          deliveryPeople={equipe.filter((person) => person.isDeliveryman)}
-          onEdit={editarPedido}
-          onAccept={(id, fee, assignedId) => void despachar(id, fee, assignedId)}
-          onReject={(id) => void rodar({ tipo: 'pedido.rejeitar', pedidoId: id })}
-          onReassign={(id, assignedId) => void rodar({ tipo: 'pedido.entregador', pedidoId: id, employeeId: assignedId })}
-          storeName={storeName}
-        />
-        <ServiceView
-          tables={[]}
-          takeouts={estado.takeouts}
-          showTables={false}
-          interactive
-          flash={null}
-          onOpenTable={() => {}}
-          onOpenTakeout={(takeout) => {
-            setOpenTableId(null);
-            setOpenTakeoutId(takeout.id);
-          }}
-          onCreateTakeout={(name, phone) => void rodar({ tipo: 'retirada.criar', customerName: name, phone })}
-          onSetTableStatus={() => {}}
-          onSetTakeoutStatus={(id, status) => void rodar({ tipo: 'retirada.status', retiradaId: id, status })}
-          onCancelTakeout={(id) => void rodar({ tipo: 'retirada.remover', retiradaId: id })}
-        />
+        <div className="phone__body reception-workspace">
+          <ServiceView
+            tables={[]}
+            takeouts={estado.takeouts}
+            showTables={false}
+            interactive
+            flash={null}
+            onOpenTable={() => {}}
+            onOpenTakeout={(takeout) => {
+              setOpenTableId(null);
+              setOpenTakeoutId(takeout.id);
+            }}
+            onCreateTakeout={(name, phone) => void rodar({ tipo: 'retirada.criar', customerName: name, phone })}
+            onSetTableStatus={() => {}}
+            onSetTakeoutStatus={(id, status) => void rodar({ tipo: 'retirada.status', retiradaId: id, status })}
+            onCancelTakeout={isAdmin ? (id) => void rodar({ tipo: 'retirada.remover', retiradaId: id }) : undefined}
+            storeName={storeName}
+            storePhone={storePhone}
+            operatorName={employeeName}
+            serviceFeeRate={waiterCommissionRate}
+          />
+          <ReceptionView
+            deliveries={estado.deliveries}
+            defaultFee={deliveryFee}
+            deliveryPeople={equipe.filter((person) => person.isDeliveryman)}
+            onEdit={isAdmin ? editarPedido : undefined}
+            onAccept={isAdmin ? (id, fee, assignedId) => void despachar(id, fee, assignedId) : undefined}
+            onReject={isAdmin ? (id) => void rodar({ tipo: 'pedido.rejeitar', pedidoId: id }) : undefined}
+            storeName={storeName}
+            storePhone={storePhone}
+            operatorName={employeeName}
+            products={products}
+            categories={categories}
+            onToggleAvailability={isAdmin ? (productId, available) => {
+              void deviceApi.patch(`/device/menu/products/${productId}/availability`, { available })
+                .then(() => toast.success(available ? 'Produto disponível.' : 'Produto marcado como esgotado.'))
+                .catch((error) => toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o produto.'));
+            } : undefined}
+          />
+        </div>
         {openTakeout && ticket && (
           <OrderSheet
             ticket={ticket}
             categories={categories}
             products={products}
             onAddItem={(item) => void adicionarItem(item)}
-            onRemoveItem={(index) => void removerItem(index)}
+            onRemoveItem={isAdmin ? (index) => void removerItem(index) : undefined}
             onRequestPayment={() => void pedirPagamento()}
             onConfirmPayment={(payments) => void confirmarPagamento(payments)}
-            onCancelOrder={() => void cancelarComanda()}
+            onCancelOrder={isAdmin ? () => void cancelarComanda() : undefined}
             onDismiss={() => setOpenTakeoutId(null)}
           />
         )}
@@ -512,10 +535,14 @@ export function AppViews({
           onSetTakeoutStatus={(id: string, status: TableStatus) =>
             void rodar({ tipo: 'retirada.status', retiradaId: id, status })
           }
-          onCancelTakeout={(id: string) => {
+          onCancelTakeout={isAdmin ? (id: string) => {
             void rodar({ tipo: 'retirada.remover', retiradaId: id });
             if (openTakeoutId === id) setOpenTakeoutId(null);
-          }}
+          } : undefined}
+          storeName={storeName}
+          storePhone={storePhone}
+          operatorName={employeeName}
+          serviceFeeRate={waiterCommissionRate}
         />
 
         {ticket && (
@@ -524,10 +551,10 @@ export function AppViews({
             categories={categories}
             products={products}
             onAddItem={(item) => void adicionarItem(item)}
-            onRemoveItem={(indice) => void removerItem(indice)}
+            onRemoveItem={isAdmin ? (indice) => void removerItem(indice) : undefined}
             onRequestPayment={() => void pedirPagamento()}
             onConfirmPayment={(payments) => void confirmarPagamento(payments)}
-            onCancelOrder={() => void cancelarComanda()}
+            onCancelOrder={isAdmin ? () => void cancelarComanda() : undefined}
             onDismiss={() => {
               setOpenTableId(null);
               setOpenTakeoutId(null);
@@ -556,13 +583,7 @@ export function AppViews({
             status,
           })
         }
-        products={products}
         storeName={storeName}
-        onToggleAvailability={(productId, available) => {
-          void deviceApi.patch(`/device/menu/products/${productId}/availability`, { available })
-            .then(() => toast.success(available ? 'Produto disponível.' : 'Produto pausado no cardápio.'))
-            .catch((error) => toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o produto.'));
-        }}
       />
     );
   }
@@ -577,35 +598,41 @@ export function AppViews({
           onUpdatePayments={(id, payments) =>
             void rodar({ tipo: 'caixa.pagamento', lancamentoId: id, payments })
           }
-          onEditEntry={permissions.includes('administracao')
+          onEditEntry={isAdmin
             ? (id, data) => void rodar({ tipo: 'caixa.editar', lancamentoId: id, ...data })
             : undefined}
-          onCancelEntry={(id, motivo) =>
-            void rodar({ tipo: 'caixa.cancelar', lancamentoId: id, motivo })
-          }
+          onCancelEntry={isAdmin
+            ? (id, motivo) => void rodar({ tipo: 'caixa.cancelar', lancamentoId: id, motivo })
+            : undefined}
           movements={estado.cashMovements}
           onCashMovement={(movementType, amount, reason) =>
             void rodar({ tipo: 'caixa.movimento', movementType, amount, reason })
           }
           onCreditPayment={(id, amount) => void rodar({ tipo: 'fiado.abater', lancamentoId: id, amount })}
-          onReopenEntry={permissions.includes('administracao')
+          onReopenEntry={isAdmin
             ? (id) => void rodar({ tipo: 'caixa.reabrir', lancamentoId: id })
             : undefined}
           onCloseRegister={(counted) => void rodar({ tipo: 'caixa.fechar', counted })}
+          onEditDeliveryItems={isAdmin ? (entry) => {
+            const deliveryId = entry.id.replace(/^c-/, '');
+            if (estado.deliveries.some((delivery) => delivery.id === deliveryId)) editarPedido(deliveryId);
+            else toast.error('Esta entrega já foi encerrada e não está mais disponível para incluir itens.');
+          } : undefined}
+          storeName={storeName}
+          storePhone={storePhone}
+          operatorName={employeeName}
         />
       </div>
     );
   }
 
   if (aba === 'administracao') {
-    return <AdministrationView estado={estado} equipe={equipe} />;
+    return <AdministrationView estado={estado} equipe={equipe} currentEmployeeId={employeeId} currentEmployeeName={employeeName} storeName={storeName} storePhone={storePhone} onTeamChanged={onTeamChanged} />;
   }
 
   /* ------------------------------ Entregador ------------------------------ */
 
   const placar = totalEntregue(estado.deliveries);
-  const concluidas = estado.deliveries.filter((d) => d.status === 'entregue');
-
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -613,61 +640,22 @@ export function AppViews({
           orders={estado.deliveries}
           interactive
           onAdvance={(id) => void rodar({ tipo: 'pedido.avancar', pedidoId: id })}
-          onClaim={isDeliveryman
-            ? (id) => void rodar({ tipo: 'pedido.aceitar', pedidoId: id, fee: deliveryFee, employeeId })
+          onRevert={isAdmin ? (id) => void rodar({ tipo: 'pedido.voltar', pedidoId: id }) : undefined}
+          onCancel={isAdmin ? (id) => void rodar({ tipo: 'pedido.cancelar', pedidoId: id }) : undefined}
+          deliveryPeople={isAdmin ? equipe.filter((person) => person.isDeliveryman) : undefined}
+          onReassign={isAdmin
+            ? (id, assignedId) => void rodar({ tipo: 'pedido.entregador', pedidoId: id, employeeId: assignedId })
             : undefined}
-          onRevert={(id) => void rodar({ tipo: 'pedido.voltar', pedidoId: id })}
-          onCancel={(id) => void rodar({ tipo: 'pedido.cancelar', pedidoId: id })}
         />
-
-        {/*
-          Autoria das entregas concluídas.
-          Fica FORA do DeliveryView de propósito: aquele componente também
-          veste a simulação da landing, onde não existe equipe para atribuir.
-        */}
-        {concluidas.length > 0 && (
-          <div className="deliv-autoria">
-            <p className="deliv-autoria__titulo">Autoria das entregas</p>
-            {concluidas.map((pedido) => (
-              <div key={pedido.id} className="deliv-autoria__linha">
-                <span className="deliv-autoria__pedido">#{pedido.code}</span>
-                <select
-                  value={pedido.deliveredById || employeeId}
-                  onChange={(e) =>
-                    void rodar({
-                      tipo: 'pedido.entregador',
-                      pedidoId: pedido.id,
-                      employeeId: e.target.value,
-                    })
-                  }
-                  aria-label={`Entregue por, pedido ${pedido.code}`}
-                >
-                  <option value="">— sem entregador —</option>
-                  {/* O atual entra na lista mesmo se já saiu da equipe: sem
-                      isto o select mostraria vazio e um toque distraído
-                      apagaria a autoria de uma entrega antiga. */}
-                  {!equipe.some((p) => p.id === pedido.deliveredById) && pedido.deliveredById && (
-                    <option value={pedido.deliveredById}>
-                      {pedido.deliveredByName || 'Funcionário removido'}
-                    </option>
-                  )}
-                  {equipe.filter((pessoa) => pessoa.isDeliveryman).map((pessoa) => (
-                    <option key={pessoa.id} value={pessoa.id}>
-                      {pessoa.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Placar da noite, fixo no rodapé da aba. */}
-      <div className="deliv-placar">
-        <span>Total de entregas da noite</span>
-        <strong>{placar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-      </div>
+      {/* Só existe placar quando a empresa remunera por entrega. */}
+      {courierPaidPerDelivery && placar > 0 && (
+        <div className="deliv-placar">
+          <span>Total das taxas de entrega</span>
+          <strong>{placar.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+        </div>
+      )}
     </div>
   );
 }

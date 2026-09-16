@@ -24,12 +24,12 @@ type Props = {
   promotions?: import('./types').PreviewPromotion[];
   categories?: CategoryItem[];
   onAddItem: (item: OrderItem) => void;
-  onRemoveItem: (index: number) => void;
+  onRemoveItem?: (index: number) => void;
   /** Avança de "ocupada" para "fechando". */
   onRequestPayment: () => void;
   /** Fecha de vez, com as formas de pagamento escolhidas (split). */
   onConfirmPayment: (payments: PaymentSplit) => void;
-  onCancelOrder: () => void;
+  onCancelOrder?: () => void;
   onDismiss: () => void;
 };
 
@@ -149,6 +149,7 @@ export function OrderSheet({
   }
 
   function handleCancel() {
+    if (!onCancelOrder) return;
     confirm({
       title: 'Cancelar Pedido',
       message: copy.cancelOrderConfirm,
@@ -314,9 +315,9 @@ export function OrderSheet({
                 <span>{item.name}</span>
                 <span className="phone__sheet-right">
                   {brl(item.price)}
-                  <button type="button" onClick={() => onRemoveItem(index)} aria-label={`Remover ${item.name}`}>
+                  {onRemoveItem && <button type="button" onClick={() => onRemoveItem(index)} aria-label={`Remover ${item.name}`}>
                     ✕
-                  </button>
+                  </button>}
                 </span>
               </li>
             ))}
@@ -343,12 +344,13 @@ export function OrderSheet({
 
               {!isSplitMode ? (
                 <>
-                  <div className="phone__pay">
+                  <div className={`phone__pay${paymentOptions.length === 4 ? ' phone__pay--four' : ''}`}>
                     {paymentOptions.map((option) => (
                       <button
                         key={option.value}
                         type="button"
                         className={isSplitMode ? (splits.some(s => s.method === option.value) ? 'is-active' : '') : (splits[0].method === option.value ? 'is-active' : '')}
+                        aria-pressed={isSplitMode ? splits.some(s => s.method === option.value) : splits[0].method === option.value}
                         onClick={() => handleMethodToggle(option.value as PaymentMethod)}
                       >
                         <span aria-hidden="true" style={{ fontSize: '1.2rem', marginBottom: '4px' }}>
@@ -486,9 +488,11 @@ export function OrderSheet({
             </div>
           )}
 
-          <button type="button" className="sheet-cancel" onClick={handleCancel}>
-            🗑 {copy.cancelOrder}
-          </button>
+          {onCancelOrder && (
+            <button type="button" className="sheet-cancel" onClick={handleCancel}>
+              🗑 {copy.cancelOrder}
+            </button>
+          )}
         </>
       )}
       {ConfirmElement}

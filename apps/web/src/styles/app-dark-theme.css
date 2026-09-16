@@ -1,0 +1,374 @@
+/* ==================================================================
+   Vapt — tema escuro integral
+
+   O tema do funcionário e o tema configurado para o cardápio público
+   compartilham a mesma árvore de componentes. Este arquivo fica por último
+   na cascata para converter todas as superfícies operacionais, inclusive as
+   que antes mantinham cores claras fixas.
+   ================================================================== */
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) {
+  --dark-canvas: #070b14;
+  --dark-page: #0b1220;
+  --dark-surface: #111a2b;
+  --dark-raised: #172235;
+  --dark-border: #2b3a50;
+  --dark-text: #f8fafc;
+  --dark-muted: #b6c0cf;
+  --dark-subtle: #8d9aaf;
+
+  --surface: var(--dark-surface);
+  --surface-2: var(--dark-raised);
+  --cream: var(--dark-canvas);
+  --line: var(--dark-border);
+  /* `--ink-900` também é usado como fundo em faixas operacionais. */
+  --ink-900: #080d17;
+  --ink-800: #eef2f7;
+  --ink-700: #d8e0eb;
+  --ink-500: var(--dark-muted);
+  --ink-400: var(--dark-subtle);
+  --ink-300: #738197;
+  --brand-50: color-mix(in srgb, var(--brand, #f95d2a) 15%, transparent);
+  --brand-100: color-mix(in srgb, var(--brand, #f95d2a) 24%, transparent);
+  --green-50: #0c2f28;
+  --red-50: #35191f;
+  --amber-50: #382717;
+
+  color: var(--dark-text);
+  background: var(--dark-canvas);
+  border-color: var(--dark-border);
+  color-scheme: dark;
+}
+
+.dark .mobile-shell {
+  background: var(--dark-canvas, #070b14);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(h1, h2, h3, h4),
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__section-title,
+  .phone__item-main strong,
+  .phone__table strong,
+  .phone__delivery header strong,
+  .phone__delivery-pay strong,
+  .phone__sheet-head strong,
+  .cat-card__name,
+  .cash-entry__head strong,
+  .cash-entry__total,
+  .cash-overview strong,
+  .svc-card__name,
+  .kds-card__client,
+  .management-metric strong,
+  .management-person strong,
+  .management-detail-list strong
+) {
+  color: var(--dark-text);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .editor-preview__screen,
+  .phone__body,
+  .phone__content,
+  .cash-shell,
+  .management-page,
+  .client-menu
+) {
+  background: var(--dark-canvas);
+  color: var(--dark-text);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__item,
+  .phone__table,
+  .phone__delivery,
+  .phone__sheet,
+  .phone__picker li button,
+  .cat-card,
+  .cat-card__body,
+  .cat-header,
+  .cat-empty,
+  .svc-card,
+  .cash-entry,
+  .cash-overview > div,
+  .recep-fee,
+  .kds-card,
+  .kds-combo,
+  .management-metric,
+  .management-wide-grid button,
+  .management-breakdown > div,
+  .management-detail-list > li,
+  .management-team__list > li,
+  .management-closure-list article,
+  .management-printers__devices > button,
+  .recep-products li,
+  .import-order
+) {
+  background: var(--dark-surface);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+  box-shadow: none;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__manual,
+  .phone__delivery-address,
+  .phone__delivery-badge,
+  .phone__picker-emoji,
+  .phone__sheet-btn,
+  .cat-back,
+  .deliv-tabs,
+  .team-tabs,
+  .takeout-form,
+  .cash-entry__source,
+  .cash-entry__pay,
+  .cash-badge,
+  .cash-tabs,
+  .cash-tabs__count,
+  .cash-search__reset,
+  .cash-order-modal__summary,
+  .recep-chip,
+  .kds-chip,
+  .kds-btn,
+  .kds-item__station,
+  .import-order__open,
+  .import-order__field,
+  .import-order__paste,
+  .import-order__preview,
+  .management-printers__guide > span,
+  .management-team-editor__permissions,
+  .management-team-editor__back
+) {
+  background: var(--dark-raised);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  input,
+  textarea,
+  select,
+  .phone__field input,
+  .phone__field textarea,
+  .phone__pay button,
+  .phone__modo button,
+  .phone__stepper button,
+  .sheet-pay__options button,
+  .split-pay__select,
+  .takeout-form__field input,
+  .svc-status select,
+  .cash-filter select,
+  .cash-entry__pay-options button,
+  .recep-fee__field input,
+  .deliv-owner__field select,
+  .deliv-search input,
+  .cash-search__field,
+  .cash-search__date input,
+  .management-team-editor__field input,
+  .management-team-editor__roles label,
+  .management-team-editor__actions button,
+  .management-closure-filters input,
+  .management-closure-filters select,
+  .management-audit__search > div,
+  .management-audit__filter-grid input,
+  .management-audit__filter-grid select
+) {
+  background: var(--dark-page);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(input, textarea)::placeholder {
+  color: var(--dark-subtle);
+  opacity: 1;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__tabs,
+  .recep-menu-modal__sheet,
+  .management-modal__sheet,
+  .cash-order-modal__sheet,
+  .map-picker-modal
+) {
+  background: var(--dark-page);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .recep-menu-modal__head,
+  .management-modal__head,
+  .map-picker-header,
+  .map-picker-footer,
+  .cash-order-modal__head
+) {
+  background: var(--dark-surface);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .recep-menu-modal__back,
+  .management-modal__head > button,
+  .cash-order-modal__head > button,
+  .cash-order-modal__actions .is-secondary,
+  .cash-entry__cancel
+) {
+  background: var(--dark-raised);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+/* Controles selecionados continuam usando a marca, nunca um branco residual. */
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__tabs button.is-active,
+  .team-tabs button.is-active,
+  .cash-tabs button.is-active,
+  .deliv-tabs button.is-active,
+  .kds-chip.is-active,
+  .kds-group__status.is-recebido
+) {
+  background: var(--dark-raised) !important;
+  border-color: var(--dark-border) !important;
+  color: var(--dark-text) !important;
+  box-shadow: inset 0 0 0 1px var(--dark-border) !important;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__pay button.is-selected,
+  .phone__modo button.is-active,
+  .recep-chip.is-active,
+  .management-team-editor__roles label.is-active
+) {
+  background: color-mix(in srgb, var(--brand, #f95d2a) 22%, var(--dark-page));
+  border-color: var(--brand, #f95d2a);
+  color: #ffd5c5;
+}
+
+/* Tons semânticos recalibrados: cor continua informando sem virar uma placa clara. */
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__table.is-pagamento,
+  .svc-card.is-pagamento,
+  .cash-badge.is-pay-pendente,
+  .cash-entry__courier,
+  .deliv-owner,
+  .cash-overview > div.is-primary,
+  .cash-order-modal__tools button,
+  .management-closures-cta,
+  .management-printers__devices > button.is-selected,
+  .management-team-editor__warning
+) {
+  background: #382315;
+  border-color: #7c3a18;
+  color: #fdba74;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__delivery-badge.is-entregue,
+  .management-closure-list em.is-ok,
+  .bg-emerald-50
+) {
+  background: #0c3028 !important;
+  color: #6ee7b7 !important;
+  border-color: #166a54 !important;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__sheet-error,
+  .management-team__state.is-error,
+  .management-closure-list em.is-alert,
+  .bg-red-50,
+  .bg-red-100
+) {
+  background: #35191f !important;
+  color: #fda4af !important;
+  border-color: #7f1d2d !important;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__item.is-sold-out,
+  .recep-products li.is-sold-out,
+  .phone__sold-out,
+  .deliv-owner__readonly
+) {
+  background: #151d2b;
+  border-color: #344155;
+  color: var(--dark-muted);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .recep-menu-control,
+  .cash-catalog-button,
+  .svc-card__print,
+  .management-team__edit
+) {
+  background: #302016;
+  border-color: #7c3a18;
+  color: #fdba74;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__body p,
+  .phone__body small,
+  .cat-hint,
+  .cash-note,
+  .cash-entry__client,
+  .cash-entry__phone,
+  .management-page p,
+  .management-page small,
+  .recep-menu-modal__intro
+) {
+  color: var(--dark-muted);
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__sheet-items li,
+  .phone__delivery-items li,
+  .cash-entry__items li,
+  .cash-entry__values,
+  .cash-order-modal__summary,
+  .management-breakdown > div,
+  .management-detail-list > li
+) {
+  border-color: var(--dark-border);
+}
+
+/* Utilitários Tailwind usados dentro dos componentes legados. */
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(.bg-white, .bg-slate-50, .bg-slate-100) {
+  background-color: var(--dark-raised) !important;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(.border-slate-200, .border-slate-300, .border-gray-200) {
+  border-color: var(--dark-border) !important;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .text-slate-950,
+  .text-slate-900,
+  .text-slate-800,
+  .text-gray-950,
+  .text-gray-900
+) {
+  color: var(--dark-text) !important;
+}
+
+:where(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .text-slate-700,
+  .text-slate-600,
+  .text-slate-500,
+  .text-gray-700,
+  .text-gray-600,
+  .text-gray-500
+) {
+  color: var(--dark-muted) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.editor-preview.theme-escuro, .dark .editor-preview--app) *,
+  :where(.editor-preview.theme-escuro, .dark .editor-preview--app) *::before,
+  :where(.editor-preview.theme-escuro, .dark .editor-preview--app) *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

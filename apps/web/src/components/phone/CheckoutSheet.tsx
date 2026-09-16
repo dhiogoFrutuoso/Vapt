@@ -5,10 +5,11 @@ import { MoneyInput } from './MoneyInput';
 import { MapPicker } from './MapPicker';
 import { IconRenderer } from '../IconRenderer';
 import type { DeliveryAddress, OrderItem, PaymentSplit, PaymentSplitItem, PaymentMethod } from './types';
-import { useConfirm } from '../ConfirmModal';
 import {
   DEFAULT_MAP_CENTER,
   getCurrentCoordinates,
+  getLocationFailureMessage,
+  isNativeLocationPlatform,
   reverseGeocodeCoordinates,
 } from '../../lib/location';
 
@@ -52,7 +53,7 @@ type Props = {
     phone: string;
     payments: PaymentSplit;
     address: DeliveryAddress;
-  }) => void;
+  }) => void | Promise<void>;
 };
 
 /**
@@ -113,7 +114,6 @@ export function CheckoutSheet({
   const addressObject = initial?.address && typeof initial.address !== 'string' ? initial.address : null;
   const enderecoInicial = separarEndereco(typeof initial?.address === 'string' ? initial.address : '');
   const copy = demo.preview;
-  const { confirm, ConfirmElement } = useConfirm();
   const paymentOptions = allowCredit
     ? [...copy.payments, { value: 'fiado', label: 'Fiado', iconName: 'wallet' }]
     : copy.payments;
@@ -139,6 +139,7 @@ export function CheckoutSheet({
   });
 
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(
     addressObject?.lat != null && addressObject.lng != null ? { lat: addressObject.lat, lng: addressObject.lng } : null
@@ -176,15 +177,22 @@ export function CheckoutSheet({
     try {
       const coords = await getCurrentCoordinates();
       setTempCoords(coords);
-    } catch {
+      setMapOpen(true);
+    } catch (locationError) {
+      if (isNativeLocationPlatform()) {
+        setTempCoords(null);
+        setError(getLocationFailureMessage(locationError));
+        return;
+      }
+
       setTempCoords(
         manual.lat != null && manual.lng != null
           ? { lat: manual.lat, lng: manual.lng }
           : DEFAULT_MAP_CENTER
       );
       setError('Localização automática indisponível. Ajuste o pino no mapa para continuar.');
-    } finally {
       setMapOpen(true);
+    } finally {
       setGpsState('idle');
     }
   }
@@ -211,7 +219,7 @@ export function CheckoutSheet({
     setGpsState('done');
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (customerName.trim().length < 2) {
       setError('Escreva o seu nome para o entregador saber com quem falar.');
       nameRef.current?.focus();
@@ -255,15 +263,15 @@ export function CheckoutSheet({
       payments: splits,
       address,
     };
-    if (splits.some((split) => split.method === 'fiado')) {
-      confirm({
-        title: 'Confirmar venda fiada',
-        message: 'O saldo ficará vinculado ao cliente e registrado na auditoria até a quitação.',
-        confirmText: 'Registrar fiado',
-        isDestructive: true,
-        onConfirm: () => onSubmit(data),
-      });
-    } else onSubmit(data);
+    setSubmitting(true);
+    setError(null);
+    try {
+      /* Fiado segue exatamente o mesmo caminho das outras formas; somente o
+         valor de `method` muda no payload persistido. */
+      await onSubmit(data);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -337,12 +345,13 @@ export function CheckoutSheet({
       
       {!isSplitMode ? (
         <>
-          <div className="phone__pay">
+          <div className={`phone__pay${paymentOptions.length === 4 ? ' phone__pay--four' : ''}`}>
             {paymentOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 className={splits.length === 1 && splits[0].method === option.value ? 'is-active' : ''}
+                aria-pressed={splits.length === 1 && splits[0].method === option.value}
                 onClick={() => setSplits([{ method: option.value as PaymentMethod, amount: total }])}
               >
                 <span aria-hidden="true" style={{ fontSize: '1.2rem', marginBottom: '4px' }}>
@@ -578,10 +587,10 @@ export function CheckoutSheet({
       <button 
         type="button" 
         className="phone__sheet-btn is-primary is-block" 
-        disabled={!customerName || !phone || (pedeEndereco && !manualOpen && gpsState !== 'done') || splits.length === 0 || splitsTotal < total - 0.01}
-        onClick={handleSubmit}
+        disabled={submitting || !customerName || !phone || (pedeEndereco && !manualOpen && gpsState !== 'done') || splits.length === 0 || splitsTotal < total - 0.01}
+        onClick={() => void handleSubmit()}
       >
-        {submitLabel ?? copy.checkoutSubmit}
+        {submitting ? 'Enviando pedido…' : (submitLabel ?? copy.checkoutSubmit)}
       </button>
     </div>
     
@@ -592,7 +601,6 @@ export function CheckoutSheet({
         onCancel={() => setMapOpen(false)}
       />
     )}
-    {ConfirmElement}
     </>
   );
 }

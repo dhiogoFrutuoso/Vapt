@@ -1,7 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import toast from 'react-hot-toast';
+import { Printer } from 'lucide-react';
 import { demo } from '../../data/content';
 import { brl, maskPhone } from '../../lib/format';
 import { sumItems, type PreviewTable, type TableStatus, type TakeoutOrder } from './types';
+import { PrintTicket } from './PrintTicket';
+import { printReceipt } from '../../lib/printReceipt';
 
 type Props = {
   tables: PreviewTable[];
@@ -13,9 +17,13 @@ type Props = {
   onCreateTakeout: (customerName: string, phone: string) => void;
   onSetTableStatus: (id: string, status: TableStatus) => void;
   onSetTakeoutStatus: (id: string, status: TableStatus) => void;
-  onCancelTakeout: (id: string) => void;
+  onCancelTakeout?: (id: string) => void;
   showTables?: boolean;
   showTakeouts?: boolean;
+  storeName?: string;
+  storePhone?: string;
+  operatorName?: string;
+  serviceFeeRate?: number;
 };
 
 const STATUS_OPTIONS: Array<{ value: TableStatus; label: string }> = [
@@ -37,10 +45,29 @@ export function ServiceView({
   onCancelTakeout,
   showTables = true,
   showTakeouts = true,
+  storeName = 'Vapt',
+  storePhone,
+  operatorName,
+  serviceFeeRate = 0,
 }: Props) {
   const copy = demo.preview;
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [printing, setPrinting] = useState<
+    | { origin: 'mesa'; table: PreviewTable }
+    | { origin: 'retirada'; takeout: TakeoutOrder }
+    | null
+  >(null);
+
+  useEffect(() => {
+    if (!printing) return;
+    const id = window.setTimeout(() => {
+      void printReceipt()
+        .catch((error) => toast.error(error instanceof Error ? error.message : 'Não foi possível imprimir a comanda.'))
+        .finally(() => setPrinting(null));
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [printing]);
 
   function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -138,14 +165,19 @@ export function ServiceView({
                         ))}
                       </select>
                     </label>
-                    <button
+                    {takeout.items.length > 0 && (
+                      <button type="button" className="svc-card__print" onClick={() => setPrinting({ origin: 'retirada', takeout })} aria-label={`Imprimir comanda da retirada ${takeout.label}`}>
+                        <Printer size={16} aria-hidden="true" />
+                      </button>
+                    )}
+                    {onCancelTakeout && <button
                       type="button"
                       className="svc-card__cancel"
                       onClick={() => onCancelTakeout(takeout.id)}
                       title={copy.cancelOrder}
                     >
                       ✕
-                    </button>
+                    </button>}
                   </div>
                 )}
               </article>
@@ -207,6 +239,11 @@ export function ServiceView({
                           ))}
                         </select>
                       </label>
+                      {(table.items?.length ?? 0) > 0 && (
+                        <button type="button" className="svc-card__print" onClick={() => setPrinting({ origin: 'mesa', table })} aria-label={`Imprimir comanda da mesa ${table.label}`}>
+                          <Printer size={16} aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </article>
@@ -218,6 +255,34 @@ export function ServiceView({
         {flash && <p className="phone__flash">{flash}</p>}
         {interactive && <p className="phone__hint">{demo.tables.testHint}</p>}
       </section>}
+
+      {printing?.origin === 'retirada' && (
+        <PrintTicket
+          storeName={storeName}
+          storePhone={storePhone}
+          label={`Pedido N.: ${printing.takeout.label}`}
+          origin="retirada"
+          customerName={printing.takeout.customerName}
+          phone={printing.takeout.phone}
+          items={printing.takeout.items}
+          createdAt={printing.takeout.createdAt}
+          operatorName={operatorName}
+          width={80}
+        />
+      )}
+      {printing?.origin === 'mesa' && (
+        <PrintTicket
+          storeName={storeName}
+          storePhone={storePhone}
+          label={`Mesa ${printing.table.label}`}
+          origin="mesa"
+          customerName={`Mesa ${printing.table.label}`}
+          items={printing.table.items ?? []}
+          serviceFee={sumItems(printing.table.items ?? []) * serviceFeeRate}
+          operatorName={operatorName}
+          width={80}
+        />
+      )}
     </div>
   );
 }

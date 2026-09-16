@@ -459,17 +459,19 @@ export function EditorPreview({
 
       setDeliveries((list) =>
         list.map((item) =>
-          item.id === id ? { ...item, deliveryFee: fee, total: totalWithFee, status: 'aceito' } : item
+          item.id === id ? { ...item, deliveryFee: fee, total: totalWithFee, status: item.isDelivery === false ? 'entregue' : 'aceito' } : item
         )
       );
 
       setCashEntries((list) => [
         {
           id: `c-${id}`,
-          source: 'delivery',
-          label: `Entrega #${order.code}`,
+          source: order.isDelivery === false ? 'retirada' : 'delivery',
+          label: `${order.isDelivery === false ? 'Retirada' : 'Entrega'} #${order.code}`,
           customerName: order.customerName,
           phone: order.phone,
+          address: order.address,
+          notes: order.notes,
           items: order.items,
           subtotal: itemsTotal,
           serviceFee: 0,
@@ -738,13 +740,32 @@ export function EditorPreview({
 
         {view === 'recepcao' && (
           <>
-            <ReceptionView
-              deliveries={deliveries}
-              defaultFee={deliveryFee}
-              onEdit={handleEditarPedido}
-              onAccept={handleAcceptDelivery}
-              onReject={handleRejectDelivery}
-            />
+            <div className="phone__body reception-workspace">
+              <ServiceView
+                tables={[]}
+                takeouts={takeouts}
+                showTables={false}
+                interactive={interactive}
+                flash={null}
+                onOpenTable={() => {}}
+                onOpenTakeout={handleOpenTakeout}
+                onCreateTakeout={handleCreateTakeout}
+                onSetTableStatus={() => {}}
+                onSetTakeoutStatus={handleSetTakeoutStatus}
+                onCancelTakeout={handleRemoveTakeout}
+                storeName={storeName}
+                serviceFeeRate={waiterCommissionRate ?? 0}
+              />
+              <ReceptionView
+                deliveries={deliveries}
+                defaultFee={deliveryFee}
+                deliveryPeople={[{ id: 'demo-entregador', name: 'Entregador demo' }]}
+                onEdit={handleEditarPedido}
+                onAccept={handleAcceptDelivery}
+                onReject={handleRejectDelivery}
+                storeName={storeName}
+              />
+            </div>
             {flash && <p className="phone__flash phone__flash--float">{flash}</p>}
           </>
         )}
@@ -761,6 +782,8 @@ export function EditorPreview({
             onSetTableStatus={handleSetTableStatus}
             onSetTakeoutStatus={handleSetTakeoutStatus}
             onCancelTakeout={handleRemoveTakeout}
+            storeName={storeName}
+            serviceFeeRate={waiterCommissionRate ?? 0}
           />
         )}
 
@@ -786,6 +809,7 @@ export function EditorPreview({
               courierPaidPerDelivery={courierPaidPerDelivery}
               onUpdatePayments={handleUpdateCashPayments}
               onCloseRegister={handleCloseRegister}
+              storeName={storeName}
             />
             {flash && <p className="phone__flash phone__flash--float">{flash}</p>}
           </div>
@@ -822,7 +846,7 @@ export function EditorPreview({
           />
         )}
 
-        {view === 'salao' && ticket && (
+        {(view === 'salao' || view === 'recepcao') && ticket && (
           <OrderSheet
             ticket={ticket}
             categories={categories}

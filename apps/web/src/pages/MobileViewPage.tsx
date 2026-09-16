@@ -3,7 +3,7 @@ import { CodeLoginScreen } from '../mobile/CodeLoginScreen';
 import { OnboardingScreen } from '../mobile/OnboardingScreen';
 import { MobileShell } from '../mobile/MobileShell';
 import { PreferencesProvider } from '../mobile/PreferencesContext';
-import { ForceUpdateProvider } from '../mobile/ForceUpdateContext';
+import { ForceUpdateProvider, useForceUpdate } from '../mobile/ForceUpdateContext';
 import { ForceUpdateGate } from '../mobile/ForceUpdateGate';
 
 /**
@@ -24,16 +24,19 @@ import { ForceUpdateGate } from '../mobile/ForceUpdateGate';
  * A rota aceita o parâmetro opcional para compatibilidade, mas ignora: quem
  * manda é o `appId` que vem dentro da sessão.
  *
- * ATUALIZAÇÃO OTA
- * ---------------
- * A casca do Capacitor carrega esta URL do servidor. Todo deploy na Vercel
- * troca a interface do app na próxima abertura — sem loja, sem reinstalação,
- * sem plugin de live update. O `capacitor-updater` só seria necessário se o
- * bundle fosse empacotado dentro do APK, que não é o caso aqui.
+ * ATUALIZAÇÃO NATIVA
+ * ------------------
+ * O bundle de produção acompanha o APK/EXE. Antes de liberar esta rota, o
+ * ForceUpdateProvider consulta a versão pública e mantém o hard gate até a
+ * instalação do binário compatível com o restaurante ativo.
  */
 
 function MobileRouter() {
   const { employee, loading, branding } = useDeviceAuth();
+  const { checkState, isUpdateRequired } = useForceUpdate();
+
+  /* O conteúdo operacional só nasce depois da decisão de versão. */
+  if (checkState !== 'ready' || isUpdateRequired) return null;
 
   if (loading) {
     return (
