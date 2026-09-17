@@ -455,6 +455,22 @@ async function carregar(appId: string): Promise<Carregada> {
 
   if (mudou) operacao.set('tables', sincronizadas);
 
+  // Pedidos antigos usavam a designação como autoria. Migre apenas os que
+  // ainda não saíram, preservando a autoria real dos pedidos em andamento.
+  for (const pedido of operacao.deliveries) {
+    if (pedido.status !== 'aceito' || pedido.assignedCourierId || !pedido.deliveredById) continue;
+    pedido.assignedCourierId = pedido.deliveredById;
+    pedido.assignedCourierName = pedido.deliveredByName;
+    pedido.deliveredById = '';
+    pedido.deliveredByName = '';
+    const lancamento = operacao.cashEntries.find((entry) => entry.id === `c-${pedido.id}`)
+      ?? operacao.cashArchive.find((entry) => entry.id === `c-${pedido.id}`);
+    if (lancamento) {
+      lancamento.deliveredById = '';
+      lancamento.deliveredByName = '';
+    }
+  }
+
   /*
    * Só id e nome. Puxar `employees` inteiro traria os códigos de acesso para
    * a memória de um controlador que não tem nada a ver com autenticação.
@@ -487,7 +503,7 @@ function serializar(operacao: OperationDoc, permissions: string[] = [], employee
   const can = (...needed: string[]) => admin || needed.some((permission) => permissions.includes(permission));
   const deliveries = can('cliente', 'recepcao', 'cozinha', 'entregador')
     ? permissions.includes('entregador') && !admin && !permissions.includes('recepcao') && !permissions.includes('cozinha')
-      ? operacao.deliveries.filter((delivery) => delivery.deliveredById === employeeId)
+      ? operacao.deliveries.filter((delivery) => delivery.assignedCourierId === employeeId || (!delivery.assignedCourierId && delivery.deliveredById === employeeId))
       : operacao.deliveries
     : [];
   return {
@@ -829,8 +845,8 @@ function aplicar(
         if (!entregadores.has(entregadorId)) {
           throw new HttpError(400, 'Selecione um entregador ativo com a tag Entregador.');
         }
-        pedido.deliveredById = entregadorId;
-        pedido.deliveredByName = nomeDe(entregadorId);
+        pedido.assignedCourierId = entregadorId;
+        pedido.assignedCourierName = nomeDe(entregadorId);
       }
 
       /* Pago só no PIX já entra fechado; o resto fica pendente até a entrega. */
@@ -859,8 +875,8 @@ function aplicar(
         creditStatus: credito > 0 ? 'open' : 'none',
         creditOriginalAmount: credito,
         creditPaid: 0,
-        deliveredById: pedido.deliveredById,
-        deliveredByName: pedido.deliveredByName,
+        deliveredById: '',
+        deliveredByName: '',
         createdAt: agora(),
         closedAt: pagoAntes ? agora() : null,
       } as never);
@@ -885,20 +901,39 @@ function aplicar(
       if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
 
       const admin = permissoes.includes('administracao');
-      if (!admin && pedido.deliveredById !== quem) {
+      const designado = pedido.assignedCourierId || pedido.deliveredById;
+      if (!admin && designado !== quem) {
         throw new HttpError(403, 'Esta entrega está atribuída a outro entregador.');
       }
       if (pedido.status === 'novo') {
         throw new HttpError(409, 'A Gestão precisa atribuir um entregador antes de iniciar a entrega.');
       }
+      if (pedido.status === 'entregue') {
+        throw new HttpError(409, 'Esta entrega já foi concluída.');
+      }
 
       const proximo = proximoStatus[pedido.status];
+      if (pedido.status === 'aceito') {
+        if (!designado) throw new HttpError(409, 'Entrega sem responsável. A Gestão precisa atribuir um entregador.');
+        // A autoria não é inferida no despacho: ela nasce nesta transição.
+        const autorId = admin ? designado : quem;
+        pedido.deliveredById = autorId;
+        pedido.deliveredByName = nomeDe(autorId) || pedido.assignedCourierName;
+        pedido.assignedCourierId = designado;
+        pedido.assignedCourierName = pedido.deliveredByName;
+        const lancamento = operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`)
+          ?? operacao.cashArchive.find((e) => e.id === `c-${pedido.id}`);
+        if (lancamento) {
+          lancamento.deliveredById = autorId;
+          lancamento.deliveredByName = pedido.deliveredByName;
+        }
+        auditar('entrega.iniciada', pedido.id, `Entrega #${pedido.code} iniciada por ${pedido.deliveredByName}.`);
+      }
       pedido.status = proximo;
 
       /* Entregue quita o lançamento pendente: o entregador recebeu na porta. */
       if (proximo === 'entregue') {
-        /* A autoria é definida pela Gestão no despacho e nunca é inferida
-           pelo aparelho que avançou o status. */
+        /* A autoria foi registrada na saída; concluir não a substitui. */
         if (!pedido.deliveredById) throw new HttpError(409, 'Entrega sem responsável. A Gestão precisa atribuir um entregador.');
 
         const lancamento = operacao.cashEntries.find(
@@ -923,6 +958,10 @@ function aplicar(
       }
       pedido.set('payments', pagamentosComTaxa(pedido.payments, -taxaAnterior));
       pedido.status = 'novo';
+      pedido.assignedCourierId = '';
+      pedido.assignedCourierName = '';
+      pedido.deliveredById = '';
+      pedido.deliveredByName = '';
       pedido.deliveryFee = 0;
       pedido.total = somarItens(pedido.items);
 
@@ -1075,23 +1114,31 @@ function aplicar(
     case 'pedido.entregador': {
       const pedido = operacao.deliveries.find((d) => d.id === comando.pedidoId);
       if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
+      if (pedido.status === 'novo' || pedido.isDelivery === false) {
+        throw new HttpError(409, 'Somente entregas despachadas podem ser atribuídas.');
+      }
 
-      pedido.deliveredById = comando.employeeId;
-      pedido.deliveredByName = nomeDe(comando.employeeId);
       if (!entregadores.has(comando.employeeId)) {
         throw new HttpError(400, 'O funcionário selecionado não possui a tag Entregador.');
+      }
+      pedido.assignedCourierId = comando.employeeId;
+      pedido.assignedCourierName = nomeDe(comando.employeeId);
+      // Após a saída, somente a Gestão pode corrigir a autoria efetiva.
+      if (pedido.status === 'a_caminho' || pedido.status === 'entregue') {
+        pedido.deliveredById = comando.employeeId;
+        pedido.deliveredByName = pedido.assignedCourierName;
       }
 
       /* O caixa espelha, senão o placar e o extrato discordariam. */
       const lancamento =
         operacao.cashEntries.find((e) => e.id === `c-${pedido.id}`) ??
         operacao.cashArchive.find((e) => e.id === `c-${pedido.id}`);
-      if (lancamento) {
+      if (lancamento && (pedido.status === 'a_caminho' || pedido.status === 'entregue')) {
         lancamento.deliveredById = pedido.deliveredById;
         lancamento.deliveredByName = pedido.deliveredByName;
       }
-      auditar('entrega.reatribuida', pedido.id, `Entrega #${pedido.code} atribuída a ${pedido.deliveredByName}.`);
-      return `Entrega atribuída a ${pedido.deliveredByName || 'outro entregador'}.`;
+      auditar('entrega.reatribuida', pedido.id, `Entrega #${pedido.code} atribuída a ${pedido.assignedCourierName}.`);
+      return `Entrega atribuída a ${pedido.assignedCourierName || 'outro entregador'}.`;
     }
 
     /* ------------------------- Caixa: correções ---------------------- */

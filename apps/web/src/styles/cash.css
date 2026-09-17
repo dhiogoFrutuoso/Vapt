@@ -923,10 +923,12 @@
 .takeout-form__submit:not(:disabled):hover { filter: brightness(1.08); }
 .takeout-form__submit:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
 
-/* Retiradas ocupam a largura util sem alterar a grade das mesas. */
+/* Retiradas compactas: ate tres cards por linha na casca do app. */
 .svc-grid.svc-grid--takeouts {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
+  gap: 8px;
   width: 100%;
+  max-width: 500px;
 }
 
 .svc-grid--takeouts .svc-card {
@@ -934,19 +936,20 @@
   width: 100%;
 }
 
-/* Ações de retirada legíveis e com o mesmo alvo vertical do CTA acima. */
+/* O status usa a primeira linha; imprimir e cancelar ficam na segunda. */
 .svc-card--takeout .svc-card__foot {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  padding: 8px;
+  padding: 6px;
 }
 
-.svc-card--takeout .svc-status { flex: 1; min-width: 0; }
-.svc-card--takeout .svc-status select { min-height: 44px; font-size: 0.68rem; }
+.svc-card--takeout .svc-status { grid-column: 1 / -1; min-width: 0; }
+.svc-card--takeout .svc-status select { height: 48px; min-height: 48px; font-size: 0.68rem; }
 
 .svc-card--takeout :is(.svc-card__print, .svc-card__cancel) {
   display: flex;
-  flex: 0 0 48px;
+  justify-self: center;
   width: 48px;
   min-height: 48px;
   height: 48px;

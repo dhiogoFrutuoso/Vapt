@@ -3,7 +3,7 @@ import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { addressLabel, mapsUrl, paymentCashBalance, whatsappUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
 import { useConfirm } from '../ConfirmModal';
-import { UserRoundCog } from 'lucide-react';
+import { Bike, Check, CornerUpLeft, MapPinned, Trash2, UserRoundCog } from 'lucide-react';
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro', fiado: 'Fiado',
@@ -238,15 +238,15 @@ export function DeliveryView({
               {onReassign && order.status !== 'novo' ? (
                 <div className="deliv-owner">
                   <label className="deliv-owner__field">
-                    <span><UserRoundCog size={14} aria-hidden="true" /> Entregador responsável</span>
+                    <span><UserRoundCog size={14} aria-hidden="true" /> {order.status === 'aceito' ? 'Entregador designado' : 'Autor da entrega'}</span>
                     <select
-                      value={assignmentDraft[order.id] ?? order.deliveredById ?? ''}
+                      value={assignmentDraft[order.id] ?? (order.assignedCourierId || order.deliveredById || '')}
                       onChange={(event) => setAssignmentDraft((current) => ({ ...current, [order.id]: event.target.value }))}
                       aria-label={`Entregador responsável pelo pedido ${order.code}`}
                     >
                       <option value="">Selecione o entregador</option>
-                      {!deliveryPeople.some((person) => person.id === order.deliveredById) && order.deliveredById && (
-                        <option value={order.deliveredById}>{order.deliveredByName || 'Funcionário removido'}</option>
+                      {!deliveryPeople.some((person) => person.id === (order.assignedCourierId || order.deliveredById)) && (order.assignedCourierId || order.deliveredById) && (
+                        <option value={order.assignedCourierId || order.deliveredById}>{order.assignedCourierName || order.deliveredByName || 'Funcionário removido'}</option>
                       )}
                       {deliveryPeople.map((person) => (
                         <option key={person.id} value={person.id}>{person.name}</option>
@@ -256,69 +256,66 @@ export function DeliveryView({
                   <button
                     type="button"
                     className="deliv-owner__button"
-                    disabled={!assignmentDraft[order.id] || assignmentDraft[order.id] === order.deliveredById}
+                    disabled={!assignmentDraft[order.id] || assignmentDraft[order.id] === (order.assignedCourierId || order.deliveredById)}
                     onClick={() => {
                       const employeeId = assignmentDraft[order.id];
                       if (!employeeId) return;
                       onReassign(order.id, employeeId);
                     }}
                   >
-                    Trocar autoria
+                    {order.status === 'aceito' ? 'Trocar entregador' : 'Corrigir autoria'}
                   </button>
                 </div>
-              ) : order.deliveredByName ? (
+              ) : (order.assignedCourierName || order.deliveredByName) ? (
                 <p className="deliv-owner__readonly">
-                  <UserRoundCog size={13} aria-hidden="true" /> Responsável: <strong>{order.deliveredByName}</strong>
+                  <UserRoundCog size={13} aria-hidden="true" /> {order.status === 'aceito' ? 'Designado:' : 'Autor:'} <strong>{order.status === 'aceito' ? (order.assignedCourierName || order.deliveredByName) : (order.deliveredByName || order.assignedCourierName)}</strong>
                 </p>
               ) : null}
 
-              <div className="phone__delivery-actions">
-                <a className="phone__sheet-btn" href={mapsUrl(order.address)} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e2e8f0', color: '#334155' }}>
-                  🗺️ {copy.deliveryMaps}
+              <div className="phone__delivery-actions deliv-actions">
+                <a className="phone__sheet-btn deliv-action" href={mapsUrl(order.address)} target="_blank" rel="noreferrer">
+                  <MapPinned size={16} aria-hidden="true" /> {copy.deliveryMaps}
                 </a>
                 <button
                   type="button"
-                  className="phone__sheet-btn is-primary"
+                  className={`phone__sheet-btn deliv-action${order.status === 'a_caminho' ? ' is-deliver' : ''}`}
                   onClick={() => onAdvance(order.id)}
                   disabled={!interactive || order.status === 'entregue'}
                 >
+                  {order.status === 'a_caminho' ? <Check size={16} aria-hidden="true" /> : <Bike size={16} aria-hidden="true" />}
                   {copy.deliveryActions[order.status]}
                 </button>
+                {order.status !== 'entregue' && onRevert && <button
+                  type="button"
+                  className="phone__sheet-btn deliv-action"
+                  onClick={() => {
+                    confirm({
+                      title: 'Voltar Pedido',
+                      message: 'Voltar pedido para a Recepção? O entregador não verá mais este pedido.',
+                      confirmText: 'Voltar',
+                      isDestructive: false,
+                      onConfirm: () => onRevert(order.id)
+                    });
+                  }}
+                >
+                  <CornerUpLeft size={16} aria-hidden="true" /> Para recepção
+                </button>}
+                {order.status !== 'entregue' && onCancel && <button
+                  type="button"
+                  className="phone__sheet-btn deliv-action"
+                  onClick={() => {
+                    confirm({
+                      title: 'Excluir Pedido',
+                      message: 'Tem certeza que deseja EXCLUIR este pedido permanentemente?',
+                      confirmText: 'Excluir',
+                      isDestructive: true,
+                      onConfirm: () => onCancel(order.id)
+                    });
+                  }}
+                >
+                  <Trash2 size={16} aria-hidden="true" /> Excluir
+                </button>}
               </div>
-              {order.status !== 'entregue' && (onRevert || onCancel) && (
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  {onRevert && <button
-                    type="button"
-                    onClick={() => {
-                      confirm({
-                        title: 'Voltar Pedido',
-                        message: 'Voltar pedido para a Recepção? O entregador não verá mais este pedido.',
-                        confirmText: 'Voltar',
-                        isDestructive: false,
-                        onConfirm: () => onRevert(order.id)
-                      });
-                    }}
-                    style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', color: '#475569', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    ↩️ P/ Recepção
-                  </button>}
-                  {onCancel && <button
-                    type="button"
-                    onClick={() => {
-                      confirm({
-                        title: 'Excluir Pedido',
-                        message: 'Tem certeza que deseja EXCLUIR este pedido permanentemente?',
-                        confirmText: 'Excluir',
-                        isDestructive: true,
-                        onConfirm: () => onCancel(order.id)
-                      });
-                    }}
-                    style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    🗑️ Excluir
-                  </button>}
-                </div>
-              )}
             </li>
           ))}
         </ul>

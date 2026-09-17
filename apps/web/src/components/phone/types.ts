@@ -207,7 +207,10 @@ export type DeliveryOrder = {
   notes?: string;
   /** `false` quando o cliente escolheu retirar no balcao. */
   isDelivery?: boolean;
-  /** Autoria da entrega, copiada no momento em que foi concluida. */
+  /** Entregador escolhido no despacho; não é autoria. */
+  assignedCourierId?: string;
+  assignedCourierName?: string;
+  /** Autoria registrada quando o entregador sai para a entrega. */
   deliveredById?: string;
   deliveredByName?: string;
 };

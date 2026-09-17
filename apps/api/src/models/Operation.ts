@@ -149,8 +149,12 @@ const deliverySchema = new Schema(
     timeLabel: { type: String, trim: true, maxlength: 30, default: 'agora' },
     distanceLabel: { type: String, trim: true, maxlength: 30, default: '' },
 
+    /** Designação para a fila; ainda não é autoria da entrega. */
+    assignedCourierId: { type: String, trim: true, maxlength: 40, default: '' },
+    assignedCourierName: { type: String, trim: true, maxlength: 80, default: '' },
+
     /**
-     * Quem levou a entrega.
+     * Quem iniciou a entrega, registrado somente ao sair para entrega.
      *
      * Guarda id E nome. O id liga à pessoa; o nome é uma CÓPIA do momento da
      * entrega, para o histórico não mudar quando o funcionário for renomeado

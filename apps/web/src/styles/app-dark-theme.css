@@ -269,7 +269,6 @@
   .svc-card.is-pagamento,
   .cash-badge.is-pay-pendente,
   .cash-entry__courier,
-  .deliv-owner,
   .cash-overview > div.is-primary,
   .cash-order-modal__tools button,
   .management-closures-cta,
@@ -279,6 +278,23 @@
   background: #382315;
   border-color: #7c3a18;
   color: #fdba74;
+}
+
+:is(.editor-preview.theme-escuro, .dark .editor-preview--app) .deliv-owner {
+  background: var(--dark-raised);
+  border-color: var(--dark-border);
+}
+
+:is(.editor-preview.theme-escuro, .dark .editor-preview--app) .phone__delivery-actions .deliv-action {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}
+
+:is(.editor-preview.theme-escuro, .dark .editor-preview--app) .phone__delivery-actions .deliv-action.is-deliver {
+  background: var(--green-700);
+  border-color: var(--green-700);
+  color: #fff;
 }
 
 :is(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(

@@ -425,7 +425,7 @@ export function MobileShell() {
         </header>
 
         {/* ------------------------------ Conteúdo ---------------------------- */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-4 md:px-6 md:pb-6">
           {ativa === 'perfil' ? (
             renderPerfil()
           ) : carregandoOperacao ? (
@@ -495,7 +495,7 @@ export function MobileShell() {
         {/* ------------------- Barra inferior (só mobile) ------------------- */}
         {visiveis.length > 0 && (
           <nav
-            className="mobile-shell__bottom-nav grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white md:hidden
+            className="mobile-shell__bottom-nav fixed inset-x-0 bottom-0 z-50 grid border-0 border-t border-solid border-gray-200 bg-white md:hidden
               dark:border-white/10 dark:bg-gray-900"
             style={{
               gridTemplateColumns: escala >= 130
