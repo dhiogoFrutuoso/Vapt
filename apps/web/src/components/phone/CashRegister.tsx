@@ -539,7 +539,7 @@ export function CashRegister({
       {tab === 'turno' && (
         <>
           <p className="cat-hint">{copy.cashHint}</p>
-          <p className="rounded-xl border border-solid border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm font-semibold text-[var(--ink-700)]">
+          <p className="mb-2 rounded-xl border border-solid border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm font-semibold text-[var(--ink-700)]">
             {registerOpen ? `Caixa aberto · fundo inicial ${brl(openingCash)}` : 'Caixa fechado · pedidos aguardam a próxima abertura'}
           </p>
 
