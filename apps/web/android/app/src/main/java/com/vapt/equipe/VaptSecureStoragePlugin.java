@@ -6,6 +6,7 @@ import android.os.Build;
 import android.security.KeyPairGeneratorSpec;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+import android.util.AtomicFile;
 import android.util.Base64;
 
 import com.getcapacitor.JSObject;
@@ -16,6 +17,9 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -37,10 +41,11 @@ import javax.security.auth.x500.X500Principal;
 /** Sessao persistente cifrada com chave protegida pelo Android Keystore. */
 @CapacitorPlugin(name = "VaptSecureStorage")
 public class VaptSecureStoragePlugin extends Plugin {
-    private static final String PREFS = "vapt.secure.v2";
-    private static final String KEY_ALIAS = "vapt.secure.rsa.v2";
-    private static final String AES_ALIAS = "vapt.secure.aes.v2";
+    private static final String PREFS = "vapt.secure.v3";
+    private static final String KEY_ALIAS = "vapt.secure.rsa.v3";
+    private static final String AES_ALIAS = "vapt.secure.aes.v3";
     private static final String WRAPPED_KEY = "wrapped-aes-key";
+    private static final String SOFTWARE_MODE = "software-key-fallback";
     private static final Set<String> ALLOWED = new HashSet<>(Arrays.asList(
         "vapt.device.access", "vapt.device.refresh", "vapt.device.id", "vapt.device.branding"
     ));
@@ -57,6 +62,11 @@ public class VaptSecureStoragePlugin extends Plugin {
             .remove("vapt.device.branding")
             .commit();
         context.getSharedPreferences("vapt.secure.v1", Context.MODE_PRIVATE).edit()
+            .remove("vapt.device.access")
+            .remove("vapt.device.refresh")
+            .remove("vapt.device.branding")
+            .commit();
+        context.getSharedPreferences("vapt.secure.v2", Context.MODE_PRIVATE).edit()
             .remove("vapt.device.access")
             .remove("vapt.device.refresh")
             .remove("vapt.device.branding")
@@ -99,7 +109,7 @@ public class VaptSecureStoragePlugin extends Plugin {
             if (!saved) throw new IllegalStateException("Falha ao gravar a sessão.");
             call.resolve();
         } catch (Exception error) {
-            call.reject("Não foi possível salvar a sessão segura.", error);
+            call.reject("Não foi possível salvar a sessão segura.", error.getClass().getSimpleName(), error);
         }
     }
 
@@ -111,9 +121,19 @@ public class VaptSecureStoragePlugin extends Plugin {
     }
 
     private String encrypt(String value) throws Exception {
+        try {
+            return encryptWithKey(value, encryptionKey());
+        } catch (Exception keystoreError) {
+            if (preferences(getContext()).getBoolean(SOFTWARE_MODE, false)) throw keystoreError;
+            // Alguns emuladores geram a chave mas não conseguem usá-la no Cipher.
+            return encryptWithKey(value, activateSoftwareKey());
+        }
+    }
+
+    private String encryptWithKey(String value, SecretKey key) throws Exception {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         // O Android Keystore exige que ele próprio gere o IV para chaves AES.
-        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey());
+        cipher.init(Cipher.ENCRYPT_MODE, key);
         byte[] iv = cipher.getIV();
         if (iv == null || iv.length < 12 || iv.length > 16) {
             throw new IllegalStateException("IV seguro indisponível.");
@@ -140,6 +160,51 @@ public class VaptSecureStoragePlugin extends Plugin {
     @SuppressWarnings("deprecation") // minSdk 22: KeyGenParameterSpec exige API 23.
     private SecretKey encryptionKey() throws Exception {
         if (cachedKey != null) return cachedKey;
+        if (preferences(getContext()).getBoolean(SOFTWARE_MODE, false)) {
+            cachedKey = softwareKey();
+            return cachedKey;
+        }
+
+        try {
+            return androidKeystoreKey();
+        } catch (Exception keystoreUnavailable) {
+            return activateSoftwareKey();
+        }
+    }
+
+    /** Chave aleatória no diretório privado sem backup quando o Keystore falha. */
+    private SecretKey softwareKey() throws Exception {
+        AtomicFile file = new AtomicFile(new File(getContext().getNoBackupFilesDir(), "vapt-secure-v3.key"));
+        byte[] raw;
+        try {
+            raw = file.readFully();
+        } catch (FileNotFoundException missing) {
+            raw = new byte[32];
+            new SecureRandom().nextBytes(raw);
+            FileOutputStream stream = file.startWrite();
+            try {
+                stream.write(raw);
+                file.finishWrite(stream);
+            } catch (Exception writeError) {
+                file.failWrite(stream);
+                throw writeError;
+            }
+        }
+        if (raw.length != 32) throw new IllegalStateException("Chave local inválida.");
+        return new SecretKeySpec(raw, "AES");
+    }
+
+    private SecretKey activateSoftwareKey() throws Exception {
+        SecretKey key = softwareKey();
+        if (!preferences(getContext()).edit().putBoolean(SOFTWARE_MODE, true).commit()) {
+            throw new IllegalStateException("Falha ao gravar modo de armazenamento.");
+        }
+        cachedKey = key;
+        return key;
+    }
+
+    @SuppressWarnings("deprecation") // Android 5.1 ainda precisa de KeyPairGeneratorSpec.
+    private SecretKey androidKeystoreKey() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
 

@@ -195,15 +195,24 @@ export const deviceStorage = {
 /**
  * Identificador do aparelho.
  *
- * O ideal e o id fisico que o Capacitor expoe (`Device.getId()`), estavel
- * entre reinstalacoes na maioria dos casos. Sem ele — no navegador — geramos
- * um id aleatorio e guardamos junto dos tokens.
- *
- * `localStorage` seria aceitavel para ESTE valor, por nao ser segredo, mas
- * mantemos tudo no mesmo lugar para que "sair da conta" limpe de uma vez.
+ * O identificador não é segredo. No Android fica no armazenamento persistente
+ * da WebView, independente do cofre criptográfico que guarda os tokens; um
+ * problema no Keystore não deve impedir sequer a tentativa de login.
  */
 export async function getDeviceId(): Promise<string> {
+  if (isNative() && platform() === 'android') {
+    try {
+      const persistido = window.localStorage.getItem(DEVICE);
+      if (persistido) return persistido;
+    } catch {
+      /* WebView sem armazenamento: tenta o cofre nativo abaixo. */
+    }
+  }
+
   const existente = await read(DEVICE);
+  if (existente && isNative() && platform() === 'android') {
+    try { window.localStorage.setItem(DEVICE, existente); } catch { /* Continua no cofre. */ }
+  }
   if (existente) return existente;
 
   const gerado =
@@ -211,10 +220,22 @@ export async function getDeviceId(): Promise<string> {
       ? crypto.randomUUID()
       : `web-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 
+  if (isNative() && platform() === 'android') {
+    try {
+      window.localStorage.setItem(DEVICE, gerado);
+      return gerado;
+    } catch {
+      /* Sem armazenamento web, usa o cofre como último recurso. */
+    }
+  }
+
   await write(DEVICE, gerado);
   return gerado;
 }
 
 export async function clearDeviceId(): Promise<void> {
+  if (isNative() && platform() === 'android') {
+    try { window.localStorage.removeItem(DEVICE); } catch { /* Nada a fazer. */ }
+  }
   await drop(DEVICE);
 }

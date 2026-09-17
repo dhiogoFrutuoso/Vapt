@@ -77,6 +77,14 @@ let renovando: Promise<Renewal> | null = null;
 /** Avisa o app que a sessao caiu de vez, para voltar a tela de codigo. */
 const SESSAO_MORTA = 'vapt:device-sessao-encerrada';
 
+/** Código diagnóstico sem incluir tokens, código de acesso ou dados pessoais. */
+function storageErrorCode(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(code)) return code;
+  const message = error instanceof Error ? error.message : String(error);
+  return /not implemented|not available/i.test(message) ? 'PLUGIN_INDISPONIVEL' : 'COFRE_NATIVO';
+}
+
 export function onSessionLost(handler: () => void): () => void {
   window.addEventListener(SESSAO_MORTA, handler);
   return () => window.removeEventListener(SESSAO_MORTA, handler);
@@ -199,8 +207,8 @@ export const deviceApi = {
     let deviceId: string;
     try {
       deviceId = await getDeviceId();
-    } catch {
-      throw new DeviceApiError(500, 'Não foi possível preparar o armazenamento seguro neste aparelho. Atualize o aplicativo e tente novamente.');
+    } catch (error) {
+      throw new DeviceApiError(500, `Não foi possível preparar o armazenamento neste aparelho (${storageErrorCode(error)}).`);
     }
 
     const response = await rawRequest(
@@ -221,7 +229,7 @@ export const deviceApi = {
     const data = await parse<LoginResult>(response);
     try {
       await deviceStorage.setTokens(data.accessToken, data.refreshToken);
-    } catch {
+    } catch (error) {
       // A API criou a sessão, mas ela não existe de fato no aparelho. Revoga
       // imediatamente para não deixar um login fantasma no painel do gestor.
       try {
@@ -236,7 +244,7 @@ export const deviceApi = {
       } catch {
         /* O cofre pode estar indisponível também para remoção. */
       }
-      throw new DeviceApiError(500, 'Não foi possível salvar o login neste aparelho. Atualize o aplicativo e tente novamente.');
+      throw new DeviceApiError(500, `Não foi possível salvar o login neste aparelho (${storageErrorCode(error)}).`);
     }
     return data;
   },
