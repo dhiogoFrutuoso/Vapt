@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Move o APK recém-compilado para `releases/`, com nome estável.
+ * Move o APK recém-compilado para `releases/` e para o download do site.
  *
  * O Gradle enterra o arquivo em `android/app/build/outputs/apk/debug/` com o
  * nome genérico `app-debug.apk`. Dois problemas nisso:
@@ -13,9 +13,9 @@ import { fileURLToPath } from 'node:url';
  *   2. o caminho fica dentro de `android/`, que é gerado e descartável: um
  *      `cap add android` novo apagaria o binário junto.
  *
- * O nome de destino não leva versão de propósito. A URL do site usa
- * `/releases/latest/download/vapt.apk`, que casa pelo NOME do arquivo — com a
- * versão embutida, cada release exigiria reconfigurar a Vercel.
+ * O site e a atualização obrigatória usam `/downloads/vapt.apk`. Atualizar
+ * apenas `releases/` deixava esse endereço servindo um APK antigo com a
+ * interface web nova, mas sem os plugins nativos correspondentes.
  */
 
 const aqui = dirname(fileURLToPath(import.meta.url));
@@ -44,7 +44,11 @@ if (!origem) {
 mkdirSync(destino, { recursive: true });
 
 const alvo = join(destino, 'vapt.apk');
+const downloadPublico = join(raizWeb, 'public', 'downloads', 'vapt.apk');
 copyFileSync(origem, alvo);
+mkdirSync(dirname(downloadPublico), { recursive: true });
+copyFileSync(origem, downloadPublico);
 
 const mb = (statSync(alvo).size / 1024 / 1024).toFixed(1);
 console.log(`  APK -> ${alvo}  (${mb} MB)`);
+console.log(`  Download do site -> ${downloadPublico}`);
