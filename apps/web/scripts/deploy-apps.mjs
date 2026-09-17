@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, readFileSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -64,5 +64,12 @@ if (packageId !== 'com.vapt.equipe' || version !== pkg.version || code <= oldCod
 copyFileSync(apk, join(output, 'vapt.apk'));
 copyFileSync(apk, oldApk);
 copyFileSync(exe, publicExe);
+// A API consulta esta versão pública. Só avise o app depois de os dois
+// instaladores terem sido gerados, conferidos e colocados em /downloads.
+writeFileSync(
+  join(root, 'apps', 'api', 'src', 'config', 'nativeRelease.ts'),
+  `/** Atualizado pelo deploy:apps somente depois de validar e copiar APK e EXE. */\nexport const NATIVE_RELEASE_VERSION = '${pkg.version}';\n`,
+  'utf8'
+);
 console.log(`Instaladores ${pkg.version} prontos em apps/web/public/downloads (APK ${code}; assinatura preservada).`);
-console.log('Revise os binários e publique o commit para atualizar /download e o hard gate.');
+console.log('Publique os binários e apps/api/src/config/nativeRelease.ts juntos para notificar os apps instalados.');

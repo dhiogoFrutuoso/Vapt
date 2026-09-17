@@ -4,11 +4,12 @@ import { asyncHandler } from '../middlewares/errorHandler.js';
 import { AppVersion } from '../models/AppVersion.js';
 import { emitForceUpdatePublished } from '../realtime/io.js';
 import { env } from '../config/env.js';
+import { NATIVE_RELEASE_VERSION } from '../config/nativeRelease.js';
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-// The minimum binary now distributed at the stable public download URLs.
-// A stale database record must never turn off this security/compatibility floor.
-const RELEASE_FLOOR = '1.0.1';
+// O deploy dos instaladores atualiza esta versão somente após validar os dois
+// binários. Um registro antigo no banco não pode ocultar uma nova publicação.
+const RELEASE_FLOOR = NATIVE_RELEASE_VERSION;
 
 function belowReleaseFloor(version: string): boolean {
   const actual = version.split(/[.+-]/).slice(0, 3).map(Number);
@@ -40,10 +41,10 @@ const FALLBACK = {
   minVersion: RELEASE_FLOOR,
   buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: 'Atualize o Vapt para usar o novo ciclo de caixa, pedidos agendados e correções do aplicativo.',
+  reason: 'Uma nova versão do Vapt está pronta para instalar, com melhorias no caixa e nas comandas.',
   forceUpdate: true,
   downloadUrls: { apk: '/downloads/vapt.apk', exe: '/downloads/vapt.exe' },
-  changelog: ['Abertura e fechamento de caixa com pedidos agendados.', 'Correções da sessão do Android e da instalação por cima do app anterior.'],
+  changelog: ['Melhor organização do caixa e do registro de pedidos.', 'Comandas fixas na tela e melhorias na escolha do pagamento.'],
 };
 
 function normalizeChangelog(value: string | string[]): string[] {
@@ -71,8 +72,18 @@ export function absoluteDownloadUrls(
   };
 }
 
-async function currentVersion() {
-  const saved = await AppVersion.findOne({ key: 'native-app' }).lean();
+type SavedVersion = {
+  latestVersion: string;
+  minVersion: string;
+  buildId?: string | null;
+  tenantBuilds?: unknown;
+  reason?: string | null;
+  downloadUrls?: { apk: string; exe: string } | null;
+  changelog?: string[] | null;
+};
+
+/** Mantém a última versão distribuída mesmo se o banco guardar uma publicação antiga. */
+export function resolvePublicAppVersion(saved: SavedVersion | null) {
   if (!saved) return { ...FALLBACK, downloadUrls: absoluteDownloadUrls(FALLBACK.downloadUrls) };
   const stale = belowReleaseFloor(saved.latestVersion) || belowReleaseFloor(saved.minVersion);
   return {
@@ -89,8 +100,13 @@ async function currentVersion() {
   };
 }
 
+async function currentVersion() {
+  return resolvePublicAppVersion(await AppVersion.findOne({ key: 'native-app' }).lean());
+}
+
 /** GET /api/public/app/version */
 export const getPublicAppVersion = asyncHandler(async (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'no-store');
   return res.json({ ok: true, data: await currentVersion() });
 });
 
