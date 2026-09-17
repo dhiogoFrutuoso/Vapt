@@ -7,9 +7,8 @@
  *
  * A escolha depende de onde o app esta rodando, do mais seguro para o menos:
  *
- *   No Capacitor  → Secure Storage do sistema (Keychain no iOS, EncryptedShared-
- *                   Preferences no Android). Fica fora do alcance do JavaScript
- *                   da WebView e e cifrado pelo proprio aparelho.
+ *   No Android    → plugin VaptSecureStorage: AES-GCM com chave protegida pelo
+ *                   Android Keystore, persistente apos fechar a WebView.
  *   No Electron   → cofre do processo principal, cifrado com `safeStorage`
  *                   (DPAPI no Windows, Keychain no macOS, libsecret no Linux).
  *                   A interface nao cifra nem decifra: ela pede pela ponte, e
@@ -23,9 +22,12 @@
  * que e a premissa do OTA: a Vercel publica, o app recarrega e ja esta novo.
  */
 
+import { registerPlugin } from '@capacitor/core';
+
 const ACCESS = 'vapt.device.access';
 const REFRESH = 'vapt.device.refresh';
 const DEVICE = 'vapt.device.id';
+const BRANDING = 'vapt.device.branding';
 
 type SecureStoragePlugin = {
   get: (options: { key: string }) => Promise<{ value: string | null }>;
@@ -38,6 +40,8 @@ type CapacitorGlobal = {
   getPlatform?: () => string;
   Plugins?: { SecureStoragePlugin?: SecureStoragePlugin; Preferences?: SecureStoragePlugin };
 };
+
+const androidStorage = registerPlugin<SecureStoragePlugin>('VaptSecureStorage');
 
 function capacitor(): CapacitorGlobal | null {
   const c = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
@@ -54,10 +58,11 @@ export function platform(): 'android' | 'ios' | 'web' | 'desconhecido' {
   return 'desconhecido';
 }
 
-/** Plugin nativo, quando presente. Preferences e o fallback do Capacitor. */
+/** Android usa o plugin registrado em MainActivity, nunca sessionStorage. */
 function securePlugin(): SecureStoragePlugin | null {
+  if (isNative() && platform() === 'android') return androidStorage;
   const plugins = capacitor()?.Plugins;
-  return plugins?.SecureStoragePlugin ?? plugins?.Preferences ?? null;
+  return plugins?.SecureStoragePlugin ?? null;
 }
 
 /**
@@ -146,11 +151,7 @@ async function write(key: string, value: string): Promise<void> {
 async function drop(key: string): Promise<void> {
   const plugin = securePlugin();
   if (plugin) {
-    try {
-      await plugin.remove({ key });
-    } catch {
-      /* Ja nao existia. */
-    }
+    await plugin.remove({ key });
     return;
   }
 
@@ -175,6 +176,8 @@ async function drop(key: string): Promise<void> {
 export const deviceStorage = {
   getAccess: () => read(ACCESS),
   getRefresh: () => read(REFRESH),
+  getBranding: () => read(BRANDING),
+  setBranding: (value: string) => write(BRANDING, value),
 
   async setTokens(accessToken: string, refreshToken: string) {
     await write(ACCESS, accessToken);
@@ -182,8 +185,7 @@ export const deviceStorage = {
   },
 
   async clearTokens() {
-    await drop(ACCESS);
-    await drop(REFRESH);
+    await Promise.all([drop(ACCESS), drop(REFRESH), drop(BRANDING)]);
   },
 };
 

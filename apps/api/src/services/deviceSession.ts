@@ -45,6 +45,11 @@ function refreshExpiry(): Date {
   return new Date(Date.now() + env.mobileAuth.refreshTtlDays * 24 * 60 * 60 * 1000);
 }
 
+function absoluteExpiry(createdAt: Date, currentExpiry: Date): Date {
+  const weeklyLimit = createdAt.getTime() + env.mobileAuth.refreshTtlDays * 24 * 60 * 60 * 1000;
+  return new Date(Math.min(weeklyLimit, currentExpiry.getTime()));
+}
+
 /**
  * Cria uma sessao nova para um funcionario num aparelho.
  *
@@ -94,6 +99,7 @@ export async function issueSession(params: {
       did: device.deviceId,
       sid: String(session._id),
       perms: permissions,
+      sessionExpiresAt: session.expiresAt.getTime(),
     }),
     refreshToken,
     expiresIn: env.mobileAuth.accessTtlSeconds,
@@ -173,7 +179,8 @@ export async function rotateSession(params: {
     return { ok: false, reason: 'reuso' };
   }
 
-  if (session.expiresAt.getTime() < Date.now()) {
+  const expiresAt = absoluteExpiry(session.createdAt, session.expiresAt);
+  if (expiresAt.getTime() <= Date.now()) {
     return { ok: false, reason: 'expirada' };
   }
 
@@ -226,7 +233,8 @@ export async function rotateSession(params: {
   session.refreshTokenHash = hashRefreshToken(novoRefresh);
   session.rotatedAt = agora;
   session.lastUsedAt = agora;
-  session.expiresAt = refreshExpiry();
+  // Rotação troca os tokens, mas nunca prorroga os sete dias do login.
+  session.expiresAt = expiresAt;
   const meta = requestMeta(req);
   session.userAgent = meta.userAgent;
   session.ip = meta.ip;
@@ -244,6 +252,7 @@ export async function rotateSession(params: {
         did: session.deviceId,
         sid: String(session._id),
         perms: permissions,
+        sessionExpiresAt: expiresAt.getTime(),
       }),
       refreshToken: novoRefresh,
       expiresIn: env.mobileAuth.accessTtlSeconds,

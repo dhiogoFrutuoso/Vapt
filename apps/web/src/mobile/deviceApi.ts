@@ -72,7 +72,7 @@ export type LoginResult = {
 type Envelope<T> = { ok: boolean; data?: T; error?: string; message?: string; details?: Array<{ field: string; message: string }> };
 
 /** Evita renovacoes simultaneas quando varias chamadas tomam 401 juntas. */
-let renovando: Promise<boolean> | null = null;
+let renovando: Promise<Renewal> | null = null;
 
 /** Avisa o app que a sessao caiu de vez, para voltar a tela de codigo. */
 const SESSAO_MORTA = 'vapt:device-sessao-encerrada';
@@ -114,28 +114,30 @@ async function rawRequest(path: string, init: RequestInit, comToken: boolean): P
   return fetch(`${BASE}${path}`, { ...init, headers });
 }
 
-/** Rotaciona o refresh. Uma unica tentativa em voo por vez. */
-async function renovarSessao(): Promise<boolean> {
+type Renewal = 'renewed' | 'expired' | 'unavailable';
+
+/** Rotaciona o refresh. Falta de rede não apaga uma sessão ainda válida. */
+async function renovarSessao(): Promise<Renewal> {
   if (renovando) return renovando;
 
   renovando = (async () => {
-    const refreshToken = await deviceStorage.getRefresh();
-    if (!refreshToken) return false;
-
     try {
+      const refreshToken = await deviceStorage.getRefresh();
+      if (!refreshToken) return 'expired';
       const response = await rawRequest(
         '/device/refresh',
         { method: 'POST', body: JSON.stringify({ refreshToken, deviceId: await getDeviceId() }) },
         false
       );
 
-      if (!response.ok) return false;
+      if (response.status === 401 || response.status === 403) return 'expired';
+      if (!response.ok) return 'unavailable';
 
       const data = await parse<{ accessToken: string; refreshToken: string }>(response);
       await deviceStorage.setTokens(data.accessToken, data.refreshToken);
-      return true;
+      return 'renewed';
     } catch {
-      return false;
+      return 'unavailable';
     } finally {
       renovando = null;
     }
@@ -155,7 +157,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (response.status === 401) {
     const renovou = await renovarSessao();
 
-    if (!renovou) {
+    if (renovou === 'unavailable') {
+      throw new DeviceApiError(503, 'Não foi possível confirmar sua sessão. Verifique a conexão e tente novamente.');
+    }
+
+    if (renovou === 'expired') {
       await deviceStorage.clearTokens();
       window.dispatchEvent(new Event(SESSAO_MORTA));
       throw new DeviceApiError(401, 'Sua sessao terminou. Entre novamente.');

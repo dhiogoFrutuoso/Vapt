@@ -124,6 +124,7 @@ const CHAVES_PERMITIDAS = new Set([
   'vapt.device.access',
   'vapt.device.refresh',
   'vapt.device.id',
+  'vapt.device.branding',
 ]);
 
 function arquivoDoCofre() {
@@ -151,6 +152,7 @@ function limparCredenciaisDoCofre() {
   const cofre = lerCofre();
   delete cofre['vapt.device.access'];
   delete cofre['vapt.device.refresh'];
+  delete cofre['vapt.device.branding'];
   gravarCofre(cofre);
 }
 

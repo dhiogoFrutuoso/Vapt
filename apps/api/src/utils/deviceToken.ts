@@ -29,6 +29,8 @@ export type DevicePayload = {
   sid: string;
   /** Permissoes da funcao no momento da emissao (RBAC das abas). */
   perms: string[];
+  /** Prazo absoluto da sessão; a rotação não o estende. */
+  sessionExpiresAt: number;
 };
 
 export function signDeviceAccessToken(payload: DevicePayload): string {
@@ -49,14 +51,17 @@ export function verifyDeviceAccessToken(token: string): DevicePayload | null {
     });
     if (typeof decoded === 'string') return null;
 
-    const { sub, app, did, sid, perms } = decoded as jwt.JwtPayload & {
+    const { sub, app, did, sid, perms, sessionExpiresAt } = decoded as jwt.JwtPayload & {
       app?: string;
       did?: string;
       sid?: string;
       perms?: unknown;
+      sessionExpiresAt?: number;
     };
 
-    if (!sub || !app || !did || !sid) return null;
+    // Tokens anteriores a esta regra renovam uma vez pelo refresh; se a
+    // sessão antiga já completou sete dias, a renovação é recusada.
+    if (!sub || !app || !did || !sid || typeof sessionExpiresAt !== 'number' || !Number.isFinite(sessionExpiresAt) || sessionExpiresAt <= Date.now()) return null;
 
     return {
       sub: String(sub),
@@ -64,6 +69,7 @@ export function verifyDeviceAccessToken(token: string): DevicePayload | null {
       did: String(did),
       sid: String(sid),
       perms: Array.isArray(perms) ? perms.map(String) : [],
+      sessionExpiresAt,
     };
   } catch {
     // Token invalido e evento esperado (expirou, foi adulterado). Nao e erro.

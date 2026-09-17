@@ -54,6 +54,8 @@ type DeviceAuthValue = {
   accessToken: string | null;
   /** true enquanto a checagem inicial de sessao nao terminou. */
   loading: boolean;
+  sessionUnavailable: boolean;
+  retrySession: () => void;
   login: (code: string, deviceName: string) => Promise<Employee>;
   logout: () => Promise<void>;
   completeOnboarding: (input: { phone: string; cpf: string; birthDate: string }) => Promise<void>;
@@ -67,6 +69,14 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
   const [appId, setAppId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionUnavailable, setSessionUnavailable] = useState(false);
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
+
+  const retrySession = useCallback(() => {
+    setLoading(true);
+    setSessionUnavailable(false);
+    setRestoreAttempt((attempt) => attempt + 1);
+  }, []);
 
   const encerrarLocal = useCallback(() => {
     setEmployee(null);
@@ -76,14 +86,8 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /*
-   * Ao abrir o app, tenta reaproveitar a sessao guardada. `/device/me`
-   * devolve permissoes mas nao o branding — entao, quando ha sessao, o app
-   * ainda precisa de um login para reidratar a identidade visual.
-   *
-   * Em vez de inventar uma rota so para isso, tratamos assim: se ha token
-   * valido, entramos direto com o que /device/me devolve; o branding completo
-   * chega no proximo login. Na pratica o refresh dura 30 dias e o login e
-   * raro, entao guardamos o branding junto da sessao.
+   * Ao abrir, confirma a sessao no servidor. O cache cifrado guarda o perfil
+   * e a marca, que `/device/me` nao devolve; o refresh tem limite de 7 dias.
    */
   useEffect(() => {
     let vivo = true;
@@ -99,7 +103,9 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const dados = await deviceApi.me();
-        const salvo = lerBrandingSalvo();
+        const salvo = await lerBrandingSalvo();
+        // /device/me pode ter rotacionado um access expirado durante o boot.
+        const currentToken = await deviceStorage.getAccess();
 
         if (!vivo) return;
 
@@ -113,9 +119,13 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
         });
         setBranding(salvo?.branding ?? VAPT_BRANDING);
         setAppId(dados.appId);
-        setAccessToken(token ?? (await deviceStorage.getAccess()));
+        setAccessToken(currentToken);
       } catch {
-        if (vivo) encerrarLocal();
+        if (vivo) {
+          encerrarLocal();
+          const stillStored = (await deviceStorage.getAccess()) || (await deviceStorage.getRefresh());
+          if (vivo) setSessionUnavailable(Boolean(stillStored));
+        }
       } finally {
         if (vivo) setLoading(false);
       }
@@ -124,19 +134,23 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
     return () => {
       vivo = false;
     };
-  }, [encerrarLocal]);
+  }, [encerrarLocal, restoreAttempt]);
 
   /* A sessao pode morrer no meio do turno (bloqueio, revogacao). O cliente
      HTTP avisa por evento e a interface volta para a tela de codigo. */
-  useEffect(() => onSessionLost(encerrarLocal), [encerrarLocal]);
+  useEffect(() => onSessionLost(() => {
+    encerrarLocal();
+    setSessionUnavailable(false);
+  }), [encerrarLocal]);
 
   const login = useCallback(async (code: string, deviceName: string) => {
     const data = await deviceApi.login(code, deviceName);
+    setSessionUnavailable(false);
     setAppId(data.appId);
     setAccessToken(data.accessToken);
     setEmployee(data.employee);
     setBranding(data.branding);
-    salvarBranding({
+    await salvarBranding({
       branding: data.branding,
       employeeName: data.employee.name,
       roleName: data.employee.role,
@@ -148,7 +162,7 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await deviceApi.logout();
-    limparBrandingSalvo();
+    setSessionUnavailable(false);
     encerrarLocal();
   }, [encerrarLocal]);
 
@@ -158,13 +172,15 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
       setEmployee((atual) =>
         atual ? { ...atual, onboardingCompleted: true, profile: data.profile } : atual
       );
+      const salvo = await lerBrandingSalvo();
+      if (salvo) await salvarBranding({ ...salvo, onboardingCompleted: true, profile: data.profile });
     },
     []
   );
 
   const value = useMemo<DeviceAuthValue>(
-    () => ({ employee, branding, appId, accessToken, loading, login, logout, completeOnboarding }),
-    [employee, branding, appId, accessToken, loading, login, logout, completeOnboarding]
+    () => ({ employee, branding, appId, accessToken, loading, sessionUnavailable, retrySession, login, logout, completeOnboarding }),
+    [employee, branding, appId, accessToken, loading, sessionUnavailable, retrySession, login, logout, completeOnboarding]
   );
 
   return <DeviceAuthContext.Provider value={value}>{children}</DeviceAuthContext.Provider>;
@@ -181,15 +197,9 @@ export function useDeviceAuth(): DeviceAuthValue {
 /* ------------------------------------------------------------------ */
 
 /*
- * O branding NAO e segredo — sao nome, cores e logo publicos do restaurante.
- * Por isso pode ficar em sessionStorage sem o cuidado dos tokens: o pior caso
- * de um vazamento aqui e alguem descobrir a cor da marca de um bar.
- *
- * Existe para o app abrir ja vestido do restaurante, sem piscar a marca Vapt
- * antes de a sessao ser confirmada.
+ * O perfil inclui CPF e contato: no app nativo acompanha os tokens no cofre
+ * cifrado. No navegador, acompanha a sessao temporaria da aba.
  */
-const CHAVE = 'vapt.device.branding';
-
 type BrandingSalvo = {
   branding: Branding;
   employeeName: string;
@@ -198,27 +208,19 @@ type BrandingSalvo = {
   profile: Employee['profile'];
 };
 
-function salvarBranding(dados: BrandingSalvo) {
+async function salvarBranding(dados: BrandingSalvo) {
   try {
-    window.sessionStorage.setItem(CHAVE, JSON.stringify(dados));
+    await deviceStorage.setBranding(JSON.stringify(dados));
   } catch {
-    /* Armazenamento bloqueado: o app so vai piscar a marca Vapt ao abrir. */
+    /* Cache opcional: o login continua, mas a marca sera recuperada depois. */
   }
 }
 
-function lerBrandingSalvo(): BrandingSalvo | null {
+async function lerBrandingSalvo(): Promise<BrandingSalvo | null> {
   try {
-    const bruto = window.sessionStorage.getItem(CHAVE);
+    const bruto = await deviceStorage.getBranding();
     return bruto ? (JSON.parse(bruto) as BrandingSalvo) : null;
   } catch {
     return null;
-  }
-}
-
-function limparBrandingSalvo() {
-  try {
-    window.sessionStorage.removeItem(CHAVE);
-  } catch {
-    /* Nada a fazer. */
   }
 }

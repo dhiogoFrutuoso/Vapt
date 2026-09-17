@@ -166,7 +166,8 @@ export const env = {
    */
   mobileAuth: {
     accessTtlSeconds: Number(process.env.MOBILE_ACCESS_TTL_SECONDS ?? 10 * 60),
-    refreshTtlDays: Number(process.env.MOBILE_REFRESH_TTL_DAYS ?? 30),
+    // Sete dias no máximo, mesmo se uma implantação antiga ainda configurar 30.
+    refreshTtlDays: Math.min(7, Math.max(1, Number(process.env.MOBILE_REFRESH_TTL_DAYS ?? 7) || 7)),
     /** Teto de sessoes simultaneas por funcionario. Cada aparelho e uma. */
     maxSessionsPerEmployee: Number(process.env.MOBILE_MAX_SESSIONS ?? 5),
   },

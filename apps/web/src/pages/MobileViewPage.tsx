@@ -32,7 +32,7 @@ import { ForceUpdateGate } from '../mobile/ForceUpdateGate';
  */
 
 function MobileRouter() {
-  const { employee, loading, branding } = useDeviceAuth();
+  const { employee, loading, branding, sessionUnavailable, retrySession } = useDeviceAuth();
   const { checkState, isUpdateRequired } = useForceUpdate();
 
   /* O conteúdo operacional só nasce depois da decisão de versão. */
@@ -44,6 +44,16 @@ function MobileRouter() {
         className="flex min-h-[100dvh] items-center justify-center bg-[#FAF8F5] dark:bg-gray-950"
       >
         <p className="m-0 text-sm font-semibold text-gray-600 dark:text-gray-300">Carregando...</p>
+      </main>
+    );
+  }
+
+  if (sessionUnavailable) {
+    return (
+      <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-[#FAF8F5] px-6 text-center dark:bg-gray-950">
+        <h1 className="m-0 text-xl font-bold text-gray-900 dark:text-white">Não foi possível confirmar sua sessão</h1>
+        <p className="m-0 max-w-sm text-sm text-gray-600 dark:text-gray-300">Seu login foi mantido. Verifique a conexão e tente novamente.</p>
+        <button type="button" onClick={retrySession} className="min-h-12 rounded-full bg-[#F95D2A] px-6 font-bold text-white">Tentar novamente</button>
       </main>
     );
   }

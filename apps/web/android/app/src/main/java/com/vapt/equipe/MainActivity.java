@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VaptUpdaterPlugin.class);
         registerPlugin(VaptPrinterPlugin.class);
+        registerPlugin(VaptSecureStoragePlugin.class);
         super.onCreate(savedInstanceState);
     }
 
@@ -28,6 +29,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void clearSessionAndClose() {
+        VaptSecureStoragePlugin.clearSession(getApplicationContext());
         if (getBridge() == null || getBridge().getWebView() == null) {
             closeApplication();
             return;

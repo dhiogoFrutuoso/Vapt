@@ -59,7 +59,7 @@ const deviceSessionSchema = new Schema(
      * E o que permite rotacionar NO MESMO documento em vez de criar um novo a
      * cada renovacao. A versao anterior inseria um documento por rotacao: com
      * access token de 10 minutos sao 144 por dia por aparelho, ~4.300 vivos
-     * por aparelho na janela de 30 dias — mais de 200 mil linhas numa equipe
+     * por aparelho numa janela longa — dezenas de milhares de linhas numa equipe
      * de 50 pessoas, para representar 50 sessoes.
      *
      * Guardando so a geracao anterior, a deteccao de reuso continua igual (o
