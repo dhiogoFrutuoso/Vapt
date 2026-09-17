@@ -797,3 +797,30 @@
 .mobile-shell__content {
   -webkit-overflow-scrolling: touch;
 }
+
+/* A folha de edição acompanha a janela, não a rolagem da aba. A altura
+   medida fica reservada após o último card para que ele continue alcançável. */
+.mobile-shell .phone__sheet--order {
+  position: fixed;
+  right: auto;
+  top: auto;
+  z-index: 45;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  max-height: min(78dvh, 620px);
+  overscroll-behavior: contain;
+}
+
+.mobile-shell__content.has-order-sheet {
+  padding-bottom: calc(var(--mobile-nav-height, 0px) + var(--order-sheet-height, 0px) + 1rem);
+}
+
+/* Cada aba herda o recorte arredondado do painel, sem cortar a folha fixa. */
+.mobile-shell .editor-preview--app,
+.mobile-shell .editor-preview--app .editor-preview__screen,
+.mobile-shell .editor-preview--app .phone__body,
+.mobile-shell .editor-preview--app .phone__content {
+  border-radius: var(--radius-lg);
+}

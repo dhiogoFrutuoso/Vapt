@@ -404,7 +404,11 @@
   border-color: var(--brand);
   background: var(--brand-50);
   color: var(--ink-900);
+  box-shadow: inset 0 0 0 1px var(--brand);
 }
+
+.phone__pay button { min-height: 58px; font-size: 0.65rem; cursor: pointer; }
+.phone__pay button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* Split Payment Toggle Link */
 .phone__split-toggle {

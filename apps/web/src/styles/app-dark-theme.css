@@ -253,6 +253,7 @@
 }
 
 :is(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
+  .phone__pay button.is-active,
   .phone__pay button.is-selected,
   .phone__modo button.is-active,
   .recep-chip.is-active,
@@ -261,6 +262,21 @@
   background: color-mix(in srgb, var(--brand, #f95d2a) 22%, var(--dark-page));
   border-color: var(--brand, #f95d2a);
   color: #ffd5c5;
+}
+
+/* O seletor genérico de campos acima usa !important; a escolha do cliente
+   precisa vencê-lo para permanecer perceptível após o toque. */
+:is(.editor-preview.theme-escuro, .dark .editor-preview--app) .phone__pay button.is-active {
+  background: color-mix(in srgb, var(--brand, #f95d2a) 24%, var(--dark-page)) !important;
+  border-color: var(--brand, #f95d2a) !important;
+  color: var(--dark-text) !important;
+  box-shadow: inset 0 0 0 2px var(--brand, #f95d2a) !important;
+}
+
+:is(.editor-preview.theme-escuro, .dark .editor-preview--app) .cash-shell > .cash-totals.cash-totals--close {
+  background: var(--dark-surface);
+  border-color: var(--dark-border);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
 }
 
 /* Tons semânticos recalibrados: cor continua informando sem virar uma placa clara. */

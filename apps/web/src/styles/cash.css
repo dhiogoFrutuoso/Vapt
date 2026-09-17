@@ -2292,3 +2292,62 @@
   .cash-overview { grid-template-columns: 1fr 1fr; }
   .cash-overview > div:first-child { grid-column: 1 / -1; }
 }
+
+/* Densidade legível no turno e no registro, inclusive no APK estreito. */
+.cash-scroll { padding: 16px 14px 24px; }
+.cash-tabs { overflow: hidden; border-radius: 14px; gap: 4px; padding: 4px; margin-bottom: 12px; }
+.cash-tabs button { min-height: 40px; border-radius: 10px; font-size: 0.73rem; }
+.cash-tabs__count { font-size: 0.65rem; }
+.cash-overview { gap: 8px; }
+.cash-overview > div { padding: 11px 9px; }
+.cash-overview span { font-size: 0.65rem; }
+.cash-overview strong { font-size: 0.82rem; overflow-wrap: anywhere; }
+.cash-filter > span { font-size: 0.65rem; }
+.cash-filter select,
+.cash-search__date input { min-height: 42px; padding: 8px 10px; border-radius: 10px; font-size: 0.72rem; }
+.cash-search { grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr); gap: 8px; }
+.cash-search__field { min-height: 42px; height: auto; border-radius: 10px; }
+.cash-search__field input { font-size: 0.72rem; }
+.cash-search__date input { width: 100%; min-width: 0; }
+.cash-register-summary { border-radius: 14px; padding: 10px; gap: 5px; }
+.cash-register-summary small { font-size: 0.63rem; }
+.cash-register-summary strong { font-size: 0.77rem; }
+.cash-entry { gap: 6px; padding: 11px; border-radius: 13px; }
+.cash-entry__head strong,
+.cash-entry__client { font-size: 0.72rem; }
+.cash-entry__edit,
+.cash-entry__cancel { min-height: 42px; }
+
+/* Não há painel preto retangular atrás do fechamento arredondado. */
+.cash-shell > .cash-totals.cash-totals--close {
+  z-index: 4;
+  margin: 8px 14px 12px;
+  background: var(--surface);
+  color: var(--ink-900);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+}
+.cash-totals--close .cash-close__copy h4,
+.studio-root .editor-preview .cash-totals--close .cash-close__copy h4 { color: var(--ink-900); }
+.cash-totals--close .cash-close__copy p { color: var(--ink-500); }
+.cash-close__icon { background: var(--surface-2); border-color: var(--line); color: var(--brand); }
+.cash-shell > .cash-totals.cash-totals--register { margin: 8px 14px 12px; border-radius: 16px; }
+
+.svc-grid--takeouts { align-items: stretch; }
+.svc-grid--takeouts .svc-card--takeout { height: 100%; min-height: 132px; }
+.svc-grid--takeouts .svc-card--takeout .svc-card__open { flex: 1 1 auto; align-content: start; }
+.svc-grid--takeouts .svc-card--takeout .svc-card__foot {
+  flex: 0 0 auto;
+  margin-top: auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px;
+}
+.svc-grid--takeouts .svc-card--takeout .svc-card__cancel,
+.svc-grid--takeouts .svc-card--takeout .svc-card__print { flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+
+@media (max-width: 390px) {
+  .cash-search { grid-template-columns: minmax(0, 1fr); }
+  .cash-register-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cash-register-summary > span:first-child { grid-column: 1 / -1; }
+}

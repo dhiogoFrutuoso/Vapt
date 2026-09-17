@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { demo } from '../../data/content';
 import { brl } from '../../lib/format';
 import { getImageUrl } from '../../lib/api';
@@ -64,6 +64,50 @@ export function OrderSheet({
   const [mode, setMode] = useState<'comanda' | 'cardapio'>('comanda');
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
   const { confirm, ConfirmElement } = useConfirm();
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  // No aplicativo a aba rola, mas a comanda pertence à janela inteira. O
+  // simulador do editor continua usando a folha absoluta dentro do telefone.
+  useLayoutEffect(() => {
+    const sheet = sheetRef.current;
+    const shell = sheet?.closest('.mobile-shell');
+    const content = shell?.querySelector<HTMLElement>('.mobile-shell__content');
+    if (!sheet || !shell || !content) return;
+
+    content.classList.add('has-order-sheet');
+
+    const update = () => {
+      const rect = content.getBoundingClientRect();
+      const nav = shell.querySelector<HTMLElement>('.mobile-shell__bottom-nav');
+      const navHeight = nav && getComputedStyle(nav).display !== 'none' ? nav.offsetHeight : 0;
+      const top = shell.querySelector<HTMLElement>('.mobile-shell__header');
+      const headerHeight = top && getComputedStyle(top).display !== 'none' ? top.offsetHeight : 0;
+      // A preferência de escala usa CSS zoom no <html>. getBoundingClientRect
+      // já inclui o zoom; as dimensões CSS do fixed precisam ser divididas.
+      const scale = content.offsetWidth > 0 ? rect.width / content.offsetWidth : 1;
+      sheet.style.left = `${rect.left / scale}px`;
+      sheet.style.width = `${rect.width / scale}px`;
+      sheet.style.bottom = `${navHeight}px`;
+      sheet.style.maxHeight = `calc(100dvh - ${headerHeight + navHeight + 16}px)`;
+      content.style.setProperty('--order-sheet-height', `${sheet.offsetHeight}px`);
+    };
+
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(sheet);
+    observer?.observe(content);
+    window.addEventListener('resize', update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', update);
+      content.classList.remove('has-order-sheet');
+      content.style.removeProperty('--order-sheet-height');
+      sheet.style.removeProperty('left');
+      sheet.style.removeProperty('width');
+      sheet.style.removeProperty('bottom');
+      sheet.style.removeProperty('max-height');
+    };
+  }, []);
 
   const items = ticket.items;
   const subtotal = sumItems(items);
@@ -162,7 +206,7 @@ export function OrderSheet({
   }
 
   return (
-    <div className="phone__sheet" role="dialog" aria-label={`Comanda · ${ticket.title}`}>
+    <div ref={sheetRef} className="phone__sheet phone__sheet--order" role="dialog" aria-label={`Comanda · ${ticket.title}`}>
       <div className="phone__sheet-head">
         <strong>
           {mode === 'comanda' ? copy.orderTitle : copy.pickerTitle} · {ticket.title}
