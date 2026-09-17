@@ -54,11 +54,11 @@ export function CodeLoginScreen() {
 
   return (
     <main
-      className="flex min-h-[100dvh] flex-col items-center justify-center bg-[#FAF8F5]
-        px-6 py-10 dark:bg-gray-950"
+      className="code-login-screen flex flex-col items-center justify-center bg-[#FAF8F5]
+        dark:bg-gray-950"
     >
-      <div className="w-full max-w-sm">
-        <header className="mb-10 text-center">
+      <div className="code-login-screen__content w-full max-w-sm">
+        <header className="code-login-screen__header mb-10 text-center">
           <p
             className="m-0 text-4xl font-extrabold tracking-tight"
             style={{ color: VAPT_BRANDING.primaryColor }}
@@ -117,7 +117,7 @@ export function CodeLoginScreen() {
           <button
             type="submit"
             disabled={!completo || enviando}
-            className="box-border mt-6 w-full rounded-full px-6 py-4 text-[1rem] font-bold text-white
+            className="code-login-screen__submit box-border mt-6 w-full rounded-full px-6 py-4 text-[1rem] font-bold text-white
               transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
             style={{ backgroundColor: VAPT_BRANDING.primaryColor }}
           >
@@ -125,7 +125,7 @@ export function CodeLoginScreen() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm leading-relaxed text-gray-500 dark:text-gray-300">
+        <p className="code-login-screen__hint mt-8 text-center text-sm leading-relaxed text-gray-500 dark:text-gray-300">
           O código é fornecido pelo responsável do restaurante e vale só neste aparelho.
         </p>
       </div>

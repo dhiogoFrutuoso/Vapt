@@ -10,4 +10,5 @@
 @import './tailwind.css';
 @import './app-dark-theme.css';
 @import './app-scale.css';
+@import './mobile-login.css';
 @import './print.css';

@@ -1,0 +1,64 @@
+/* A entrada do app é uma tela, não parte do documento rolável do site. */
+.code-login-screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  width: calc(100vw / var(--vapt-ui-scale, 1));
+  height: 100vh;
+  height: calc(100dvh / var(--vapt-ui-scale, 1));
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+}
+
+.code-login-screen__content {
+  min-width: 0;
+  max-height: 100%;
+}
+
+/* Com o teclado aberto, o formulário continua visível sem virar uma lista. */
+.code-login-screen:focus-within .code-login-screen__header {
+  margin-bottom: 16px;
+}
+
+.code-login-screen:focus-within .code-login-screen__hint {
+  display: none;
+}
+
+@media (max-height: 520px) {
+  .code-login-screen__header {
+    margin-bottom: 16px;
+  }
+
+  .code-login-screen__submit {
+    margin-top: 12px;
+  }
+
+  .code-login-screen__hint {
+    display: none;
+  }
+}
+
+@media (max-height: 420px) {
+  .code-login-screen {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .code-login-screen__header {
+    display: none;
+  }
+
+  .code-login-screen #employee-code {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .code-login-screen__submit {
+    min-height: 48px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}

@@ -182,6 +182,9 @@ export const deviceStorage = {
   async setTokens(accessToken: string, refreshToken: string) {
     await write(ACCESS, accessToken);
     await write(REFRESH, refreshToken);
+    if ((await read(ACCESS)) !== accessToken || (await read(REFRESH)) !== refreshToken) {
+      throw new Error('A sessão não permaneceu salva no aparelho.');
+    }
   },
 
   async clearTokens() {

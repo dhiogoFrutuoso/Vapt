@@ -2,7 +2,10 @@ package com.vapt.equipe;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.security.KeyPairGeneratorSpec;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
 import com.getcapacitor.JSObject;
@@ -31,11 +34,12 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.security.auth.x500.X500Principal;
 
-/** Sessao persistente cifrada; a chave RSA privada nunca sai do Android Keystore. */
+/** Sessao persistente cifrada com chave protegida pelo Android Keystore. */
 @CapacitorPlugin(name = "VaptSecureStorage")
 public class VaptSecureStoragePlugin extends Plugin {
-    private static final String PREFS = "vapt.secure.v1";
-    private static final String KEY_ALIAS = "vapt.secure.rsa.v1";
+    private static final String PREFS = "vapt.secure.v2";
+    private static final String KEY_ALIAS = "vapt.secure.rsa.v2";
+    private static final String AES_ALIAS = "vapt.secure.aes.v2";
     private static final String WRAPPED_KEY = "wrapped-aes-key";
     private static final Set<String> ALLOWED = new HashSet<>(Arrays.asList(
         "vapt.device.access", "vapt.device.refresh", "vapt.device.id", "vapt.device.branding"
@@ -48,6 +52,11 @@ public class VaptSecureStoragePlugin extends Plugin {
 
     public static void clearSession(Context context) {
         preferences(context).edit()
+            .remove("vapt.device.access")
+            .remove("vapt.device.refresh")
+            .remove("vapt.device.branding")
+            .commit();
+        context.getSharedPreferences("vapt.secure.v1", Context.MODE_PRIVATE).edit()
             .remove("vapt.device.access")
             .remove("vapt.device.refresh")
             .remove("vapt.device.branding")
@@ -103,22 +112,29 @@ public class VaptSecureStoragePlugin extends Plugin {
 
     private String encrypt(String value) throws Exception {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        byte[] iv = new byte[12];
-        new SecureRandom().nextBytes(iv);
-        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey(), new GCMParameterSpec(128, iv));
+        // O Android Keystore exige que ele próprio gere o IV para chaves AES.
+        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey());
+        byte[] iv = cipher.getIV();
+        if (iv == null || iv.length < 12 || iv.length > 16) {
+            throw new IllegalStateException("IV seguro indisponível.");
+        }
         byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
-        ByteBuffer bytes = ByteBuffer.allocate(iv.length + encrypted.length);
-        bytes.put(iv).put(encrypted);
+        ByteBuffer bytes = ByteBuffer.allocate(1 + iv.length + encrypted.length);
+        bytes.put((byte) iv.length).put(iv).put(encrypted);
         return Base64.encodeToString(bytes.array(), Base64.NO_WRAP);
     }
 
     private String decrypt(String value) throws Exception {
         byte[] bytes = Base64.decode(value, Base64.NO_WRAP);
-        if (bytes.length < 28) throw new IllegalArgumentException("Sessão corrompida.");
+        if (bytes.length < 29) throw new IllegalArgumentException("Sessão corrompida.");
+        int ivLength = bytes[0] & 0xff;
+        if (ivLength < 12 || ivLength > 16 || bytes.length < 1 + ivLength + 16) {
+            throw new IllegalArgumentException("Sessão corrompida.");
+        }
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.DECRYPT_MODE, encryptionKey(),
-            new GCMParameterSpec(128, Arrays.copyOfRange(bytes, 0, 12)));
-        return new String(cipher.doFinal(bytes, 12, bytes.length - 12), StandardCharsets.UTF_8);
+            new GCMParameterSpec(128, Arrays.copyOfRange(bytes, 1, 1 + ivLength)));
+        return new String(cipher.doFinal(bytes, 1 + ivLength, bytes.length - 1 - ivLength), StandardCharsets.UTF_8);
     }
 
     @SuppressWarnings("deprecation") // minSdk 22: KeyGenParameterSpec exige API 23.
@@ -126,6 +142,24 @@ public class VaptSecureStoragePlugin extends Plugin {
         if (cachedKey != null) return cachedKey;
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!store.containsAlias(AES_ALIAS)) {
+                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+                generator.init(new KeyGenParameterSpec.Builder(AES_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build());
+                generator.generateKey();
+            }
+            cachedKey = (SecretKey) store.getKey(AES_ALIAS, null);
+            if (cachedKey == null) throw new IllegalStateException("Chave segura indisponível.");
+            return cachedKey;
+        }
+
+        // Somente Android 5.1 (API 22): AES no Keystore não existia ainda.
         if (!store.containsAlias(KEY_ALIAS)) {
             Calendar start = Calendar.getInstance();
             Calendar end = Calendar.getInstance();

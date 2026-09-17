@@ -101,10 +101,10 @@ async function parse<T>(response: Response): Promise<T> {
   return payload.data as T;
 }
 
-async function rawRequest(path: string, init: RequestInit, comToken: boolean): Promise<Response> {
+async function rawRequest(path: string, init: RequestInit, comToken: boolean, deviceId?: string): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
-  headers.set('X-Device-Id', await getDeviceId());
+  headers.set('X-Device-Id', deviceId ?? await getDeviceId());
 
   if (comToken) {
     const token = await deviceStorage.getAccess();
@@ -196,22 +196,48 @@ export const deviceApi = {
 
   /** Login por codigo. Nao usa token — e ele que cria a sessao. */
   async login(code: string, deviceName: string): Promise<LoginResult> {
+    let deviceId: string;
+    try {
+      deviceId = await getDeviceId();
+    } catch {
+      throw new DeviceApiError(500, 'Não foi possível preparar o armazenamento seguro neste aparelho. Atualize o aplicativo e tente novamente.');
+    }
+
     const response = await rawRequest(
       '/device/login',
       {
         method: 'POST',
         body: JSON.stringify({
           code,
-          deviceId: await getDeviceId(),
+          deviceId,
           deviceName,
           platform: platform(),
         }),
       },
-      false
+      false,
+      deviceId
     );
 
     const data = await parse<LoginResult>(response);
-    await deviceStorage.setTokens(data.accessToken, data.refreshToken);
+    try {
+      await deviceStorage.setTokens(data.accessToken, data.refreshToken);
+    } catch {
+      // A API criou a sessão, mas ela não existe de fato no aparelho. Revoga
+      // imediatamente para não deixar um login fantasma no painel do gestor.
+      try {
+        await rawRequest('/device/logout', {
+          method: 'POST', body: JSON.stringify({ refreshToken: data.refreshToken }),
+        }, false, deviceId);
+      } catch {
+        /* Sem rede: a sessão ainda expira no servidor. */
+      }
+      try {
+        await deviceStorage.clearTokens();
+      } catch {
+        /* O cofre pode estar indisponível também para remoção. */
+      }
+      throw new DeviceApiError(500, 'Não foi possível salvar o login neste aparelho. Atualize o aplicativo e tente novamente.');
+    }
     return data;
   },
 
