@@ -4,9 +4,10 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Download, LogOut, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useForceUpdate } from './ForceUpdateContext';
-import { clearSessionAndExit, installNativeUpdate, setNativeUpdateGateActive } from './nativeUpdater';
+import { clearSessionAndExit, installNativeUpdate, LEGACY_ANDROID_DOWNLOAD_URL, setNativeUpdateGateActive, updateDownloadUrl } from './nativeUpdater';
 
-type Phase = 'idle' | 'downloading' | 'installing' | 'failed';
+type Phase = 'idle' | 'external' | 'downloading' | 'installing' | 'failed';
+const primaryActionClass = 'inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#F95D2A] px-5 py-3.5 text-base font-extrabold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-[#E64D1B] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-orange-500 disabled:cursor-wait disabled:opacity-60';
 
 export function ForceUpdateGate() {
   const { update, isUpdateRequired, checkState, retry } = useForceUpdate();
@@ -14,6 +15,7 @@ export function ForceUpdateGate() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
   const visible = checkState !== 'ready' || isUpdateRequired;
+  const externalAndroidDownload = Capacitor.getPlatform() === 'android' && !Capacitor.isPluginAvailable('VaptUpdater');
 
   useEffect(() => {
     if (!visible) return;
@@ -116,6 +118,11 @@ export function ForceUpdateGate() {
           {update.reason || 'Uma nova versão do Vapt está disponível com correções críticas e novos recursos.'}
         </p>
         <p className="mt-5 inline-flex rounded-full bg-[#F95D2A] px-4 py-2 text-sm font-extrabold text-white">Versão {update.latestVersion} já disponível</p>
+        {externalAndroidDownload && (
+          <p className="mt-4 break-words text-sm leading-6 text-gray-700 dark:text-gray-200">
+            O botão abre o download no navegador. Instale o APK sobre o aplicativo atual, sem desinstalá-lo. Se o navegador não abrir, acesse: {updateDownloadUrl(update.downloadUrls.apk)}
+          </p>
+        )}
         <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-400/20 dark:bg-orange-400/10">
           <h2 className="m-0 text-sm font-extrabold uppercase tracking-wide text-gray-950 dark:text-white">O que mudou</h2>
           {changelog.length > 0 ? (
@@ -127,7 +134,7 @@ export function ForceUpdateGate() {
           )}
         </div>
 
-        {phase !== 'idle' && (
+        {phase !== 'idle' && phase !== 'external' && (
           <div className="mt-6" aria-live="polite">
             <div className="mb-2 flex items-center justify-between text-sm font-bold text-gray-700 dark:text-gray-200">
               <span>{phase === 'failed' ? 'Falha no download. Encerrando…' : phase === 'installing' ? 'Abrindo instalador…' : 'Baixando atualização…'}</span>
@@ -140,10 +147,17 @@ export function ForceUpdateGate() {
         )}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button ref={buttonRef} type="button" disabled={phase !== 'idle'} onClick={() => void startUpdate()} className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#F95D2A] px-5 py-3.5 text-base font-extrabold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-[#E64D1B] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-orange-500 disabled:cursor-wait disabled:opacity-60">
-            <Download size={20} aria-hidden="true" />
-            {phase === 'idle' ? 'Atualizar Agora' : 'Atualizando…'}
-          </button>
+          {externalAndroidDownload ? (
+            <a href={LEGACY_ANDROID_DOWNLOAD_URL} onClick={() => setPhase('external')} className={primaryActionClass}>
+              <Download size={20} aria-hidden="true" />
+              {phase === 'external' ? 'Abrir download novamente' : 'Atualizar Agora'}
+            </a>
+          ) : (
+            <button ref={buttonRef} type="button" disabled={phase !== 'idle'} onClick={() => void startUpdate()} className={primaryActionClass}>
+              <Download size={20} aria-hidden="true" />
+              {phase === 'idle' ? 'Atualizar Agora' : 'Atualizando…'}
+            </button>
+          )}
           <button type="button" onClick={() => void clearSessionAndExit()} className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-3.5 text-base font-extrabold text-gray-800 transition-colors hover:bg-gray-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700">
             <LogOut size={20} aria-hidden="true" />
             Sair do Aplicativo

@@ -10,6 +10,7 @@ import { router } from './routes/index.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
 import { apiLimiter } from './middlewares/rateLimiter.js';
 import { ensureDatabase } from './config/db.js';
+import { redirectLegacyAndroidDownload } from './controllers/appVersion.controller.js';
 
 export function createApp() {
   const app = express();
@@ -130,6 +131,9 @@ export function createApp() {
   app.use(express.urlencoded({ extended: true, limit: '15kb' }));
   app.use(cookieParser());
   app.use(morgan(env.isProd ? 'combined' : 'dev'));
+
+  // Recuperação de APK antigo precisa funcionar mesmo durante indisponibilidade do banco.
+  app.get('/api/public/app/download/android', apiLimiter, redirectLegacyAndroidDownload);
 
   // Driver local de imagens das lojas de demonstracao da landing.
   // Com Cloudinary configurado esta rota simplesmente fica vazia.

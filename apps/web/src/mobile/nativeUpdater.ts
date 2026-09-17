@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { deviceStorage } from './deviceStorage';
 
 export type UpdateProgress = { percent: number; transferred?: number; total?: number };
@@ -27,9 +28,15 @@ function electronBridge(): ElectronBridge | null {
 export function updateDownloadUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   const configured = import.meta.env.VITE_DOWNLOAD_BASE_URL?.trim();
-  const base = configured || (/^https?:$/.test(window.location.protocol) ? window.location.origin : 'https://vapt-web.vercel.app');
+  const localNativeOrigin = Capacitor.isNativePlatform() && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+  const base = configured || (localNativeOrigin || !/^https?:$/.test(window.location.protocol)
+    ? 'https://vapt-web.vercel.app'
+    : window.location.origin);
   return new URL(path, `${base.replace(/\/$/, '')}/`).toString();
 }
+
+/** Host diferente da WebView remota: o Capacitor antigo abre o navegador do Android. */
+export const LEGACY_ANDROID_DOWNLOAD_URL = 'https://vapt-api-ashen.vercel.app/api/public/app/download/android';
 
 export function setNativeUpdateGateActive(active: boolean): void {
   void electronBridge()?.setUpdateGateActive?.(active);
@@ -54,7 +61,8 @@ export async function clearSessionAndExit(): Promise<void> {
     return;
   }
   if (Capacitor.getPlatform() === 'android') {
-    await AndroidUpdater.exitApp();
+    if (Capacitor.isPluginAvailable('VaptUpdater')) await AndroidUpdater.exitApp();
+    else await CapacitorApp.exitApp();
     return;
   }
   window.location.replace('about:blank');

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { AppVersion } from '../models/AppVersion.js';
 import { emitForceUpdatePublished } from '../realtime/io.js';
+import { env } from '../config/env.js';
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
@@ -65,6 +66,13 @@ async function currentVersion() {
 export const getPublicAppVersion = asyncHandler(async (_req: Request, res: Response) => {
   return res.json({ ok: true, data: await currentVersion() });
 });
+
+/** APKs antigos não têm o instalador nativo. Outro host faz o Capacitor abrir o navegador do aparelho. */
+export const redirectLegacyAndroidDownload = (_req: Request, res: Response) => {
+  const webOrigin = env.webUrl.startsWith('https://') ? env.webUrl : 'https://vapt-web.vercel.app';
+  res.set('Cache-Control', 'no-store');
+  return res.redirect(302, new URL('/downloads/vapt.apk', webOrigin).toString());
+};
 
 /** PUT /api/admin/app/version — persiste e publica o hard gate. */
 export const publishAppVersion = asyncHandler(async (req: Request, res: Response) => {

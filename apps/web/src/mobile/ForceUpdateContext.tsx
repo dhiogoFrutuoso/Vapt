@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { io, type Socket } from 'socket.io-client';
+import { Capacitor } from '@capacitor/core';
 import packageInfo from '../../package.json';
 import { useDeviceAuth } from './DeviceAuthContext';
 
@@ -84,6 +85,7 @@ function unwrap(payload: unknown): AppVersionPayload | null {
 
 export function ForceUpdateProvider({ children }: { children: ReactNode }) {
   const { appId } = useDeviceAuth();
+  const missingAndroidStorage = Capacitor.getPlatform() === 'android' && !Capacitor.isPluginAvailable('VaptSecureStorage');
   const [published, setPublished] = useState<AppVersionPayload | null>(null);
   const publishedRef = useRef<AppVersionPayload | null>(null);
   const [checkState, setCheckState] = useState<CheckState>('checking');
@@ -139,12 +141,20 @@ export function ForceUpdateProvider({ children }: { children: ReactNode }) {
   }, [acceptVersion]);
 
   const update = useMemo(() => {
+    if (published && missingAndroidStorage) {
+      return {
+        ...published,
+        forceUpdate: true,
+        reason: 'Esta instalação não tem o armazenamento nativo necessário para manter seu login. Instale o APK atualizado por cima do aplicativo atual.',
+        changelog: ['Correção do login e da sessão persistente no Android.'],
+      };
+    }
     if (!published?.forceUpdate) return null;
     const versionTooOld = compareSemver(LOCAL_APP_VERSION, published.minVersion) < 0;
     const tenantBuild = appId ? published.tenantBuilds[appId] ?? published.tenantBuilds['*'] : undefined;
     const incompatibleTenantBuild = Boolean(tenantBuild && tenantBuild !== LOCAL_BUILD_ID);
     return versionTooOld || incompatibleTenantBuild ? published : null;
-  }, [appId, published]);
+  }, [appId, missingAndroidStorage, published]);
 
   const value = useMemo<ForceUpdateValue>(
     () => ({
