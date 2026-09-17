@@ -20,6 +20,7 @@ def versionParts = appVersionName.tokenize('.').collect { (it =~ /^\d+/)[0] as I
 def generatedVersionCode = (versionParts[0] * 1000000) + (versionParts[1] * 1000) + versionParts[2]
 def appVersionCode = (buildSetting('VAPT_ANDROID_VERSION_CODE') ?: generatedVersionCode.toString()) as Integer
 def signingFile = buildSetting('VAPT_ANDROID_KEYSTORE_FILE')
+def useLegacyDebugSigning = buildSetting('VAPT_LEGACY_DEBUG_SIGNING') == 'true'
 
 android {
     namespace "com.vapt.equipe"
@@ -50,7 +51,14 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            // Existing public APKs use this machine's debug certificate. An explicitly
+            // requested migration build keeps that certificate while disabling debugging.
+            // Never silently publish an unsigned APK or switch signing identities.
             if (signingFile) signingConfig signingConfigs.release
+            else if (useLegacyDebugSigning) signingConfig signingConfigs.debug
+            else if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+                throw new GradleException('Release signing is required: configure VAPT_ANDROID_KEYSTORE_FILE or explicitly select VAPT_LEGACY_DEBUG_SIGNING=true for the existing certificate.')
+            }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

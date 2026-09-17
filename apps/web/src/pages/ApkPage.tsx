@@ -19,7 +19,7 @@ import toast from 'react-hot-toast';
  * aponta para lá.
  */
 
-const APK_URL = import.meta.env.VITE_APK_URL ?? '';
+const APK_URL = import.meta.env.VITE_APK_URL || '/downloads/vapt.apk';
 const APK_VERSAO = import.meta.env.VITE_APK_VERSION ?? '';
 
 const PILL =
