@@ -1,4 +1,16 @@
 {
+  "redirects": [
+    {
+      "source": "/downloads/vapt.apk",
+      "destination": "https://raw.githubusercontent.com/dhiogoFrutuoso/Vapt-Releases/main/vapt.apk",
+      "permanent": false
+    },
+    {
+      "source": "/downloads/vapt.exe",
+      "destination": "https://raw.githubusercontent.com/dhiogoFrutuoso/Vapt-Releases/main/vapt-setup.exe",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",

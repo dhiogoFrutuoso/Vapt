@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Apple, ArrowLeft, Check, Copy, Download, Monitor, Share, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { LATEST_APK_URL, LATEST_EXE_URL } from '../lib/releaseDownloads';
 
 /**
  * /download — como o lojista e a equipe colocam o Vapt no aparelho.
@@ -19,20 +20,6 @@ import toast from 'react-hot-toast';
  *              "Adicionar à Tela de Início" em vez de oferecer um download
  *              que não existiria.
  */
-
-/*
- * Endereços dos instaladores, servidos pelo PRÓPRIO site.
- *
- * Ficam em `public/downloads`, que a Vercel publica como arquivo estático na
- * mesma origem da página. Isso resolve o problema que o GitHub Releases tinha
- * aqui: asset de repositório privado exige token, e a /download é pública.
- *
- * Mesma origem também faz o atributo `download` voltar a valer — em domínio
- * de terceiro o navegador o ignora e obedece ao Content-Disposition do outro
- * servidor.
- */
-const EXE_URL = '/downloads/vapt.exe';
-const APK_URL = '/downloads/vapt.apk';
 
 const CARD =
   'flex h-full flex-col rounded-3xl bg-white p-6 shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]';
@@ -58,19 +45,15 @@ function detectPlatform(): Platform {
 /**
  * Botão de download de um instalador.
  *
- * Com o arquivo na MESMA origem da página, o atributo `download` volta a
- * valer de verdade: o navegador salva com o nome que pedimos, sem depender do
- * `Content-Disposition` de um servidor de terceiro. Também não precisa mais
- * de `target="_blank"` — o download não navega a página.
+ * Os assets ficam num repositório público separado do código. O GitHub envia
+ * Content-Disposition: attachment; `download` não funciona entre origens.
  */
 function BotaoInstalador({
   url,
   rotulo,
-  arquivo,
 }: {
   url: string;
   rotulo: string;
-  arquivo: string;
 }) {
   if (!url) {
     return (
@@ -81,7 +64,7 @@ function BotaoInstalador({
   }
 
   return (
-    <a className={PILL} href={url} download={arquivo}>
+    <a className={PILL} href={url}>
       <Download size={16} />
       {rotulo}
     </a>
@@ -151,7 +134,7 @@ export function DownloadPage() {
               — o instalador ainda não tem assinatura digital.
             </p>
 
-            <BotaoInstalador url={EXE_URL} rotulo="Baixar para Windows" arquivo="vapt-setup.exe" />
+            <BotaoInstalador url={LATEST_EXE_URL} rotulo="Baixar para Windows" />
           </section>
 
           {/* ------------------------------ Android ----------------------------- */}
@@ -167,7 +150,7 @@ export function DownloadPage() {
               apps fora da Play Store.
             </p>
 
-            <BotaoInstalador url={APK_URL} rotulo="Baixar .apk" arquivo="vapt.apk" />
+            <BotaoInstalador url={LATEST_APK_URL} rotulo="Baixar .apk" />
           </section>
 
           {/* -------------------------------- iOS ------------------------------- */}
@@ -214,10 +197,9 @@ export function DownloadPage() {
         </div>
 
         <p className="mt-8 rounded-2xl bg-white p-5 text-[0.9rem] leading-relaxed text-gray-500 shadow-[0_10px_30px_-4px_rgba(17,17,17,0.06)]">
-          <strong className="text-gray-900">Atualizações:</strong> o aplicativo do Android carrega a
-          interface direto do servidor, então toda melhoria publicada aparece no aparelho da equipe
-          na próxima abertura. A versão de Windows traz a interface embutida no instalador — ela só
-          muda quando uma versão nova do programa é instalada.
+          <strong className="text-gray-900">Atualizações:</strong> Android e Windows verificam a versão
+          instalada no aplicativo. Os botões acima baixam sempre os instaladores da última release
+          publicada; instale a nova versão por cima da anterior.
         </p>
       </div>
     </main>

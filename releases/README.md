@@ -1,25 +1,34 @@
-# Instaladores do Vapt
+# Publicação dos instaladores
 
-O site distribui os binários versionados em `apps/web/public/downloads/`:
-`vapt.apk` e `vapt.exe`. O diretório `releases/` guarda apenas cópias locais
-temporárias. A publicação ocorre ao enviar o commit ao repositório conectado
-à Vercel; não depende de um GitHub Release separado.
+O código do Vapt continua privado. Os instaladores assinados ficam em
+`builds/vapt.apk` e `builds/vapt-setup.exe`, na raiz deste projeto, e são
+publicados também como assets de uma release no repositório público
+[`Vapt-Releases`](https://github.com/dhiogoFrutuoso/Vapt-Releases).
 
-Para preparar uma atualização:
+Links estáveis para a última release:
 
-1. Incremente `apps/web/package.json` e a versão do workspace no lockfile.
-   O `versionCode` Android deve ser maior que o APK publicado.
-2. Configure a mesma chave Android das instalações anteriores via
-   `VAPT_ANDROID_KEYSTORE_*`. Apenas na migração dos APKs antigos assinados
-   com a chave de depuração desta máquina, use explicitamente
-   `VAPT_LEGACY_DEBUG_SIGNING=true`. Não use outra chave: a instalação por
-   cima do app anterior falhará.
-3. Execute `npm run deploy:apps -w apps/web`. A rotina compila Windows e
-   Android release, compara ID do pacote, assinatura e versão do APK anterior,
-   e só então troca os downloads públicos locais.
-4. Confirme `git diff`, faça commit e push. Verifique o download real no site
-   e só depois aumente a versão mínima em `/api/admin/app/version`. Nunca
-   force a atualização para um arquivo ainda não disponível.
+- Android: `https://github.com/dhiogoFrutuoso/Vapt-Releases/releases/latest/download/vapt.apk`
+- Windows: `https://github.com/dhiogoFrutuoso/Vapt-Releases/releases/latest/download/vapt-setup.exe`
 
-`npm run build:android -w apps/web` gera só um APK **debug para testes**;
-ele não altera o download público.
+Para preparar a próxima versão:
+
+1. Atualize `apps/web/package.json` e o lockfile. O `versionCode` Android
+   deve superar o do APK já distribuído.
+2. Assine o Android com a mesma chave usada anteriormente. Durante a migração
+   dos APKs antigos assinados com a chave de depuração desta máquina, use
+   explicitamente `VAPT_LEGACY_DEBUG_SIGNING=true`; trocar a chave impede a
+   instalação sobre o aplicativo existente.
+3. Execute `npm run deploy:apps -w apps/web`. O script compila, verifica ID do
+   pacote, versão e assinatura, e só então atualiza os arquivos em `builds/`
+   e `apps/api/src/config/nativeRelease.ts`.
+4. Execute `npm run release:publish` na raiz. O script envia somente os dois
+   instaladores à branch `main` de `Vapt-Releases` e cria a release pública
+   não preliminar, mantendo exatamente os nomes acima. O espelho na branch é
+   necessário porque versões antigas do Windows precisam de uma URL direta,
+   sem redirecionamento para um asset sem `.exe`.
+5. Verifique os dois links de download e a versão do APK. Só depois envie o
+   commit privado do Vapt que atualiza a API e o site. Isso evita avisar os
+   funcionários de uma versão ainda indisponível.
+
+`releases/` é apenas uma área temporária local. O site não embute os binários
+em `apps/web/public/downloads/` nem depende de assets privados do GitHub.

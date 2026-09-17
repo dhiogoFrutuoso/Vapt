@@ -1,6 +1,11 @@
-# FastWeb
+# Vapt
 
-Landing page de conversão do **FastWeb** — a plataforma onde o restaurante monta o próprio site de delivery e libera o app de caixa/PDV para a equipe usando apenas um **código do restaurante**.
+O **Vapt** permite que o restaurante monte seu site de delivery e use o app de caixa/PDV da equipe com um código de acesso.
+
+<a href="https://github.com/dhiogoFrutuoso/Vapt-Releases/releases/latest/download/vapt.apk"><img src="https://img.shields.io/badge/Baixar_APK_Android-16a34a?style=for-the-badge&logo=android&logoColor=white" alt="Baixar a última release para Android"></a>
+<a href="https://github.com/dhiogoFrutuoso/Vapt-Releases/releases/latest/download/vapt-setup.exe"><img src="https://img.shields.io/badge/Baixar_Windows-2563eb?style=for-the-badge&logo=windows&logoColor=white" alt="Baixar a última release para Windows"></a>
+
+Os instaladores ficam em [`builds/`](builds/) neste repositório privado e em [releases públicas separadas](https://github.com/dhiogoFrutuoso/Vapt-Releases/releases/latest), sem expor o código-fonte.
 
 Stack: **React + TypeScript + Vite** (front) · **Node + Express + TypeScript** (API) · **MongoDB + Mongoose** (banco).
 

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Move o APK recém-compilado para `releases/` e para o download do site.
+ * Copia o APK de desenvolvimento para `releases/` apenas.
  *
  * O Gradle enterra o arquivo em `android/app/build/outputs/apk/debug/` com o
  * nome genérico `app-debug.apk`. Dois problemas nisso:
@@ -13,9 +13,8 @@ import { fileURLToPath } from 'node:url';
  *   2. o caminho fica dentro de `android/`, que é gerado e descartável: um
  *      `cap add android` novo apagaria o binário junto.
  *
- * O site e a atualização obrigatória usam `/downloads/vapt.apk`. Atualizar
- * apenas `releases/` deixava esse endereço servindo um APK antigo com a
- * interface web nova, mas sem os plugins nativos correspondentes.
+ * Este atalho não publica no GitHub nem altera `builds/`, para não substituir
+ * acidentalmente um APK de produção assinado por um APK de depuração.
  */
 
 const aqui = dirname(fileURLToPath(import.meta.url));
@@ -44,11 +43,8 @@ if (!origem) {
 mkdirSync(destino, { recursive: true });
 
 const alvo = join(destino, 'vapt.apk');
-const downloadPublico = join(raizWeb, 'public', 'downloads', 'vapt.apk');
 copyFileSync(origem, alvo);
-mkdirSync(dirname(downloadPublico), { recursive: true });
-copyFileSync(origem, downloadPublico);
 
 const mb = (statSync(alvo).size / 1024 / 1024).toFixed(1);
 console.log(`  APK -> ${alvo}  (${mb} MB)`);
-console.log(`  Download do site -> ${downloadPublico}`);
+console.log('  Cópia local apenas; a release pública não foi alterada.');

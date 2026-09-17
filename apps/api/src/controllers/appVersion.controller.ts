@@ -7,6 +7,14 @@ import { env } from '../config/env.js';
 import { NATIVE_RELEASE_VERSION } from '../config/nativeRelease.js';
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+// O repositório público contém somente instaladores. O caminho raw termina
+// em .exe/.apk e não redireciona para uma URL sem extensão; isso preserva a
+// atualização automática de versões antigas do Windows.
+const PUBLIC_BUILDS = 'https://raw.githubusercontent.com/dhiogoFrutuoso/Vapt-Releases/main';
+const RELEASE_DOWNLOADS = {
+  apk: `${PUBLIC_BUILDS}/vapt.apk`,
+  exe: `${PUBLIC_BUILDS}/vapt-setup.exe`,
+};
 // O deploy dos instaladores atualiza esta versão somente após validar os dois
 // binários. Um registro antigo no banco não pode ocultar uma nova publicação.
 const RELEASE_FLOOR = NATIVE_RELEASE_VERSION;
@@ -29,10 +37,10 @@ const publicationSchema = z.object({
   forceUpdate: z.boolean().default(true),
   downloadUrls: z
     .object({
-      apk: z.string().trim().min(1).default('/downloads/vapt.apk'),
-      exe: z.string().trim().min(1).default('/downloads/vapt.exe'),
+      apk: z.string().trim().min(1).default(RELEASE_DOWNLOADS.apk),
+      exe: z.string().trim().min(1).default(RELEASE_DOWNLOADS.exe),
     })
-    .default({ apk: '/downloads/vapt.apk', exe: '/downloads/vapt.exe' }),
+    .default(RELEASE_DOWNLOADS),
   changelog: z.union([z.string().trim().max(4000), z.array(z.string().trim().min(1).max(500)).max(30)]).default([]),
 });
 
@@ -43,7 +51,7 @@ const FALLBACK = {
   tenantBuilds: {},
   reason: 'Uma nova versão do Vapt está pronta para instalar, com melhorias no caixa e nas comandas.',
   forceUpdate: true,
-  downloadUrls: { apk: '/downloads/vapt.apk', exe: '/downloads/vapt.exe' },
+  downloadUrls: RELEASE_DOWNLOADS,
   changelog: ['Melhor organização do caixa e do registro de pedidos.', 'Comandas fixas na tela e melhorias na escolha do pagamento.'],
 };
 
@@ -72,6 +80,14 @@ export function absoluteDownloadUrls(
   };
 }
 
+function currentDownloadUrls(urls: { apk: string; exe: string }): { apk: string; exe: string } {
+  const absolute = absoluteDownloadUrls(urls);
+  return {
+    apk: new URL(absolute.apk).pathname === '/downloads/vapt.apk' ? RELEASE_DOWNLOADS.apk : absolute.apk,
+    exe: new URL(absolute.exe).pathname === '/downloads/vapt.exe' ? RELEASE_DOWNLOADS.exe : absolute.exe,
+  };
+}
+
 type SavedVersion = {
   latestVersion: string;
   minVersion: string;
@@ -84,7 +100,7 @@ type SavedVersion = {
 
 /** Mantém a última versão distribuída mesmo se o banco guardar uma publicação antiga. */
 export function resolvePublicAppVersion(saved: SavedVersion | null) {
-  if (!saved) return { ...FALLBACK, downloadUrls: absoluteDownloadUrls(FALLBACK.downloadUrls) };
+  if (!saved) return { ...FALLBACK, downloadUrls: currentDownloadUrls(FALLBACK.downloadUrls) };
   const stale = belowReleaseFloor(saved.latestVersion) || belowReleaseFloor(saved.minVersion);
   return {
     latestVersion: belowReleaseFloor(saved.latestVersion) ? RELEASE_FLOOR : saved.latestVersion,
@@ -95,7 +111,7 @@ export function resolvePublicAppVersion(saved: SavedVersion | null) {
     // The minimum binary is mandatory even if an older admin record disabled
     // an optional update; the client still compares its version against minVersion.
     forceUpdate: true,
-    downloadUrls: absoluteDownloadUrls(stale ? FALLBACK.downloadUrls : saved.downloadUrls ?? FALLBACK.downloadUrls),
+    downloadUrls: currentDownloadUrls(stale ? FALLBACK.downloadUrls : saved.downloadUrls ?? FALLBACK.downloadUrls),
     changelog: stale ? FALLBACK.changelog : saved.changelog,
   };
 }
@@ -113,7 +129,7 @@ export const getPublicAppVersion = asyncHandler(async (_req: Request, res: Respo
 /** APKs antigos não têm o instalador nativo. Outro host faz o Capacitor abrir o navegador do aparelho. */
 export const redirectLegacyAndroidDownload = (_req: Request, res: Response) => {
   res.set('Cache-Control', 'no-store');
-  return res.redirect(302, absoluteDownloadUrls(FALLBACK.downloadUrls).apk);
+  return res.redirect(302, currentDownloadUrls(FALLBACK.downloadUrls).apk);
 };
 
 /** PUT /api/admin/app/version — persiste e publica o hard gate. */
@@ -127,7 +143,7 @@ export const publishAppVersion = asyncHandler(async (req: Request, res: Response
     ...body,
     forceUpdate: true,
     buildId: body.buildId ?? body.latestVersion,
-    downloadUrls: absoluteDownloadUrls(body.downloadUrls),
+    downloadUrls: currentDownloadUrls(body.downloadUrls),
     changelog: normalizeChangelog(body.changelog),
   };
 

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Copy, Download, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
-import packageInfo from '../../package.json';
+import { LATEST_APK_URL } from '../lib/releaseDownloads';
 
 /**
  * `/apk` — página de instalação do app Android, para ser divulgada sozinha.
@@ -11,15 +11,9 @@ import packageInfo from '../../package.json';
  *
  *   1. É pública e enxuta. O dono manda este link no grupo da equipe e cada
  *      funcionário instala sem passar pelo painel nem ter conta;
- *   2. É o endereço estável do instalador. O APK é servido pelo próprio site
- *      em `/downloads/vapt.apk`, como o hard gate nativo.
- *
- * Variáveis antigas de release externo não podem substituir este link: elas
- * já apontaram para um APK desatualizado, diferente do usado no hard gate.
+ *   2. O link estável aponta para o asset da última release no repositório
+ *      público de instaladores, sem expor o código-fonte privado do Vapt.
  */
-
-const APK_URL = '/downloads/vapt.apk';
-const APK_VERSAO = packageInfo.version;
 
 const PILL =
   'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-[1rem] ' +
@@ -27,11 +21,6 @@ const PILL =
 
 export function ApkPage() {
   const [copiado, setCopiado] = useState(false);
-  const [ehAndroid, setEhAndroid] = useState(false);
-
-  useEffect(() => {
-    setEhAndroid(/android/i.test(navigator.userAgent));
-  }, []);
 
   const enderecoDoApp = `${window.location.origin}/mobile-view`;
 
@@ -70,20 +59,16 @@ export function ApkPage() {
             com o código do funcionário.
           </p>
 
-          {APK_VERSAO && (
-            <span className="mt-4 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
-              Versão {APK_VERSAO}
-            </span>
-          )}
+          <span className="mt-4 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
+            Última versão publicada
+          </span>
 
-          {APK_URL ? (
-            <>
-              <a className={`${PILL} mt-6 bg-[#F95D2A] hover:bg-[#FF7A4D]`} href={APK_URL} download>
-                <Download size={18} />
-                Baixar instalador (.apk)
-              </a>
+          <a className={`${PILL} mt-6 bg-[#F95D2A] hover:bg-[#FF7A4D]`} href={LATEST_APK_URL}>
+            <Download size={18} />
+            Baixar instalador (.apk)
+          </a>
 
-              <ol className="mt-6 list-none space-y-3 p-0 text-[0.92rem] leading-relaxed text-gray-600">
+          <ol className="mt-6 list-none space-y-3 p-0 text-[0.92rem] leading-relaxed text-gray-600">
                 <li className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">
                     1
@@ -104,21 +89,7 @@ export function ApkPage() {
                   </span>
                   Abra o Vapt e digite o código do funcionário.
                 </li>
-              </ol>
-            </>
-          ) : (
-            <>
-              <button type="button" className={`${PILL} mt-6 bg-gray-300`} disabled>
-                <Download size={18} />
-                Instalador em preparação
-              </button>
-
-              <p className="m-0 mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">
-                O instalador ainda não foi publicado. Enquanto isso, o app funciona pelo navegador —
-                é a mesma interface, e o link abaixo pode ser adicionado à tela de início.
-              </p>
-            </>
-          )}
+          </ol>
 
           <div className="mt-7 border-0 border-t border-solid border-gray-100 pt-6">
             <p className="m-0 text-sm font-semibold text-gray-700">Usar pelo navegador</p>
@@ -148,11 +119,6 @@ export function ApkPage() {
           </div>
         </div>
 
-        {ehAndroid && !APK_URL && (
-          <p className="mt-5 text-center text-sm text-gray-400">
-            Detectamos um Android. Assim que o instalador sair, ele aparece aqui.
-          </p>
-        )}
       </div>
     </main>
   );

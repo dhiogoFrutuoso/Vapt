@@ -1,18 +1,21 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Build signed installers, validate Android in-place compatibility, then stage
- * the exact binaries served by the public site. Git publication is separate. */
+ * both binaries at the private repository root. Release publication is separate. */
 const web = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const root = resolve(web, '..', '..');
 const pkg = JSON.parse(readFileSync(join(web, 'package.json'), 'utf8'));
 const output = join(root, 'releases');
 const apk = join(web, 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
-const oldApk = join(web, 'public', 'downloads', 'vapt.apk');
+const builds = join(root, 'builds');
+const stagedApk = join(builds, 'vapt.apk');
+const stagedExe = join(builds, 'vapt-setup.exe');
+const legacyApk = join(web, 'public', 'downloads', 'vapt.apk');
+const oldApk = existsSync(stagedApk) ? stagedApk : legacyApk;
 const exe = join(output, 'Vapt-Setup.exe');
-const publicExe = join(web, 'public', 'downloads', 'vapt.exe');
 
 const sdkLine = readFileSync(join(web, 'android', 'local.properties'), 'utf8')
   .split(/\r?\n/).find((line) => line.startsWith('sdk.dir='));
@@ -61,15 +64,16 @@ if (packageId !== 'com.vapt.equipe' || version !== pkg.version || code <= oldCod
   throw new Error(`Atualização incompatível: package=${packageId}, version=${version}, code=${code} (anterior ${oldCode}), mesma assinatura=${nextSigner === originalSigner}. Downloads preservados.`);
 }
 
+mkdirSync(builds, { recursive: true });
 copyFileSync(apk, join(output, 'vapt.apk'));
-copyFileSync(apk, oldApk);
-copyFileSync(exe, publicExe);
-// A API consulta esta versão pública. Só avise o app depois de os dois
-// instaladores terem sido gerados, conferidos e colocados em /downloads.
+copyFileSync(apk, stagedApk);
+copyFileSync(exe, stagedExe);
+// A API consulta esta versão. Ela só entra em produção depois que os dois
+// instaladores forem publicados na release pública e o commit for enviado.
 writeFileSync(
   join(root, 'apps', 'api', 'src', 'config', 'nativeRelease.ts'),
   `/** Atualizado pelo deploy:apps somente depois de validar e copiar APK e EXE. */\nexport const NATIVE_RELEASE_VERSION = '${pkg.version}';\n`,
   'utf8'
 );
-console.log(`Instaladores ${pkg.version} prontos em apps/web/public/downloads (APK ${code}; assinatura preservada).`);
-console.log('Publique os binários e apps/api/src/config/nativeRelease.ts juntos para notificar os apps instalados.');
+console.log(`Instaladores ${pkg.version} prontos em builds/ (APK ${code}; assinatura preservada).`);
+console.log('Publique a release pública antes do commit que anuncia a nova versão na API.');
