@@ -59,9 +59,19 @@ function normalizeTenantBuilds(value: unknown): Record<string, string> {
   return Object.fromEntries(entries.filter((entry): entry is [string, string] => typeof entry[1] === 'string'));
 }
 
+/** Capacitor runs at https://localhost. Relative download paths would point at
+ * the app's own WebView, so even already-installed clients need absolute URLs. */
+function absoluteDownloadUrls(urls: { apk: string; exe: string }): { apk: string; exe: string } {
+  const webOrigin = env.webUrl.startsWith('https://') ? env.webUrl : 'https://vapt-web.vercel.app';
+  return {
+    apk: new URL(urls.apk, webOrigin).toString(),
+    exe: new URL(urls.exe, webOrigin).toString(),
+  };
+}
+
 async function currentVersion() {
   const saved = await AppVersion.findOne({ key: 'native-app' }).lean();
-  if (!saved) return FALLBACK;
+  if (!saved) return { ...FALLBACK, downloadUrls: absoluteDownloadUrls(FALLBACK.downloadUrls) };
   const stale = belowReleaseFloor(saved.latestVersion) || belowReleaseFloor(saved.minVersion);
   return {
     latestVersion: belowReleaseFloor(saved.latestVersion) ? RELEASE_FLOOR : saved.latestVersion,
@@ -72,7 +82,7 @@ async function currentVersion() {
     // The minimum binary is mandatory even if an older admin record disabled
     // an optional update; the client still compares its version against minVersion.
     forceUpdate: true,
-    downloadUrls: stale ? FALLBACK.downloadUrls : saved.downloadUrls,
+    downloadUrls: absoluteDownloadUrls(stale ? FALLBACK.downloadUrls : saved.downloadUrls ?? FALLBACK.downloadUrls),
     changelog: stale ? FALLBACK.changelog : saved.changelog,
   };
 }
@@ -84,9 +94,8 @@ export const getPublicAppVersion = asyncHandler(async (_req: Request, res: Respo
 
 /** APKs antigos não têm o instalador nativo. Outro host faz o Capacitor abrir o navegador do aparelho. */
 export const redirectLegacyAndroidDownload = (_req: Request, res: Response) => {
-  const webOrigin = env.webUrl.startsWith('https://') ? env.webUrl : 'https://vapt-web.vercel.app';
   res.set('Cache-Control', 'no-store');
-  return res.redirect(302, new URL('/downloads/vapt.apk', webOrigin).toString());
+  return res.redirect(302, absoluteDownloadUrls(FALLBACK.downloadUrls).apk);
 };
 
 /** PUT /api/admin/app/version — persiste e publica o hard gate. */
@@ -100,6 +109,7 @@ export const publishAppVersion = asyncHandler(async (req: Request, res: Response
     ...body,
     forceUpdate: true,
     buildId: body.buildId ?? body.latestVersion,
+    downloadUrls: absoluteDownloadUrls(body.downloadUrls),
     changelog: normalizeChangelog(body.changelog),
   };
 
