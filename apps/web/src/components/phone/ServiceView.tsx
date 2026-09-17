@@ -132,7 +132,7 @@ export function ServiceView({
         ) : (
           <div className="svc-grid svc-grid--takeouts">
             {takeouts.map((takeout) => (
-              <article key={takeout.id} className={`svc-card svc-card--takeout is-${takeout.status}`}>
+              <article key={takeout.id} className={`svc-card svc-card--takeout is-${takeout.status}${interactive && onCancelTakeout ? ' has-cancel' : ''}`}>
                 <button
                   type="button"
                   className="svc-card__open"
@@ -150,6 +150,23 @@ export function ServiceView({
                     <span className="svc-card__total">{brl(sumItems(takeout.items))}</span>
                   )}
                 </button>
+
+                {interactive && onCancelTakeout && <button
+                  type="button"
+                  className="svc-card__cancel"
+                  onClick={() => confirm({
+                    title: `Cancelar retirada #${takeout.label}?`,
+                    message: `A retirada de ${takeout.customerName} será cancelada e os itens lançados serão perdidos.`,
+                    confirmText: 'Cancelar retirada',
+                    cancelText: 'Manter retirada',
+                    isDestructive: true,
+                    onConfirm: () => onCancelTakeout(takeout.id),
+                  })}
+                  title={copy.cancelOrder}
+                  aria-label={`Cancelar retirada #${takeout.label} de ${takeout.customerName}`}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>}
 
                 {interactive && (
                   <div className="svc-card__foot">
@@ -172,22 +189,6 @@ export function ServiceView({
                         <Printer size={16} aria-hidden="true" />
                       </button>
                     )}
-                    {onCancelTakeout && <button
-                      type="button"
-                      className="svc-card__cancel"
-                      onClick={() => confirm({
-                        title: `Cancelar retirada #${takeout.label}?`,
-                        message: `A retirada de ${takeout.customerName} será cancelada e os itens lançados serão perdidos.`,
-                        confirmText: 'Cancelar retirada',
-                        cancelText: 'Manter retirada',
-                        isDestructive: true,
-                        onConfirm: () => onCancelTakeout(takeout.id),
-                      })}
-                      title={copy.cancelOrder}
-                      aria-label={`Cancelar retirada #${takeout.label} de ${takeout.customerName}`}
-                    >
-                      <X size={18} aria-hidden="true" />
-                    </button>}
                   </div>
                 )}
               </article>

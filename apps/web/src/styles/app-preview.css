@@ -751,3 +751,29 @@
 .editor-preview.theme-escuro .phone__tabs button.is-active {
   color: #fff;
 }
+
+/* No aplicativo real, a rolagem pertence à casca. O limite de altura e o
+   recorte do simulador encerravam o gesto quando a barra do Android recolhia. */
+.mobile-shell {
+  height: 100vh;
+  height: 100svh;
+}
+
+.mobile-shell .editor-preview--app:not(.editor-preview--bounded) {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.mobile-shell .editor-preview--app:not(.editor-preview--bounded) .editor-preview__screen {
+  overflow: visible;
+}
+
+.mobile-shell .editor-preview--app:not(.editor-preview--bounded) .phone__body {
+  max-height: none;
+  overflow: visible;
+}
+
+.mobile-shell__content {
+  -webkit-overflow-scrolling: touch;
+}

@@ -923,61 +923,70 @@
 .takeout-form__submit:not(:disabled):hover { filter: brightness(1.08); }
 .takeout-form__submit:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
 
-/* Retiradas compactas: ate tres cards por linha na casca do app. */
+/* A retirada usa as mesmas colunas e largura dos cards de mesa. */
 .svc-grid.svc-grid--takeouts {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 7px;
   width: 100%;
-  max-width: 500px;
 }
 
 .svc-grid--takeouts .svc-card {
+  position: relative;
   min-width: 0;
   width: 100%;
 }
 
-/* O status usa a primeira linha; imprimir e cancelar ficam na segunda. */
-.svc-card--takeout .svc-card__foot {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 6px;
+/* O cancelamento fica no cabeçalho; status e impressão seguem a mesa. */
+.svc-card--takeout.has-cancel .svc-card__open {
+  padding-right: 43px;
 }
 
-.svc-card--takeout .svc-status { grid-column: 1 / -1; min-width: 0; }
-.svc-card--takeout .svc-status select { height: 48px; min-height: 48px; font-size: 0.68rem; }
-
-.svc-card--takeout :is(.svc-card__print, .svc-card__cancel) {
-  display: flex;
-  justify-self: center;
-  width: 48px;
-  min-height: 48px;
-  height: 48px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
+.svc-card--takeout .svc-card__cancel {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--red-500);
   cursor: pointer;
   touch-action: manipulation;
 }
 
-.svc-card--takeout :is(.svc-card__print, .svc-card__cancel):focus-visible {
+@media (pointer: coarse) {
+  .svc-card--takeout .svc-card__cancel {
+    top: 2px;
+    right: 2px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .svc-card--takeout.has-cancel .svc-card__open { padding-right: 49px; }
+}
+
+.svc-card--takeout .svc-card__cancel:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
-/* Mesa: impressao quadrada, com a mesma altura do seletor de status. */
-.svc-grid--tables .svc-card__foot {
+/* Rodapé idêntico: seletor e impressão quadrada na mesma linha. */
+:is(.svc-grid--tables, .svc-grid--takeouts) .svc-card__foot {
   --table-action-size: 48px;
   gap: 8px;
 }
 
-.svc-grid--tables .svc-status select {
+:is(.svc-grid--tables, .svc-grid--takeouts) .svc-status select {
   box-sizing: border-box;
   height: var(--table-action-size);
   min-height: var(--table-action-size);
 }
 
-.svc-grid--tables .svc-card__print {
+:is(.svc-grid--tables, .svc-grid--takeouts) .svc-card__print {
   box-sizing: border-box;
   flex: 0 0 var(--table-action-size);
   width: var(--table-action-size);
@@ -989,9 +998,29 @@
   touch-action: manipulation;
 }
 
-.svc-grid--tables .svc-card__print:focus-visible {
+:is(.svc-grid--tables, .svc-grid--takeouts) .svc-card__print:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+@media (max-width: 479px) {
+  .svc-grid.svc-grid--takeouts {
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 8px;
+  }
+}
+
+/* Em aparelhos estreitos, dois cards preservam o rótulo do status e o toque. */
+@media (max-width: 399px) {
+  .svc-grid.svc-grid--takeouts,
+  .svc-grid.svc-grid--tables {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 339px) {
+  .svc-grid.svc-grid--takeouts,
+  .svc-grid.svc-grid--tables { grid-template-columns: 1fr; }
 }
 
 /* O bloco respira em relacao ao conteudo vizinho da secao. */

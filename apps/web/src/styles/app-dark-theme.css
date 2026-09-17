@@ -341,6 +341,12 @@
   color: #fdba74;
 }
 
+:is(.editor-preview.theme-escuro, .dark .editor-preview--app) .svc-card--takeout .svc-card__cancel {
+  background: var(--dark-raised);
+  border-color: var(--dark-border);
+  color: #fda4af;
+}
+
 :is(.editor-preview.theme-escuro, .dark .editor-preview--app) :is(
   .phone__body p,
   .phone__body small,

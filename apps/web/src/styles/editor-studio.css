@@ -780,7 +780,7 @@
 }
 
 .studio-root .editor-preview .svc-grid.svc-grid--takeouts {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 148px), 1fr));
 }
 
 .studio-root .editor-preview .takeout-form {

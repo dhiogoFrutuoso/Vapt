@@ -157,6 +157,7 @@ export function MobileShell() {
   const marca = menu.branding.primaryColor || branding.primaryColor;
   const temaDaInterface = temaEfetivo(tema);
   const abaAtual = ABAS.find((a) => a.chave === ativa);
+  const rolagemInterna = ativa === 'caixa' || ativa === 'entregador';
 
   async function handleLogout() {
     setSaindo(true);
@@ -273,7 +274,7 @@ export function MobileShell() {
 
   return (
     <div
-      className="mobile-shell flex h-[100dvh] overflow-hidden bg-[#FAF8F5] dark:bg-gray-950"
+      className="mobile-shell flex overflow-hidden bg-[#FAF8F5] dark:bg-gray-950"
       style={{ ['--marca' as string]: marca }}
     >
       {/* --------------------- Coluna lateral (md+) --------------------- */}
@@ -425,7 +426,7 @@ export function MobileShell() {
         </header>
 
         {/* ------------------------------ Conteúdo ---------------------------- */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-4 md:px-6 md:pb-6">
+        <div className={`mobile-shell__content min-h-0 flex-1 px-4 pb-4 pt-4 md:px-6 md:pb-6 ${rolagemInterna ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
           {ativa === 'perfil' ? (
             renderPerfil()
           ) : carregandoOperacao ? (
@@ -454,7 +455,7 @@ export function MobileShell() {
              * `.phone__*` e `.cash-*` são escopados por dentro delas.
              */
             <div
-              className={`editor-preview editor-preview--app theme-${temaDaInterface}`}
+              className={`editor-preview editor-preview--app${rolagemInterna ? ' editor-preview--bounded' : ''} theme-${temaDaInterface}`}
               style={
                 {
                   '--brand': marca,
@@ -495,7 +496,7 @@ export function MobileShell() {
         {/* ------------------- Barra inferior (só mobile) ------------------- */}
         {visiveis.length > 0 && (
           <nav
-            className="mobile-shell__bottom-nav fixed inset-x-0 bottom-0 z-50 grid border-0 border-t border-solid border-gray-200 bg-white md:hidden
+            className="mobile-shell__bottom-nav relative z-50 grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white md:hidden
               dark:border-white/10 dark:bg-gray-900"
             style={{
               gridTemplateColumns: escala >= 130

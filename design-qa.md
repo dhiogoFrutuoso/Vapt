@@ -100,3 +100,29 @@ final result: passed
 - Console sem erros de componente durante os fluxos inspecionados.
 
 final result: passed
+
+# QA visual — cards de retirada na recepção
+
+- Source visual truth: `C:/Users/seuma/AppData/Local/Temp/codex-clipboard-c519e9cd-1909-4631-a772-9aa15a34c800.png` (mesas, 760 × 698 px). Estado anterior: `C:/Users/seuma/AppData/Local/Temp/codex-clipboard-330834ae-a7c5-4394-a3db-210c68897ab2.png` (retiradas, 527 × 702 px).
+- Implementação: prévia isolada de `ServiceView` capturada e exibida inline no navegador integrado durante esta tarefa. Caminho da captura: indisponível (a captura do navegador integrado não foi persistida em arquivo; os arquivos temporários da prévia foram removidos).
+- Viewport da comparação: 500 × 875 CSS px, DPR informado pelo navegador 0,8; captura de 601 × 1094 px. As imagens de origem têm recortes e densidades diferentes; a comparação foi feita nas regiões dos cards, sem sobreposição pixel a pixel. Conferência adicional em 375 CSS px.
+- Estado: tema escuro, três retiradas (uma ocupada) e dez mesas (uma ocupada), com seletor de status e impressão visíveis.
+
+## Comparação
+
+- Vista geral: retirada e mesa usam a mesma grade, largura de coluna, superfície, borda, raio, separador e rodapé em linha única. Sem transbordamento horizontal observado.
+- Região focada: seletor de status e botão quadrado de impressão têm a mesma altura nos dois tipos de card. O cancelamento da retirada fica no canto superior para preservar a ação sem mudar o rodapé de mesa.
+- Tipografia e conteúdo: ambos herdam os mesmos estilos de etiqueta, nome, metadados e total; o texto exclusivo da retirada permanece específico ao pedido.
+- Cores/tokens: mesma superfície e estados do tema escuro; o cancelamento mantém semântica destrutiva. Não há imagens de produto ou recursos raster dentro dos cards; os ícones existentes foram preservados.
+- Responsividade: três colunas no viewport de 500 CSS px; duas colunas abaixo de 400 CSS px para manter o seletor legível e a impressão acionável.
+- Interações: status alterado e restaurado; modal de cancelamento aberto e dispensado sem excluir o pedido. Não houve erro funcional no componente. A recarga de desenvolvimento do arquivo temporário gerou avisos `createRoot` duplicado, não presentes na compilação de produção.
+
+## Findings
+
+Nenhuma diferença P0/P1/P2 acionável após a comparação. A posição do cancelamento e a quebra para duas colunas em telas estreitas são adaptações intencionais.
+
+## Limites
+
+A prévia isolada foi verificada no navegador; os binários Windows e Android compilaram, mas não foram abertos em dispositivos reais nesta revisão.
+
+final result: passed
