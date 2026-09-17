@@ -6,6 +6,18 @@ import { emitForceUpdatePublished } from '../realtime/io.js';
 import { env } from '../config/env.js';
 
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+// The minimum binary now distributed at the stable public download URLs.
+// A stale database record must never turn off this security/compatibility floor.
+const RELEASE_FLOOR = '1.0.1';
+
+function belowReleaseFloor(version: string): boolean {
+  const actual = version.split(/[.+-]/).slice(0, 3).map(Number);
+  const minimum = RELEASE_FLOOR.split('.').map(Number);
+  for (let index = 0; index < 3; index += 1) {
+    if (actual[index] !== minimum[index]) return actual[index] < minimum[index];
+  }
+  return false;
+}
 
 const publicationSchema = z.object({
   latestVersion: z.string().trim().regex(SEMVER, 'latestVersion deve usar SemVer.'),
@@ -24,14 +36,14 @@ const publicationSchema = z.object({
 });
 
 const FALLBACK = {
-  latestVersion: '1.0.0',
-  minVersion: '1.0.0',
-  buildId: '1.0.0',
+  latestVersion: RELEASE_FLOOR,
+  minVersion: RELEASE_FLOOR,
+  buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: '',
+  reason: 'Atualize o Vapt para usar o novo ciclo de caixa, pedidos agendados e correções do aplicativo.',
   forceUpdate: true,
   downloadUrls: { apk: '/downloads/vapt.apk', exe: '/downloads/vapt.exe' },
-  changelog: ['Versão inicial do aplicativo Vapt.'],
+  changelog: ['Abertura e fechamento de caixa com pedidos agendados.', 'Correções da sessão do Android e da instalação por cima do app anterior.'],
 };
 
 function normalizeChangelog(value: string | string[]): string[] {
@@ -50,15 +62,18 @@ function normalizeTenantBuilds(value: unknown): Record<string, string> {
 async function currentVersion() {
   const saved = await AppVersion.findOne({ key: 'native-app' }).lean();
   if (!saved) return FALLBACK;
+  const stale = belowReleaseFloor(saved.latestVersion) || belowReleaseFloor(saved.minVersion);
   return {
-    latestVersion: saved.latestVersion,
-    minVersion: saved.minVersion,
-    buildId: saved.buildId ?? saved.latestVersion,
+    latestVersion: belowReleaseFloor(saved.latestVersion) ? RELEASE_FLOOR : saved.latestVersion,
+    minVersion: belowReleaseFloor(saved.minVersion) ? RELEASE_FLOOR : saved.minVersion,
+    buildId: stale ? RELEASE_FLOOR : saved.buildId ?? saved.latestVersion,
     tenantBuilds: normalizeTenantBuilds(saved.tenantBuilds),
-    reason: saved.reason,
-    forceUpdate: saved.forceUpdate,
-    downloadUrls: saved.downloadUrls,
-    changelog: saved.changelog,
+    reason: stale ? FALLBACK.reason : saved.reason,
+    // The minimum binary is mandatory even if an older admin record disabled
+    // an optional update; the client still compares its version against minVersion.
+    forceUpdate: true,
+    downloadUrls: stale ? FALLBACK.downloadUrls : saved.downloadUrls,
+    changelog: stale ? FALLBACK.changelog : saved.changelog,
   };
 }
 
@@ -77,8 +92,13 @@ export const redirectLegacyAndroidDownload = (_req: Request, res: Response) => {
 /** PUT /api/admin/app/version — persiste e publica o hard gate. */
 export const publishAppVersion = asyncHandler(async (req: Request, res: Response) => {
   const body = publicationSchema.parse(req.body);
+  if (belowReleaseFloor(body.latestVersion) || belowReleaseFloor(body.minVersion)) {
+    res.status(400).json({ ok: false, message: `A versão mínima não pode ser inferior a ${RELEASE_FLOOR}.` });
+    return;
+  }
   const payload = {
     ...body,
+    forceUpdate: true,
     buildId: body.buildId ?? body.latestVersion,
     changelog: normalizeChangelog(body.changelog),
   };
