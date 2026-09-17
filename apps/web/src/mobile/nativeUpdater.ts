@@ -28,8 +28,11 @@ function electronBridge(): ElectronBridge | null {
 export function updateDownloadUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   const configured = import.meta.env.VITE_DOWNLOAD_BASE_URL?.trim();
-  const localNativeOrigin = Capacitor.isNativePlatform() && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-  const base = configured || (localNativeOrigin || !/^https?:$/.test(window.location.protocol)
+  // A WebView do Capacitor usa https://localhost. Alguns builds antigos não
+  // reportavam isNativePlatform() aqui e tentavam baixar o APK do próprio app.
+  const localShellOrigin = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+  const safeConfigured = configured && !/^https?:\/\/(?:localhost|127\.0\.0\.1)(?:[:/]|$)/i.test(configured);
+  const base = (safeConfigured ? configured : '') || (localShellOrigin || !/^https?:$/.test(window.location.protocol)
     ? 'https://vapt-web.vercel.app'
     : window.location.origin);
   return new URL(path, `${base.replace(/\/$/, '')}/`).toString();

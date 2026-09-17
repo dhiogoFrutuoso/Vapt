@@ -61,8 +61,10 @@ function normalizeTenantBuilds(value: unknown): Record<string, string> {
 
 /** Capacitor runs at https://localhost. Relative download paths would point at
  * the app's own WebView, so even already-installed clients need absolute URLs. */
-function absoluteDownloadUrls(urls: { apk: string; exe: string }): { apk: string; exe: string } {
-  const webOrigin = env.webUrl.startsWith('https://') ? env.webUrl : 'https://vapt-web.vercel.app';
+export function absoluteDownloadUrls(
+  urls: { apk: string; exe: string },
+  webOrigin = env.webUrl.startsWith('https://') ? env.webUrl : 'https://vapt-web.vercel.app'
+): { apk: string; exe: string } {
   return {
     apk: new URL(urls.apk, webOrigin).toString(),
     exe: new URL(urls.exe, webOrigin).toString(),
