@@ -755,8 +755,28 @@
 /* No aplicativo real, a rolagem pertence à casca. O limite de altura e o
    recorte do simulador encerravam o gesto quando a barra do Android recolhia. */
 .mobile-shell {
-  height: 100vh;
-  height: 100svh;
+  height: calc(100vh / var(--vapt-ui-scale, 1));
+  height: calc(100svh / var(--vapt-ui-scale, 1));
+}
+
+@media (max-width: 767px) {
+  .mobile-shell .mobile-shell__content {
+    padding-top: calc(var(--mobile-header-height, 64px) + 1rem);
+    padding-bottom: calc(var(--mobile-nav-height, 64px) + 1rem);
+  }
+}
+
+/* Celular deitado pode ultrapassar o breakpoint de tablet pela largura.
+   Mantemos suas duas barras no lugar sem alterar a interface do desktop. */
+@media (min-width: 768px) and (max-height: 600px) and (pointer: coarse) {
+  .mobile-shell .mobile-shell__sidebar,
+  .mobile-shell .mobile-shell__desktop-header { display: none; }
+  .mobile-shell .mobile-shell__header { display: flex; }
+  .mobile-shell .mobile-shell__bottom-nav { display: grid; }
+  .mobile-shell .mobile-shell__content {
+    padding-top: calc(var(--mobile-header-height, 64px) + 1rem);
+    padding-bottom: calc(var(--mobile-nav-height, 64px) + 1rem);
+  }
 }
 
 .mobile-shell .editor-preview--app:not(.editor-preview--bounded) {

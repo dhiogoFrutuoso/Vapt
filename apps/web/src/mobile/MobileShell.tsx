@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   Bike,
@@ -75,6 +75,9 @@ export function MobileShell() {
   const { idioma, tema, escala, t } = usePreferences();
   const [editando, setEditando] = useState(false);
   const [saindo, setSaindo] = useState(false);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const bottomNavRef = useRef<HTMLElement>(null);
 
   /*
    * Operação e cardápio vêm do servidor.
@@ -142,6 +145,30 @@ export function MobileShell() {
     setAtiva(visiveis[0]?.chave ?? 'perfil');
     toast('Seu acesso a essa área foi atualizado.');
   }, [ativa, visiveis]);
+
+  /* Barras fixas saem do fluxo. Reservar a altura real (inclusive safe area e
+     escala do funcionário) evita que o primeiro e o último card fiquem atrás
+     delas. ResizeObserver cobre mudança de orientação e de preferência. */
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    const header = headerRef.current;
+    if (!shell || !header) return;
+
+    const medir = () => {
+      shell.style.setProperty('--mobile-header-height', `${header.offsetHeight}px`);
+      shell.style.setProperty('--mobile-nav-height', `${bottomNavRef.current?.offsetHeight ?? 0}px`);
+    };
+
+    medir();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    observer?.observe(header);
+    if (bottomNavRef.current) observer?.observe(bottomNavRef.current);
+    window.addEventListener('resize', medir);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', medir);
+    };
+  }, [employee?.id, visiveis.length, escala]);
 
   if (!employee) return null;
 
@@ -274,13 +301,14 @@ export function MobileShell() {
 
   return (
     <div
+      ref={shellRef}
       className="mobile-shell flex overflow-hidden bg-[#FAF8F5] dark:bg-gray-950"
       style={{ ['--marca' as string]: marca }}
     >
       {/* --------------------- Coluna lateral (md+) --------------------- */}
       {visiveis.length > 0 && (
         <nav
-          className="hidden w-[15rem] shrink-0 flex-col gap-1 border-0 border-r border-solid
+          className="mobile-shell__sidebar hidden w-[15rem] shrink-0 flex-col gap-1 border-0 border-r border-solid
             border-gray-200 bg-white p-3 md:flex
             dark:border-white/10 dark:bg-gray-900"
           aria-label={t('nav.areas')}
@@ -354,7 +382,8 @@ export function MobileShell() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* ---------------------- Cabeçalho (só mobile) --------------------- */}
         <header
-          className="flex shrink-0 items-center gap-3 px-4 py-3 md:hidden"
+          ref={headerRef}
+          className="mobile-shell__header fixed inset-x-0 top-0 z-50 flex items-center gap-3 px-4 py-3 md:hidden"
           style={{ backgroundColor: marca, paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/90">
@@ -403,7 +432,7 @@ export function MobileShell() {
         </header>
 
         {/* ------------------ Barra de título (só desktop) ------------------ */}
-        <header className="hidden shrink-0 items-center gap-3 border-0 border-b border-solid border-gray-200 bg-white px-6 py-4 md:flex dark:border-white/10 dark:bg-gray-900">
+        <header className="mobile-shell__desktop-header hidden shrink-0 items-center gap-3 border-0 border-b border-solid border-gray-200 bg-white px-6 py-4 md:flex dark:border-white/10 dark:bg-gray-900">
           <h1 className="m-0 text-lg font-extrabold text-gray-900 dark:text-gray-50">
             {ativa === 'perfil' ? t('perfil.titulo') : abaAtual ? t(abaAtual.texto) : ''}
           </h1>
@@ -496,7 +525,8 @@ export function MobileShell() {
         {/* ------------------- Barra inferior (só mobile) ------------------- */}
         {visiveis.length > 0 && (
           <nav
-            className="mobile-shell__bottom-nav relative z-50 grid shrink-0 border-0 border-t border-solid border-gray-200 bg-white md:hidden
+            ref={bottomNavRef}
+            className="mobile-shell__bottom-nav fixed inset-x-0 bottom-0 z-50 grid border-0 border-t border-solid border-gray-200 bg-white md:hidden
               dark:border-white/10 dark:bg-gray-900"
             style={{
               gridTemplateColumns: escala >= 130

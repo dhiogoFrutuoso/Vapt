@@ -48,6 +48,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     raiz.style.removeProperty('zoom');
     raiz.style.removeProperty('color-scheme');
     raiz.style.removeProperty('--font');
+    raiz.style.removeProperty('--vapt-ui-scale');
     raiz.classList.remove('dark');
     delete raiz.dataset.vaptScale;
   }, []);

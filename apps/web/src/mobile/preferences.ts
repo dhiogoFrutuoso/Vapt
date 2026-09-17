@@ -152,6 +152,7 @@ export function aplicarPreferencias(prefs: Preferencias): void {
 
   const escala = limitar(prefs.escala);
   raiz.style.removeProperty('font-size');
+  raiz.style.setProperty('--vapt-ui-scale', String(escala / 100));
   raiz.style.zoom = `${escala}%`;
   raiz.dataset.vaptScale = escala >= 130 ? 'large' : 'normal';
 
