@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Copy, Download, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
+import packageInfo from '../../package.json';
 
 /**
  * `/apk` — página de instalação do app Android, para ser divulgada sozinha.
@@ -10,17 +11,15 @@ import toast from 'react-hot-toast';
  *
  *   1. É pública e enxuta. O dono manda este link no grupo da equipe e cada
  *      funcionário instala sem passar pelo painel nem ter conta;
- *   2. É o endereço estável do instalador. Quando o `.apk` for publicado,
- *      basta apontar `VITE_APK_URL` para o arquivo — a página, o QR e o link
- *      que já circularam continuam valendo.
+ *   2. É o endereço estável do instalador. O APK é servido pelo próprio site
+ *      em `/downloads/vapt.apk`, como o hard gate nativo.
  *
- * A página NÃO hospeda o binário. Um SPA serve JavaScript, não arquivos; o
- * `.apk` vai para o storage (Cloudinary, S3, release do GitHub) e a variável
- * aponta para lá.
+ * Variáveis antigas de release externo não podem substituir este link: elas
+ * já apontaram para um APK desatualizado, diferente do usado no hard gate.
  */
 
-const APK_URL = import.meta.env.VITE_APK_URL || '/downloads/vapt.apk';
-const APK_VERSAO = import.meta.env.VITE_APK_VERSION ?? '';
+const APK_URL = '/downloads/vapt.apk';
+const APK_VERSAO = packageInfo.version;
 
 const PILL =
   'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-[1rem] ' +
