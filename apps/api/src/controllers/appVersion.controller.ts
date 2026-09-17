@@ -49,10 +49,10 @@ const FALLBACK = {
   minVersion: RELEASE_FLOOR,
   buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: 'Atualize o Vapt para aplicar a correção de espaçamento na tela do caixa.',
+  reason: 'Atualize o Vapt para corrigir a tela branca ao abrir o aplicativo Windows.',
   forceUpdate: true,
   downloadUrls: RELEASE_DOWNLOADS,
-  changelog: ['Espaço entre o aviso de caixa aberto ou fechado e os cards de valores.', 'Instaladores distribuídos pelo repositório público de releases.'],
+  changelog: ['Correção da tela branca na inicialização do Windows.', 'Mantida a correção de espaçamento na tela do caixa.'],
 };
 
 function normalizeChangelog(value: string | string[]): string[] {

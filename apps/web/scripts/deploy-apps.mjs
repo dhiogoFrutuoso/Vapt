@@ -51,6 +51,10 @@ const oldCode = Number(oldInfo.match(/versionCode='(\d+)'/)?.[1]);
 if (!Number.isFinite(oldCode)) throw new Error('Não foi possível ler a versão instalada anterior.');
 
 command('npm', ['run', 'build:win']);
+const desktopTest = spawnSync(process.execPath, [join(root, 'scripts', 'test-desktop.mjs')], {
+  cwd: root, stdio: 'inherit', windowsHide: true,
+});
+if (desktopTest.status !== 0) throw new Error('O pacote Windows não abriu a tela de login; publicação interrompida.');
 command('npm', ['run', 'build:android:release']);
 if (!existsSync(exe) || statSync(exe).size < 1_000_000 || !existsSync(apk)) {
   throw new Error('Instaladores ausentes ou incompletos; nenhum download foi substituído.');

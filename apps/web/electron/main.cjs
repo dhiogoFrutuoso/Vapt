@@ -95,7 +95,7 @@ function servirArquivos() {
      * remove a barra inicial sem ambiguidade.
      */
     const relativo = bruto.split(path.sep).filter(Boolean).join(path.sep);
-    const destino = path.join(RAIZ, relativo || 'index.app.html');
+    const destino = path.join(RAIZ, relativo || 'index.html');
 
     if (!destino.startsWith(RAIZ)) {
       return new Response('Nao encontrado', { status: 404 });
@@ -507,7 +507,8 @@ function criarJanela() {
   /* Anexar webview e outra forma de embutir conteudo de terceiros. */
   janela.webContents.on('will-attach-webview', (evento) => evento.preventDefault());
 
-  void janela.loadURL(`${ORIGEM}/index.app.html`);
+  // O Vite renomeia a entrada index.app.html para index.html no pacote.
+  void janela.loadURL(`${ORIGEM}/index.html`);
   return janela;
 }
 

@@ -19,7 +19,8 @@ Para preparar a próxima versão:
    explicitamente `VAPT_LEGACY_DEBUG_SIGNING=true`; trocar a chave impede a
    instalação sobre o aplicativo existente.
 3. Execute `npm run deploy:apps -w apps/web`. O script compila, verifica ID do
-   pacote, versão e assinatura, e só então atualiza os arquivos em `builds/`
+   pacote, versão e assinatura, testa a abertura da tela de login do pacote
+   Windows com um perfil temporário e só então atualiza os arquivos em `builds/`
    e `apps/api/src/config/nativeRelease.ts`.
 4. Execute `npm run release:publish` na raiz. O script envia somente os dois
    instaladores à branch `main` de `Vapt-Releases` e cria a release pública
