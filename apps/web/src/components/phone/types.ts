@@ -324,6 +324,7 @@ export type CashEntry = {
   /** Timestamp em ms, usado pelos filtros de tempo. */
   createdAt: number;
   closedAt: number | null;
+  cashTurnId?: string;
   /** Espelha o entregador do pedido, para o Registro auditar. */
   deliveredById?: string;
   deliveredByName?: string;
@@ -354,6 +355,10 @@ export type CashMovement = {
 
 export type CashClosure = {
   id: string;
+  turnId?: string;
+  openedAt?: number | null;
+  openingCash?: number;
+  reopenedAt?: number | null;
   counted: Record<'dinheiro' | 'cartao' | 'pix', number>;
   expected: Record<'dinheiro' | 'cartao' | 'pix', number>;
   difference: Record<'dinheiro' | 'cartao' | 'pix', number>;

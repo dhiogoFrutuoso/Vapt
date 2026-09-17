@@ -61,6 +61,15 @@ export function ServiceView({
     | null
   >(null);
 
+  function confirmarImpressao(ticket: NonNullable<typeof printing>, label: string) {
+    confirm({
+      title: 'Imprimir comanda?',
+      message: `A comanda ${label} será enviada à impressora conectada. Confirme antes de imprimir.`,
+      confirmText: 'Imprimir comanda', cancelText: 'Voltar', isDestructive: false,
+      onConfirm: () => setPrinting(ticket),
+    });
+  }
+
   useEffect(() => {
     if (!printing) return;
     const id = window.setTimeout(() => {
@@ -132,7 +141,7 @@ export function ServiceView({
         ) : (
           <div className="svc-grid svc-grid--takeouts">
             {takeouts.map((takeout) => (
-              <article key={takeout.id} className={`svc-card svc-card--takeout is-${takeout.status}${interactive && onCancelTakeout ? ' has-cancel' : ''}`}>
+              <article key={takeout.id} className={`svc-card svc-card--takeout is-${takeout.status}`}>
                 <button
                   type="button"
                   className="svc-card__open"
@@ -151,23 +160,6 @@ export function ServiceView({
                   )}
                 </button>
 
-                {interactive && onCancelTakeout && <button
-                  type="button"
-                  className="svc-card__cancel"
-                  onClick={() => confirm({
-                    title: `Cancelar retirada #${takeout.label}?`,
-                    message: `A retirada de ${takeout.customerName} será cancelada e os itens lançados serão perdidos.`,
-                    confirmText: 'Cancelar retirada',
-                    cancelText: 'Manter retirada',
-                    isDestructive: true,
-                    onConfirm: () => onCancelTakeout(takeout.id),
-                  })}
-                  title={copy.cancelOrder}
-                  aria-label={`Cancelar retirada #${takeout.label} de ${takeout.customerName}`}
-                >
-                  <X size={16} aria-hidden="true" />
-                </button>}
-
                 {interactive && (
                   <div className="svc-card__foot">
                     <label className="svc-status">
@@ -185,10 +177,21 @@ export function ServiceView({
                       </select>
                     </label>
                     {takeout.items.length > 0 && (
-                      <button type="button" className="svc-card__print" onClick={() => setPrinting({ origin: 'retirada', takeout })} aria-label={`Imprimir comanda da retirada ${takeout.label}`}>
+                      <button type="button" className="svc-card__print" onClick={() => confirmarImpressao({ origin: 'retirada', takeout }, `da retirada #${takeout.label}`)} aria-label={`Imprimir comanda da retirada ${takeout.label}`}>
                         <Printer size={16} aria-hidden="true" />
                       </button>
                     )}
+                    {onCancelTakeout && <button
+                      type="button" className="svc-card__cancel"
+                      onClick={() => confirm({
+                        title: `Cancelar retirada #${takeout.label}?`,
+                        message: `A retirada de ${takeout.customerName} será cancelada e os itens lançados serão perdidos.`,
+                        confirmText: 'Cancelar retirada', cancelText: 'Manter retirada', isDestructive: true,
+                        onConfirm: () => onCancelTakeout(takeout.id),
+                      })}
+                      title={copy.cancelOrder}
+                      aria-label={`Cancelar retirada #${takeout.label} de ${takeout.customerName}`}
+                    ><X size={16} aria-hidden="true" /></button>}
                   </div>
                 )}
               </article>
@@ -251,7 +254,7 @@ export function ServiceView({
                         </select>
                       </label>
                       {(table.items?.length ?? 0) > 0 && (
-                        <button type="button" className="svc-card__print" onClick={() => setPrinting({ origin: 'mesa', table })} aria-label={`Imprimir comanda da mesa ${table.label}`}>
+                        <button type="button" className="svc-card__print" onClick={() => confirmarImpressao({ origin: 'mesa', table }, `da mesa ${table.label}`)} aria-label={`Imprimir comanda da mesa ${table.label}`}>
                           <Printer size={16} aria-hidden="true" />
                         </button>
                       )}

@@ -180,6 +180,10 @@ export function emitOrderUpdated(appId: string, dados: EventoPedido): void {
 export function emitOperationChanged(appId: string, dados: { tipo: string; por: string }): void {
   if (!io) return;
   io.to(sala(appId)).emit('operation_changed', dados);
+  if (['caixa.fechar', 'caixa.abrir', 'caixa.turno.reabrir'].includes(dados.tipo)) {
+    // Public subscribers receive no operator or financial data, only a refresh signal.
+    io.to(salaPublica(appId)).emit('register_status_changed');
+  }
 }
 
 /** Cadastro da equipe mudou; clientes autorizados recarregam a lista sanitizada. */

@@ -3,11 +3,16 @@ import { Order } from '../models/Order.js';
 import { AppProject } from '../models/AppProject.js';
 import { HttpError } from '../utils/httpError.js';
 import { asyncHandler } from '../middlewares/errorHandler.js';
+import { Operation } from '../models/Operation.js';
 
 export const createOrder = async (req: Request, res: Response) => {
           try {
             const app = await AppProject.findById(req.body.appId);
                   if (!app) throw HttpError.notFound('App não encontrado');
+                  const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
+                  if (!operation || operation.cashOpen === false) {
+                    throw new HttpError(409, 'Caixa fechado. Pedidos só são aceitos após a abertura.');
+                  }
 
                   const code = Math.random().toString(36).substring(2, 6).toUpperCase();
                   

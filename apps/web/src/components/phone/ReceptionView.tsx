@@ -283,6 +283,11 @@ export function ReceptionView({
   const [printing, setPrinting] = useState<{ order: DeliveryOrder } | null>(null);
   const [availabilityOpen, setAvailabilityOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryItem | null>(null);
+  function confirmarImpressao(order: DeliveryOrder) {
+    confirm({ title: 'Imprimir comanda?', message: `Pedido #${order.code} de ${order.customerName} será enviado à impressora conectada.`,
+      confirmText: 'Imprimir comanda', cancelText: 'Voltar', isDestructive: false,
+      onConfirm: () => setPrinting({ order }), });
+  }
   useEffect(() => {
     if (!printing) return;
     const id = window.setTimeout(() => {
@@ -346,7 +351,7 @@ export function ReceptionView({
         </div>
         <p className="cat-hint">Pagamento, inclusive fiado, itens e cliente aparecem completos antes da confirmação.</p>
         <ul className="phone__deliveries">
-          {retiradas.map((d) => <ReceptionOrderItem key={d.id} d={d} defaultFee={0} onAccept={onAccept} onReject={onReject} onPrint={(order) => setPrinting({ order })} onEdit={onEdit} confirm={confirm} deliveryPeople={deliveryPeople} />)}
+          {retiradas.map((d) => <ReceptionOrderItem key={d.id} d={d} defaultFee={0} onAccept={onAccept} onReject={onReject} onPrint={confirmarImpressao} onEdit={onEdit} confirm={confirm} deliveryPeople={deliveryPeople} />)}
         </ul>
       </>}
 
@@ -369,7 +374,7 @@ export function ReceptionView({
               defaultFee={defaultFee}
               onAccept={onAccept}
               onReject={onReject}
-              onPrint={(order) => setPrinting({ order })}
+              onPrint={confirmarImpressao}
               onEdit={onEdit}
               confirm={confirm}
               deliveryPeople={deliveryPeople}

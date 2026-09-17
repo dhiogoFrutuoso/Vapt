@@ -925,7 +925,7 @@
 
 /* A retirada usa as mesmas colunas e largura dos cards de mesa. */
 .svc-grid.svc-grid--takeouts {
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
   gap: 7px;
   width: 100%;
 }
@@ -936,19 +936,11 @@
   width: 100%;
 }
 
-/* O cancelamento fica no cabeçalho; status e impressão seguem a mesa. */
-.svc-card--takeout.has-cancel .svc-card__open {
-  padding-right: 43px;
-}
-
 .svc-card--takeout .svc-card__cancel {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 1;
   display: grid;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -958,16 +950,9 @@
   touch-action: manipulation;
 }
 
-@media (pointer: coarse) {
-  .svc-card--takeout .svc-card__cancel {
-    top: 2px;
-    right: 2px;
-    width: 44px;
-    height: 44px;
-  }
-
-  .svc-card--takeout.has-cancel .svc-card__open { padding-right: 49px; }
-}
+.svc-grid--takeouts .svc-card--takeout .svc-card__foot { --table-action-size: 44px; gap: 4px; padding-inline: 5px; }
+.svc-card--takeout .svc-card__print { flex-basis: 44px !important; width: 44px !important; min-width: 44px !important; }
+.svc-card--takeout .svc-status select { padding-inline: 3px; }
 
 .svc-card--takeout .svc-card__cancel:focus-visible {
   outline: 2px solid var(--brand);
@@ -1005,7 +990,7 @@
 
 @media (max-width: 479px) {
   .svc-grid.svc-grid--takeouts {
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
     gap: 8px;
   }
 }

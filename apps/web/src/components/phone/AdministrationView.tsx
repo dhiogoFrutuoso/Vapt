@@ -26,6 +26,7 @@ import type { CashEntry, PaymentMethod } from './types';
 import type { EstadoOperacao } from '../../mobile/useOperation';
 import { getSavedPrinter, listPrinters, printerPlatform, printReceipt, savePrinter, type PrinterDevice } from '../../lib/printer';
 import { PrintTicket } from './PrintTicket';
+import { useConfirm } from '../ConfirmModal';
 
 type TeamMember = {
   id: string;
@@ -124,6 +125,7 @@ function MetricButton({ label, value, hint, Icon, onClick }: {
 }
 
 export function AdministrationView({ estado, equipe, currentEmployeeId, currentEmployeeName, storeName = 'Vapt', storePhone, onTeamChanged }: Props) {
+  const { confirm, ConfirmElement } = useConfirm();
   const [panel, setPanel] = useState<Panel>(null);
   const [closureFrom, setClosureFrom] = useState('');
   const [closureTo, setClosureTo] = useState('');
@@ -535,7 +537,9 @@ export function AdministrationView({ estado, equipe, currentEmployeeId, currentE
                   {!printerLoading && printers.length === 0 && <p>Nenhuma impressora encontrada. Instale-a no Windows e toque em Atualizar.</p>}
                 </section>}
 
-                <button type="button" className="management-printers__test" onClick={() => void testPrinter()} disabled={platform === 'windows' && !selectedPrinter}>
+                <button type="button" className="management-printers__test" onClick={() => confirm({ title: 'Imprimir comanda de teste?',
+                  message: 'O teste será enviado à impressora selecionada neste dispositivo.', confirmText: 'Imprimir teste',
+                  cancelText: 'Voltar', isDestructive: false, onConfirm: () => void testPrinter(), })} disabled={platform === 'windows' && !selectedPrinter}>
                   <Printer size={18} aria-hidden="true" />
                   <span><strong>{platform === 'windows' ? 'Imprimir comanda de teste' : 'Abrir impressão de teste'}</strong><small>{platform === 'android' ? 'O Android abrirá a lista de impressoras e permitirá adicionar uma nova.' : platform === 'web' ? 'O navegador abrirá a janela de impressão.' : 'Será enviada para a impressora conectada.'}</small></span>
                 </button>
@@ -602,6 +606,7 @@ export function AdministrationView({ estado, equipe, currentEmployeeId, currentE
           </div>
         </div>
       )}
+      {ConfirmElement}
     </div>
   );
 }

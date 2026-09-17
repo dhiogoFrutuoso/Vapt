@@ -8,6 +8,7 @@ import { DeliveryView } from '../components/phone/DeliveryView';
 import { ReceptionView } from '../components/phone/ReceptionView';
 import { KitchenView } from '../components/phone/KitchenView';
 import { AdministrationView } from '../components/phone/AdministrationView';
+import { useConfirm } from '../components/ConfirmModal';
 import { deviceApi } from './deviceApi';
 import { NO_STATION, sumItems, totalEntregue } from '../components/phone/types';
 import type {
@@ -119,6 +120,26 @@ export function AppViews({
     isDelivery?: boolean;
   } | null>(null);
   const isAdmin = permissions.includes('administracao');
+  const { confirm, ConfirmElement } = useConfirm();
+
+  function oferecerAgendamento(onConfirm: () => void, assunto = 'pedido') {
+    confirm({
+      title: 'O caixa está fechado',
+      message: `O atendimento deste dia foi encerrado. Deseja agendar ${assunto} para entrar na operação quando o caixa abrir?`,
+      confirmText: 'Agendar para a abertura',
+      cancelText: 'Voltar',
+      isDestructive: false,
+      onConfirm,
+    });
+  }
+
+  function criarRetirada(name: string, phone: string) {
+    if (!estado.cashOpen) {
+      oferecerAgendamento(() => void rodar({ tipo: 'retirada.agendar', customerName: name, phone }), 'a retirada');
+      return;
+    }
+    void rodar({ tipo: 'retirada.criar', customerName: name, phone });
+  }
 
   const openTable = useMemo(
     () => estado.tables.find((t) => t.id === openTableId) ?? null,
@@ -225,6 +246,15 @@ export function AppViews({
      * MODO EDIÇÃO atualiza o pedido existente em vez de criar outro. Criar um
      * novo deixaria o antigo na fila, e a cozinha produziria os dois.
      */
+    if (!estado.cashOpen && !editandoPedidoId) {
+      oferecerAgendamento(async () => {
+        if (await rodar({ tipo: 'pedido.agendar', customerName: data.customerName, phone: data.phone, items: cart,
+          payments: data.payments, address: data.address, notes: data.notes, isDelivery: data.isDelivery })) {
+          setCart([]); setRascunhoCliente(null); onIrPara('recepcao');
+        }
+      });
+      return;
+    }
     const comando: Comando = editandoPedidoId
       ? {
           tipo: 'pedido.atualizar',
@@ -309,7 +339,7 @@ export function AppViews({
 
   /* -------------------------------- Salão -------------------------------- */
 
-  const ticket: Ticket | null = openTable
+  const ticket: Ticket | null = !estado.cashOpen ? null : openTable
     ? {
         id: openTable.id,
         title: `Mesa ${openTable.label}`,
@@ -328,6 +358,10 @@ export function AppViews({
       : null;
 
   async function abrirMesa(mesa: PreviewTable) {
+    if (!estado.cashOpen) {
+      oferecerAgendamento(() => void rodar({ tipo: 'mesa.agendar', mesaId: mesa.id }), `a mesa ${mesa.label}`);
+      return;
+    }
     setOpenTakeoutId(null);
     setOpenTableId(mesa.id);
     if (mesa.status === 'livre') await rodar({ tipo: 'mesa.abrir', mesaId: mesa.id });
@@ -433,30 +467,33 @@ export function AppViews({
 
   if (aba === 'cliente') {
     return (
-      <ClientOrderFlow
-        storeName={storeName}
-        logoUrl={logoUrl}
-        brandColor={brandColor}
-        theme={theme}
-        products={products}
-        promotions={promotions}
-        categories={categories}
-        cart={cart}
-        onCartChange={setCart}
-        /* Só do lado de dentro: o cliente final não importa nada. */
-        mostrarImportacao
-        onImportar={importarPedido}
-        editando={Boolean(editandoPedidoId)}
-        onCancelarEdicao={() => {
-          setEditandoPedidoId(null);
-          setRascunhoCliente(null);
-          setCart([]);
-          onIrPara('recepcao');
-        }}
-        rotuloEnvio={editandoPedidoId ? 'Salvar alterações' : undefined}
-        inicial={rascunhoCliente ?? undefined}
-        onSubmit={finalizarCheckout}
-      />
+      <>
+        <ClientOrderFlow
+          storeName={storeName}
+          logoUrl={logoUrl}
+          brandColor={brandColor}
+          theme={theme}
+          products={products}
+          promotions={promotions}
+          categories={categories}
+          cart={cart}
+          onCartChange={setCart}
+          /* Só do lado de dentro: o cliente final não importa nada. */
+          mostrarImportacao
+          onImportar={importarPedido}
+          editando={Boolean(editandoPedidoId)}
+          onCancelarEdicao={() => {
+            setEditandoPedidoId(null);
+            setRascunhoCliente(null);
+            setCart([]);
+            onIrPara('recepcao');
+          }}
+          rotuloEnvio={editandoPedidoId ? 'Salvar alterações' : undefined}
+          inicial={rascunhoCliente ?? undefined}
+          onSubmit={finalizarCheckout}
+        />
+        {ConfirmElement}
+      </>
     );
   }
 
@@ -475,7 +512,7 @@ export function AppViews({
               setOpenTableId(null);
               setOpenTakeoutId(takeout.id);
             }}
-            onCreateTakeout={(name, phone) => void rodar({ tipo: 'retirada.criar', customerName: name, phone })}
+            onCreateTakeout={criarRetirada}
             onSetTableStatus={() => {}}
             onSetTakeoutStatus={(id, status) => void rodar({ tipo: 'retirada.status', retiradaId: id, status })}
             onCancelTakeout={isAdmin ? (id) => void rodar({ tipo: 'retirada.remover', retiradaId: id }) : undefined}
@@ -484,6 +521,12 @@ export function AppViews({
             operatorName={employeeName}
             serviceFeeRate={waiterCommissionRate}
           />
+          {!estado.cashOpen && estado.scheduledTakeouts.length > 0 && (
+            <p className="cat-hint">{estado.scheduledTakeouts.length} retirada(s) agendada(s): {estado.scheduledTakeouts.map((item) => item.customerName).join(', ')}</p>
+          )}
+          {!estado.cashOpen && estado.scheduledDeliveries.length > 0 && (
+            <p className="cat-hint">{estado.scheduledDeliveries.length} pedido(s) agendado(s) entrarão na recepção e cozinha quando o caixa abrir.</p>
+          )}
           <ReceptionView
             deliveries={estado.deliveries}
             defaultFee={deliveryFee}
@@ -516,6 +559,7 @@ export function AppViews({
             onDismiss={() => setOpenTakeoutId(null)}
           />
         )}
+        {ConfirmElement}
       </>
     );
   }
@@ -523,6 +567,7 @@ export function AppViews({
   if (aba === 'salao') {
     return (
       <>
+        {!estado.cashOpen && estado.scheduledTables.length > 0 && <p className="cat-hint">{estado.scheduledTables.length} mesa(s) agendada(s) para a próxima abertura.</p>}
         <ServiceView
           tables={estado.tables}
           takeouts={estado.takeouts}
@@ -534,12 +579,14 @@ export function AppViews({
             setOpenTableId(null);
             setOpenTakeoutId(retirada.id);
           }}
-          onCreateTakeout={(nome, telefone) =>
-            void rodar({ tipo: 'retirada.criar', customerName: nome, phone: telefone })
-          }
-          onSetTableStatus={(id: string, status: TableStatus) =>
-            void rodar({ tipo: 'mesa.status', mesaId: id, status })
-          }
+          onCreateTakeout={criarRetirada}
+          onSetTableStatus={(id: string, status: TableStatus) => {
+            if (!estado.cashOpen && status === 'ocupada') {
+              oferecerAgendamento(() => void rodar({ tipo: 'mesa.agendar', mesaId: id }), 'a mesa');
+              return;
+            }
+            void rodar({ tipo: 'mesa.status', mesaId: id, status });
+          }}
           onSetTakeoutStatus={(id: string, status: TableStatus) =>
             void rodar({ tipo: 'retirada.status', retiradaId: id, status })
           }
@@ -569,6 +616,7 @@ export function AppViews({
             }}
           />
         )}
+        {ConfirmElement}
       </>
     );
   }
@@ -602,6 +650,11 @@ export function AppViews({
         <CashRegister
           entries={estado.cashEntries}
           archive={estado.cashArchive}
+          closures={estado.cashClosures}
+          registerOpen={estado.cashOpen}
+          openingCash={estado.openingCash}
+          onOpenRegister={(openingCash) => void rodar({ tipo: 'caixa.abrir', openingCash })}
+          onReopenTurn={(closureId) => void rodar({ tipo: 'caixa.turno.reabrir', closureId })}
           courierPaidPerDelivery={courierPaidPerDelivery}
           onUpdatePayments={(id, payments) =>
             void rodar({ tipo: 'caixa.pagamento', lancamentoId: id, payments })
@@ -617,10 +670,10 @@ export function AppViews({
             void rodar({ tipo: 'caixa.movimento', movementType, amount, reason })
           }
           onCreditPayment={(id, amount) => void rodar({ tipo: 'fiado.abater', lancamentoId: id, amount })}
-          onReopenEntry={isAdmin
+          onReopenEntry={isAdmin && estado.cashOpen
             ? (id) => void rodar({ tipo: 'caixa.reabrir', lancamentoId: id })
             : undefined}
-          onCloseRegister={(counted) => void rodar({ tipo: 'caixa.fechar', counted })}
+          onCloseRegister={(counted) => rodar({ tipo: 'caixa.fechar', counted })}
           onEditDeliveryItems={isAdmin ? (entry) => {
             const deliveryId = entry.id.replace(/^c-/, '');
             if (estado.deliveries.some((delivery) => delivery.id === deliveryId)) editarPedido(deliveryId);

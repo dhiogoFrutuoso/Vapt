@@ -13,6 +13,7 @@ import { Printer } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { PrintTicket } from './PrintTicket';
 import { printReceipt } from '../../lib/printReceipt';
+import { useConfirm } from '../ConfirmModal';
 import toast from 'react-hot-toast';
 
 const ORIGIN_LABEL: Record<OrderSource, string> = {
@@ -289,6 +290,7 @@ export function KitchenView({
   onSetStatus,
   storeName = 'Vapt',
 }: Props) {
+  const { confirm, ConfirmElement } = useConfirm();
   const [printing, setPrinting] = useState<{ ticket: KitchenTicket; station?: string } | null>(null);
   useEffect(() => {
     if (!printing) return;
@@ -383,7 +385,9 @@ export function KitchenView({
               render={render}
               showStationLabels={isAll}
               onSetStatus={onSetStatus}
-              onPrint={(ticket) => setPrinting({ ticket, station: isAll ? undefined : activeStation })}
+              onPrint={(ticket) => confirm({ title: 'Imprimir comanda?', message: `${ticket.label} será enviada à impressora conectada.`,
+                confirmText: 'Imprimir comanda', cancelText: 'Voltar', isDestructive: false,
+                onConfirm: () => setPrinting({ ticket, station: isAll ? undefined : activeStation }), })}
             />
           ))}
         </ul>
@@ -399,6 +403,7 @@ export function KitchenView({
           station={printing.station}
         />, document.body)
       )}
+      {ConfirmElement}
     </div>
   );
 }

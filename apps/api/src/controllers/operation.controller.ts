@@ -136,6 +136,7 @@ const address = z.object({
 
 const comandoSchema = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('mesa.abrir'), mesaId: z.string().min(1) }),
+  z.object({ tipo: z.literal('mesa.agendar'), mesaId: z.string().min(1) }),
   z.object({
     tipo: z.literal('mesa.status'),
     mesaId: z.string().min(1),
@@ -155,6 +156,11 @@ const comandoSchema = z.discriminatedUnion('tipo', [
       .transform((t) => t.replace(/[^\d+()\- ]/g, ''))
       .optional()
       .default(''),
+  }),
+  z.object({
+    tipo: z.literal('retirada.agendar'),
+    customerName: textoLimpo(80).pipe(z.string().min(1)),
+    phone: textoLimpo(30).optional().default(''),
   }),
   z.object({
     tipo: z.literal('retirada.status'),
@@ -192,6 +198,16 @@ const comandoSchema = z.discriminatedUnion('tipo', [
       .transform((t) => t.replace(/[^\d+()\- ]/g, ''))
       .optional()
       .default(''),
+    items: z.array(orderItem).min(1).max(80),
+    payments: z.array(payment).max(6).default([]),
+    address,
+    notes: textoLimpo(300).optional().default(''),
+    isDelivery: z.boolean().optional().default(true),
+  }),
+  z.object({
+    tipo: z.literal('pedido.agendar'),
+    customerName: textoLimpo(80).pipe(z.string().min(1)),
+    phone: textoLimpo(30).optional().default(''),
     items: z.array(orderItem).min(1).max(80),
     payments: z.array(payment).max(6).default([]),
     address,
@@ -267,6 +283,8 @@ const comandoSchema = z.discriminatedUnion('tipo', [
       pix: z.number().min(0).max(999_999),
     }),
   }),
+  z.object({ tipo: z.literal('caixa.abrir'), openingCash: z.number().min(0).max(999_999) }),
+  z.object({ tipo: z.literal('caixa.turno.reabrir'), closureId: z.string().min(1) }),
   z.object({
     tipo: z.literal('caixa.movimento'),
     movementType: z.literal('sangria'),
@@ -312,11 +330,13 @@ type Comando = z.infer<typeof comandoSchema>;
  */
 const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'mesa.abrir': ['salao'],
+  'mesa.agendar': ['salao'],
   'mesa.status': ['salao'],
   'mesa.item.adicionar': ['salao'],
   'mesa.item.remover': ['administracao'],
 
   'retirada.criar': ['recepcao'],
+  'retirada.agendar': ['recepcao'],
   'retirada.status': ['recepcao'],
   'retirada.remover': ['administracao'],
   'retirada.item.adicionar': ['recepcao'],
@@ -326,6 +346,7 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'comanda.cancelar': ['administracao'],
 
   'pedido.criar': ['cliente', 'recepcao'],
+  'pedido.agendar': ['cliente', 'recepcao'],
   'pedido.atualizar': ['administracao'],
   'pedido.aceitar': ['administracao'],
   'pedido.rejeitar': ['administracao'],
@@ -337,6 +358,8 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'caixa.editar': ['administracao'],
   'caixa.cancelar': ['administracao'],
   'caixa.fechar': ['caixa'],
+  'caixa.abrir': ['caixa'],
+  'caixa.turno.reabrir': ['caixa'],
   'caixa.movimento': ['caixa'],
   'caixa.reabrir': ['administracao'],
   'fiado.abater': ['caixa'],
@@ -430,7 +453,7 @@ async function carregar(appId: string): Promise<Carregada> {
       : 0;
 
   let operacao = await Operation.findOne({ app: appId });
-  if (!operacao) operacao = new Operation({ app: appId, tables: [] });
+  if (!operacao) operacao = new Operation({ app: appId, tables: [], cashOpen: false });
 
   const cadastradas = (app.tables ?? []) as unknown as Array<Record<string, unknown>>;
   const porId = new Map(operacao.tables.map((t) => [t.id, t]));
@@ -513,7 +536,13 @@ function serializar(operacao: OperationDoc, permissions: string[] = [], employee
     cashEntries: can('caixa') ? operacao.cashEntries : [],
     cashArchive: can('caixa') ? operacao.cashArchive : [],
     cashMovements: can('caixa') ? operacao.cashMovements : [],
-    cashClosures: admin ? operacao.cashClosures : [],
+    cashClosures: can('caixa') ? operacao.cashClosures : [],
+    cashOpen: operacao.cashOpen,
+    cashOpenedAt: operacao.cashOpenedAt,
+    openingCash: operacao.openingCash,
+    scheduledTables: can('salao') ? operacao.scheduledTables : [],
+    scheduledTakeouts: can('recepcao') ? operacao.scheduledTakeouts : [],
+    scheduledDeliveries: can('recepcao') ? operacao.scheduledDeliveries : [],
     auditLog: admin ? operacao.auditLog : [],
     kitchenStatus: can('cozinha') ? Object.fromEntries(operacao.kitchenStatus ?? new Map()) : {},
     lastClosedAt: operacao.lastClosedAt,
@@ -527,10 +556,19 @@ function serializar(operacao: OperationDoc, permissions: string[] = [], employee
 
 export const getOperation = asyncHandler(async (req: Request, res: Response) => {
   const appId = req.device!.app;
-  const { operacao } = await carregar(appId);
+  let { operacao } = await carregar(appId);
 
   // A sincronização das mesas pode ter alterado o documento.
-  if (operacao.isNew || operacao.isModified()) await operacao.save();
+  if (operacao.isNew || operacao.isModified()) {
+    try {
+      await operacao.save();
+    } catch (error) {
+      if (!['VersionError', 'ParallelSaveError'].includes((error as { name?: string }).name ?? '')
+        && (error as { code?: number }).code !== 11000) throw error;
+      // Another device initialized or changed the same operation first.
+      ({ operacao } = await carregar(appId));
+    }
+  }
 
   return res.json({ ok: true, data: serializar(operacao, req.device!.perms, req.device!.sub) });
 });
@@ -544,7 +582,7 @@ export const getOperation = asyncHandler(async (req: Request, res: Response) => 
  *
  * Devolve uma mensagem para a tela quando há algo a dizer ao funcionário.
  */
-function aplicar(
+export function aplicar(
   operacao: OperationDoc,
   comando: Comando,
   quem: string,
@@ -568,6 +606,16 @@ function aplicar(
     if (operacao.auditLog.length > 1000) operacao.auditLog.splice(1000);
   };
 
+  // Every operational entry point is checked here, not only hidden in the UI.
+  // Historical corrections and scheduling remain possible after closing.
+  const permitidoFechado: Comando['tipo'][] = [
+    'caixa.abrir', 'caixa.turno.reabrir', 'caixa.editar', 'caixa.cancelar',
+    'mesa.agendar', 'retirada.agendar', 'pedido.agendar',
+  ];
+  if (!operacao.cashOpen && !permitidoFechado.includes(comando.tipo)) {
+    throw new HttpError(409, 'Caixa fechado. Abra o caixa ou agende para a próxima abertura.');
+  }
+
   switch (comando.tipo) {
     /* ----------------------------- Mesas ----------------------------- */
 
@@ -579,6 +627,14 @@ function aplicar(
         mesa.set('items', []);
       }
       return null;
+    }
+
+    case 'mesa.agendar': {
+      if (operacao.cashOpen) throw new HttpError(409, 'Caixa aberto. Abra a mesa normalmente.');
+      if (!operacao.tables.some((m) => m.id === comando.mesaId)) throw new HttpError(404, 'Mesa não encontrada.');
+      if (!operacao.scheduledTables.includes(comando.mesaId)) operacao.scheduledTables.push(comando.mesaId);
+      auditar('mesa.agendada', comando.mesaId, 'Mesa agendada para a próxima abertura.');
+      return 'Mesa agendada para a próxima abertura.';
     }
 
     case 'mesa.status': {
@@ -623,6 +679,18 @@ function aplicar(
         createdAt: agora(),
       } as never);
       return null;
+    }
+
+    case 'retirada.agendar': {
+      if (operacao.cashOpen) throw new HttpError(409, 'Caixa aberto. Abra a retirada normalmente.');
+      operacao.scheduledTakeouts.push({
+        id: `t-${agora()}-${Math.floor(Math.random() * 1000)}`,
+        label: codigoCurto().slice(0, 2),
+        customerName: comando.customerName, phone: comando.phone,
+        status: 'ocupada', items: [], createdAt: agora(),
+      } as never);
+      auditar('retirada.agendada', '', `Retirada de ${comando.customerName} agendada.`);
+      return 'Retirada agendada para a próxima abertura.';
     }
 
     case 'retirada.status': {
@@ -727,10 +795,15 @@ function aplicar(
 
     /* ---------------------------- Entregas --------------------------- */
 
-    case 'pedido.criar': {
+    case 'pedido.criar':
+    case 'pedido.agendar': {
+      if (comando.tipo === 'pedido.agendar' && operacao.cashOpen) {
+        throw new HttpError(409, 'Caixa aberto. Envie o pedido normalmente.');
+      }
       const total = somarItens(comando.items);
       validarPagamentos(total, comando.payments);
-      operacao.deliveries.unshift({
+      const destino = comando.tipo === 'pedido.agendar' ? operacao.scheduledDeliveries : operacao.deliveries;
+      destino.unshift({
         id: `d-${agora()}-${Math.floor(Math.random() * 1000)}`,
         code: codigoCurto(),
         customerName: comando.customerName,
@@ -753,7 +826,9 @@ function aplicar(
        * "entregue", então não há nada a sincronizar: o pedido novo já está lá
        * antes de a recepção decidir a taxa, e a chapa começa a trabalhar.
        */
-      return 'Pedido enviado para a recepção.';
+      return comando.tipo === 'pedido.agendar'
+        ? 'Pedido agendado. Entrará na recepção e cozinha na próxima abertura.'
+        : 'Pedido enviado para a recepção.';
     }
 
     case 'pedido.atualizar': {
@@ -999,10 +1074,11 @@ function aplicar(
     }
 
     case 'caixa.fechar': {
+      if (!operacao.cashOpen) throw new HttpError(409, 'O caixa já está fechado.');
+      const turnId = operacao.cashTurnId || `legacy-${agora()}`;
       const fechados = operacao.cashEntries.filter((e) => e.paymentStatus === 'concluido');
-      if (fechados.length === 0) throw new HttpError(409, 'Nao ha lancamentos concluidos para fechar.');
 
-      const expected = { dinheiro: 0, cartao: 0, pix: 0 };
+      const expected = { dinheiro: Number(operacao.openingCash ?? 0), cartao: 0, pix: 0 };
       for (const entry of fechados) {
         if (entry.orderStatus === 'cancelado') continue;
         let nonCash = 0;
@@ -1026,7 +1102,10 @@ function aplicar(
         pix: comando.counted.pix - expected.pix,
       };
       operacao.cashClosures.unshift({
-        id: `f-${agora()}`,
+        id: `f-${agora()}-${Math.floor(Math.random() * 1000)}`,
+        turnId,
+        openedAt: operacao.cashOpenedAt,
+        openingCash: operacao.openingCash,
         counted: comando.counted,
         expected,
         difference,
@@ -1044,23 +1123,118 @@ function aplicar(
         createdAt: agora(),
       } as never);
 
-      /* O turno sai da tela, mas continua auditável no Registro. */
-      operacao.set('cashArchive', [...fechados, ...operacao.cashArchive]);
-      operacao.set(
-        'cashEntries',
-        operacao.cashEntries.filter((e) => e.paymentStatus !== 'concluido')
-      );
-      /* O fechamento encerra também a fila diária do entregador. O histórico
-         financeiro continua preservado em cashArchive. */
-      operacao.set(
-        'deliveries',
-        operacao.deliveries.filter((delivery) => delivery.status !== 'entregue')
-      );
+      // Orders not yet dispatched/paid still need an auditable Register row.
+      // They are canceled by the close, never counted as revenue.
+      const archivedIds = new Set(operacao.cashEntries.map((entry) => entry.id));
+      for (const delivery of operacao.deliveries) {
+        const id = `c-${delivery.id}`;
+        if (archivedIds.has(id)) continue;
+        operacao.cashEntries.push({
+          id, source: 'delivery', label: `Entrega #${delivery.code}`,
+          customerName: delivery.customerName, phone: delivery.phone,
+          address: delivery.address, notes: delivery.notes,
+          items: delivery.items, subtotal: Number(delivery.total ?? 0) - Number(delivery.deliveryFee ?? 0),
+          serviceFee: 0, deliveryFee: delivery.deliveryFee, total: delivery.total,
+          payments: delivery.payments, orderStatus: 'cancelado', paymentStatus: 'pendente',
+          motivoCancelamento: 'Pedido encerrado com o caixa, sem pagamento confirmado.',
+          createdAt: delivery.createdAt, closedAt: agora(), cashTurnId: turnId,
+        } as never);
+        archivedIds.add(id);
+      }
+      for (const table of operacao.tables) {
+        if (table.items.length === 0) continue;
+        operacao.cashEntries.push({
+          id: `c-fechamento-mesa-${table.id}-${agora()}`,
+          source: 'mesa', label: `Mesa ${table.label}`, customerName: `Mesa ${table.label}`,
+          items: table.items, subtotal: somarItens(table.items), serviceFee: 0, deliveryFee: 0,
+          total: somarItens(table.items), payments: [], orderStatus: 'cancelado', paymentStatus: 'pendente',
+          motivoCancelamento: 'Comanda pendente encerrada com o caixa.', createdAt: agora(),
+          closedAt: agora(), cashTurnId: turnId,
+        } as never);
+      }
+      for (const takeout of operacao.takeouts) {
+        if (takeout.items.length === 0) continue;
+        operacao.cashEntries.push({
+          id: `c-fechamento-retirada-${takeout.id}`, source: 'retirada',
+          label: `Retirada #${takeout.label}`, customerName: takeout.customerName, phone: takeout.phone,
+          items: takeout.items, subtotal: somarItens(takeout.items), serviceFee: 0, deliveryFee: 0,
+          total: somarItens(takeout.items), payments: [], orderStatus: 'cancelado', paymentStatus: 'pendente',
+          motivoCancelamento: 'Comanda pendente encerrada com o caixa.', createdAt: takeout.createdAt,
+          closedAt: agora(), cashTurnId: turnId,
+        } as never);
+      }
+
+      /* Inclusive pendências ficam no histórico, mas fora do faturamento. */
+      for (const entry of operacao.cashEntries) {
+        entry.cashTurnId = turnId;
+        if (entry.paymentStatus !== 'concluido') {
+          entry.orderStatus = 'cancelado';
+          entry.motivoCancelamento = 'Encerrado sem pagamento no fechamento do caixa.';
+        }
+      }
+      operacao.set('cashArchive', [...operacao.cashEntries, ...operacao.cashArchive]);
+      operacao.set('cashEntries', []);
+      operacao.set('deliveries', []);
+      operacao.set('takeouts', []);
+      operacao.set('tables', operacao.tables.map((table) => ({
+        id: table.id, label: table.label, seats: table.seats, area: table.area,
+        status: 'livre', items: [],
+      })));
+      operacao.set('kitchenStatus', new Map());
+      operacao.cashOpen = false;
+      operacao.cashTurnId = '';
+      operacao.cashOpenedAt = null;
+      operacao.openingCash = 0;
       operacao.lastClosedAt = new Date();
       operacao.lastClosedBy = quem;
       operacao.set('cashMovements', []);
       auditar('caixa.fechado', '', `Turno fechado com ${fechados.length} lançamento(s).`);
       return `Turno fechado com ${fechados.length} lançamento(s).`;
+    }
+
+    case 'caixa.abrir': {
+      if (operacao.cashOpen) throw new HttpError(409, 'Já existe um caixa aberto neste restaurante.');
+      operacao.cashOpen = true;
+      operacao.cashTurnId = `turno-${agora()}-${Math.floor(Math.random() * 1000)}`;
+      operacao.cashOpenedAt = agora();
+      operacao.openingCash = comando.openingCash;
+      for (const id of operacao.scheduledTables) {
+        const table = operacao.tables.find((t) => t.id === id);
+        if (table) { table.status = 'ocupada'; table.set('items', []); }
+      }
+      operacao.set('scheduledTables', []);
+      operacao.set('takeouts', [...operacao.scheduledTakeouts, ...operacao.takeouts]);
+      operacao.set('scheduledTakeouts', []);
+      operacao.set('deliveries', [...operacao.scheduledDeliveries, ...operacao.deliveries]);
+      const scheduled = operacao.scheduledDeliveries.length;
+      operacao.set('scheduledDeliveries', []);
+      auditar('caixa.aberto', operacao.cashTurnId, `Caixa aberto com R$ ${comando.openingCash.toFixed(2)} em espécie; ${scheduled} pedido(s) agendado(s) liberado(s).`);
+      return `Caixa aberto. ${scheduled} pedido(s) agendado(s) liberado(s).`;
+    }
+
+    case 'caixa.turno.reabrir': {
+      if (operacao.cashOpen) throw new HttpError(409, 'Feche o caixa atual antes de reabrir um turno anterior.');
+      const closure = operacao.cashClosures.find((c) => c.id === comando.closureId);
+      if (!closure) throw new HttpError(404, 'Fechamento não encontrado.');
+      if (closure.reopenedAt) throw new HttpError(409, 'Este fechamento já foi reaberto.');
+      const turnId = closure.turnId || `legacy-${closure.createdAt}`;
+      operacao.cashOpen = true;
+      operacao.cashTurnId = turnId;
+      operacao.cashOpenedAt = closure.openedAt ?? closure.createdAt;
+      operacao.openingCash = closure.openingCash ?? 0;
+      const previousClosure = operacao.cashClosures
+        .filter((c) => c.createdAt < closure.createdAt)
+        .sort((a, b) => b.createdAt - a.createdAt)[0];
+      const belongsToTurn = (entry: (typeof operacao.cashArchive)[number]) =>
+        entry.cashTurnId === turnId || (!entry.cashTurnId
+          && entry.createdAt > (closure.openedAt ?? previousClosure?.createdAt ?? 0)
+          && entry.createdAt <= closure.createdAt);
+      const entries = operacao.cashArchive.filter(belongsToTurn);
+      operacao.set('cashEntries', entries);
+      operacao.set('cashArchive', operacao.cashArchive.filter((e) => !belongsToTurn(e)));
+      closure.reopenedAt = agora();
+      auditar('caixa.turno.reaberto', closure.id, `Fechamento de ${new Date(closure.createdAt).toLocaleDateString('pt-BR')} reaberto.`);
+      return 'Caixa reaberto. Pedidos agendados permanecem aguardando a próxima abertura normal.';
     }
 
     case 'caixa.movimento': {

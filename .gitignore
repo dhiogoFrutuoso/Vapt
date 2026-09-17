@@ -161,6 +161,8 @@ skills-lock.json
 # recebe, não.
 releases/*
 !releases/README.md
+# Builds locais de validação; o instalador oficial permanece em releases/.
+releases-verification*/
 
 # ==============================================================================
 # Binarios servidos pelo proprio site

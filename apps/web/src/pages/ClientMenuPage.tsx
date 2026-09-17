@@ -29,7 +29,8 @@ import { io } from 'socket.io-client';
  * O FLUXO DO PEDIDO
  * -----------------
  *   1. cria o pedido no banco (`POST /public/apps/:id/orders`);
- *   2. redireciona para o WhatsApp do restaurante com o resumo.
+ *   2. se o caixa estiver aberto, abre o WhatsApp com o resumo; se fechado,
+ *      guarda o pedido para a próxima abertura e mostra a confirmação.
  *
  * Nessa ordem, e não o contrário. Criando primeiro, o pedido já está na
  * Recepção e na Cozinha mesmo que o cliente feche a aba do WhatsApp sem
@@ -43,6 +44,7 @@ const BASE = import.meta.env.VITE_API_URL ?? '/api';
 type CardapioPublico = {
   id: string;
   name: string;
+  cashOpen: boolean;
   branding: {
     storeName: string;
     tagline: string;
@@ -151,6 +153,9 @@ export function ClientMenuPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [enviando, setEnviando] = useState(false);
+  const [agendando, setAgendando] = useState(false);
+  const [agendadoCodigo, setAgendadoCodigo] = useState('');
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -185,23 +190,30 @@ export function ClientMenuPage() {
       auth: { publicAppId: id },
       transports: ['polling', 'websocket'],
     });
-    socket.on('menu_item_availability_changed', async (event: { productId: string; available: boolean }) => {
+    async function atualizar(event?: { productId?: string; available?: boolean }) {
       try {
-        const response = await fetch(`${BASE}/public/apps/${encodeURIComponent(id)}`);
+        const response = await fetch(`${BASE}/public/apps/${encodeURIComponent(id ?? '')}`);
         const payload = await response.json();
         if (response.ok && payload.ok !== false) {
           const next = payload.data as CardapioPublico;
           setCardapio(next);
-          if (!event.available) {
-            const exhausted = next.products.find((product) => product.id === event.productId);
+          if (event?.available === false) {
+            const exhausted = next.products.find((product) => product.id === (event.productId ?? ''));
             if (exhausted) setCart((current) => current.filter((item) => item.name !== exhausted.name));
           }
         }
       } catch {
         /* A próxima reconexão ou recarga recupera o estado; o carrinho atual é preservado. */
       }
-    });
+    }
+    socket.on('menu_item_availability_changed', atualizar);
+    socket.on('register_status_changed', () => void atualizar());
+    const interval = window.setInterval(() => void atualizar(), 30_000);
+    const onFocus = () => void atualizar();
+    window.addEventListener('focus', onFocus);
     return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
       socket.close();
     };
   }, [id]);
@@ -258,6 +270,7 @@ export function ClientMenuPage() {
 
   async function enviarPedido(dados: DadosCheckout) {
     if (!cardapio || enviando) return;
+    setErroEnvio(null);
     setEnviando(true);
 
     /*
@@ -291,6 +304,7 @@ export function ClientMenuPage() {
           phone: dados.phone,
           notes: dados.notes,
           isDelivery: dados.isDelivery,
+          scheduleForOpening: !cardapio.cashOpen && agendando,
           address: dados.isDelivery
             ? {
                 mode: dados.address.mode,
@@ -309,13 +323,24 @@ export function ClientMenuPage() {
       });
 
       const payload = await r.json();
-      if (r.ok && payload.ok !== false) codigo = String(payload.data.code ?? '');
-    } catch {
-      /*
-       * Sem rede o pedido não entrou. Seguimos para o WhatsApp mesmo assim:
-       * a mensagem chega ao restaurante e alguém lança à mão, o que é melhor
-       * do que o cliente ficar preso numa tela de erro com o pedido montado.
-       */
+      if (r.status === 409) {
+        const fresh = await fetch(`${BASE}/public/apps/${encodeURIComponent(id ?? '')}`).catch(() => null);
+        if (fresh?.ok) {
+          const current = await fresh.json();
+          if (current.ok !== false) setCardapio(current.data as CardapioPublico);
+        }
+        setAgendando(false);
+      }
+      if (!r.ok || payload.ok === false) throw new Error(payload.error ?? payload.message ?? 'Pedido não recebido. Tente novamente.');
+      codigo = String(payload.data.code ?? '');
+      if (payload.data.scheduled) {
+        setAgendadoCodigo(codigo);
+        setCart([]);
+        return;
+      }
+    } catch (error) {
+      setErroEnvio(error instanceof Error ? error.message : 'Não foi possível enviar o pedido. Tente novamente.');
+      return;
     } finally {
       setEnviando(false);
     }
@@ -381,6 +406,23 @@ export function ClientMenuPage() {
       style={{ ['--brand' as string]: marca, ['--on-brand' as string]: '#ffffff' }}
     >
       <div className="editor-preview__screen">
+        {agendadoCodigo ? (
+          <section className="flex min-h-[80dvh] flex-col items-center justify-center gap-4 px-6 text-center" style={{ background: cardapio.branding.theme === 'escuro' ? '#101722' : '#fffaf6', color: cardapio.branding.theme === 'escuro' ? '#fff' : '#18212f' }}>
+            {cardapio.branding.logoUrl && <img src={cardapio.branding.logoUrl} alt="" className="h-16 w-16 rounded-2xl object-cover" />}
+            <h1 className="m-0 text-2xl font-bold">Pedido agendado #{agendadoCodigo}</h1>
+            <p className="m-0 max-w-sm leading-relaxed">Recebemos seu pedido. Ele aparecerá para a equipe quando o caixa do {cardapio.branding.storeName} abrir novamente.</p>
+          </section>
+        ) : !cardapio.cashOpen && !agendando ? (
+          <section className="flex min-h-[80dvh] flex-col items-center justify-center gap-5 px-6 text-center" style={{ background: cardapio.branding.theme === 'escuro' ? '#101722' : '#fffaf6', color: cardapio.branding.theme === 'escuro' ? '#fff' : '#18212f' }}>
+            {cardapio.branding.logoUrl && <img src={cardapio.branding.logoUrl} alt="" className="h-20 w-20 rounded-2xl object-cover" />}
+            <p className="m-0 text-sm font-bold uppercase tracking-widest" style={{ color: marca }}>{cardapio.branding.storeName}</p>
+            <h1 className="m-0 max-w-sm text-2xl font-bold">Encerramos o atendimento de hoje</h1>
+            <p className="m-0 max-w-sm leading-relaxed">Sentimos muito por não receber seu pedido agora. Você pode deixá-lo agendado: ele chegará à nossa equipe assim que abrirmos o caixa novamente.</p>
+            <button type="button" onClick={() => setAgendando(true)} className="min-h-12 w-full max-w-sm rounded-2xl border-0 px-5 py-3 font-bold text-white" style={{ background: marca }}>Agendar pedido para quando abrir</button>
+          </section>
+        ) : <>
+        {!cardapio.cashOpen && <div className="mx-4 mt-4 rounded-xl border border-solid p-3 text-sm font-semibold" style={{ borderColor: marca, color: marca }}>Pedido agendado · será enviado à equipe na próxima abertura do caixa.</div>}
+        {erroEnvio && <div role="alert" className="mx-4 mt-4 rounded-xl border border-solid border-red-400 bg-red-50 p-3 text-sm text-red-800">{erroEnvio}</div>}
         <ClientOrderFlow
           storeName={cardapio.branding.storeName}
           logoUrl={cardapio.branding.logoUrl}
@@ -394,9 +436,10 @@ export function ClientMenuPage() {
           /* Importar do WhatsApp é ferramenta de quem atende. */
           mostrarImportacao={false}
           aceitaEntrega={cardapio.delivery.enabled}
-          rotuloEnvio={enviando ? 'Enviando...' : 'Enviar pedido pelo WhatsApp'}
+          rotuloEnvio={enviando ? 'Enviando...' : !cardapio.cashOpen ? 'Agendar pedido para a abertura' : 'Enviar pedido pelo WhatsApp'}
           onSubmit={enviarPedido}
         />
+        </>}
       </div>
     </main>
   );

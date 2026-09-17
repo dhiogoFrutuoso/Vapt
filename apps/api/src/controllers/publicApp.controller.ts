@@ -73,6 +73,7 @@ export const getPublicApp = asyncHandler(async (req: Request, res: Response) => 
 
   const brand = (app.brand ?? {}) as Record<string, unknown>;
   const delivery = (app.delivery ?? {}) as Record<string, unknown>;
+  const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
 
   return res.json({
     ok: true,
@@ -81,6 +82,7 @@ export const getPublicApp = asyncHandler(async (req: Request, res: Response) => 
       slug: app.slug,
       name: app.name,
       businessType: app.businessType,
+      cashOpen: operation ? operation.cashOpen !== false : false,
 
       branding: {
         storeName: app.name,
@@ -181,6 +183,10 @@ export const createMagicLink = asyncHandler(async (req: Request, res: Response) 
 
   if (!app) throw new HttpError(404, 'Restaurante nao encontrado.');
   garantirCardapioPublico(app);
+  const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
+  if (!operation || operation.cashOpen === false) {
+    throw new HttpError(409, 'Caixa fechado. Use o cardápio para agendar o pedido para a próxima abertura.');
+  }
 
   const disponiveis = new Map<string, { name: string; price: number }>();
   for (const p of app.products ?? []) {
@@ -240,6 +246,7 @@ const pedidoPublicoSchema = z.object({
   phone: z.string().trim().min(10, 'Informe o telefone com DDD.').max(30),
   notes: z.string().trim().max(300).optional().default(''),
   isDelivery: z.boolean().optional().default(true),
+  scheduleForOpening: z.boolean().optional().default(false),
   address: z
     .object({
       mode: z.enum(['gps', 'manual']).optional().default('manual'),
@@ -340,10 +347,7 @@ export const createPublicOrder = asyncHandler(async (req: Request, res: Response
   const code = String(Math.floor(1000 + Math.random() * 8999));
   const orderId = `d-${agora}-${Math.floor(Math.random() * 1000)}`;
 
-  const operacao =
-    (await Operation.findOne({ app: app._id })) ?? new Operation({ app: app._id });
-
-  operacao.deliveries.unshift({
+  const order = {
     id: orderId,
     code,
     customerName: body.customerName,
@@ -361,21 +365,35 @@ export const createPublicOrder = asyncHandler(async (req: Request, res: Response
     timeLabel: 'agora',
     distanceLabel: '',
     createdAt: agora,
-  } as never);
+  };
 
-  await operacao.save();
+  let scheduled = false;
+  let saved = false;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const operacao = (await Operation.findOne({ app: app._id }))
+      ?? new Operation({ app: app._id, cashOpen: false });
+    scheduled = !operacao.cashOpen;
+    if (scheduled && !body.scheduleForOpening) {
+      throw new HttpError(409, 'O restaurante encerrou o atendimento hoje. Escolha agendar para a próxima abertura.');
+    }
+    (scheduled ? operacao.scheduledDeliveries : operacao.deliveries).unshift(order as never);
+    try {
+      await operacao.save();
+      saved = true;
+      break;
+    } catch (error) {
+      if (!['VersionError', 'ParallelSaveError'].includes((error as { name?: string }).name ?? '')
+        && (error as { code?: number }).code !== 11000) throw error;
+    }
+  }
+  if (!saved) throw new HttpError(409, 'O estado do restaurante mudou. Tente enviar novamente.');
 
-  /* Acorda a Recepcao e a Cozinha sem esperar a sondagem de 30 segundos. */
-  emitNewOrder(String(app._id), {
-    orderId,
-    code,
-    customerName: body.customerName,
-    status: 'novo',
-    source: 'cardapio',
+  if (!scheduled) emitNewOrder(String(app._id), {
+    orderId, code, customerName: body.customerName, status: 'novo', source: 'cardapio',
   });
 
   return res.json({
     ok: true,
-    data: { id: orderId, code, subtotal, items: itens.map(({ name, price }) => ({ name, price })) },
+    data: { id: orderId, code, scheduled, subtotal, items: itens.map(({ name, price }) => ({ name, price })) },
   });
 });

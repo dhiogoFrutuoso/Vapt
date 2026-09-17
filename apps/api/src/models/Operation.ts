@@ -235,6 +235,7 @@ const cashEntrySchema = new Schema(
 
     createdAt: { type: Number, required: true },
     closedAt: { type: Number, default: null },
+    cashTurnId: { type: String, default: '' },
   },
   { _id: false }
 );
@@ -256,6 +257,14 @@ const operationSchema = new Schema(
     tables: { type: [tableStateSchema], default: [] },
     takeouts: { type: [takeoutSchema], default: [] },
     deliveries: { type: [deliverySchema], default: [] },
+    scheduledDeliveries: { type: [deliverySchema], default: [] },
+    scheduledTakeouts: { type: [takeoutSchema], default: [] },
+    scheduledTables: { type: [String], default: [] },
+    /** Legacy operations stay open until their first explicit close. New ones start closed. */
+    cashOpen: { type: Boolean, default: true },
+    cashTurnId: { type: String, default: '' },
+    cashOpenedAt: { type: Number, default: null },
+    openingCash: { type: Number, default: 0 },
     cashEntries: { type: [cashEntrySchema], default: [] },
     cashArchive: { type: [cashEntrySchema], default: [] },
 
@@ -282,6 +291,10 @@ const operationSchema = new Schema(
         new Schema(
           {
             id: { type: String, required: true },
+            turnId: { type: String, default: '' },
+            openedAt: { type: Number, default: null },
+            openingCash: { type: Number, default: 0 },
+            reopenedAt: { type: Number, default: null },
             counted: {
               dinheiro: { type: Number, default: 0 },
               cartao: { type: Number, default: 0 },
@@ -359,7 +372,7 @@ const operationSchema = new Schema(
     lastClosedAt: { type: Date, default: null },
     lastClosedBy: { type: String, trim: true, maxlength: 80, default: '' },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
 export type OperationDoc = HydratedDocument<InferSchemaType<typeof operationSchema>>;

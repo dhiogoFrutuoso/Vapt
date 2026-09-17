@@ -6,7 +6,7 @@ import { brl } from '../../lib/format';
 import { MoneyInput } from './MoneyInput';
 import { CashChangeField } from './CashChangeField';
 import { faturamento, hasInvalidChangeFor, paymentChangeDue } from './types';
-import { addressLabel, type CashEntry, type CashMovement, type OrderItem, type OrderSource, type PaymentMethod, type PaymentSplit, type PaymentSplitItem } from './types';
+import { addressLabel, type CashClosure, type CashEntry, type CashMovement, type OrderItem, type OrderSource, type PaymentMethod, type PaymentSplit, type PaymentSplitItem } from './types';
 import { ArrowRight, ArrowUpFromLine, ClipboardCheck, ClipboardCopy, FolderOpen, HandCoins, Printer, RotateCcw, X, XCircle } from 'lucide-react';
 import { useConfirm } from '../ConfirmModal';
 import { formatReceiptText, PrintTicket, type PrintTicketProps } from './PrintTicket';
@@ -17,6 +17,11 @@ type Props = {
   entries: CashEntry[];
   /** Turnos ja fechados. So a sub-aba "Registro" enxerga. */
   archive?: CashEntry[];
+  closures?: CashClosure[];
+  registerOpen?: boolean;
+  openingCash?: number;
+  onOpenRegister?: (openingCash: number) => void;
+  onReopenTurn?: (closureId: string) => void;
   /** Dono marcou que o entregador recebe por entrega (sem salário fixo). */
   courierPaidPerDelivery: boolean;
   onUpdatePayments: (id: string, payments: PaymentSplit) => void;
@@ -34,7 +39,7 @@ type Props = {
   onEditDeliveryItems?: (entry: CashEntry) => void;
   onCreditPayment?: (id: string, amount: number) => void;
   onReopenEntry?: (id: string) => void;
-  onCloseRegister: (counted: { dinheiro: number; cartao: number; pix: number }) => void;
+  onCloseRegister: (counted: { dinheiro: number; cartao: number; pix: number }) => void | Promise<unknown>;
   storeName?: string;
   storePhone?: string;
   operatorName?: string;
@@ -136,6 +141,11 @@ function matchesSearch(entry: CashEntry, term: string): boolean {
 export function CashRegister({
   entries,
   archive = [],
+  closures = [],
+  registerOpen = true,
+  openingCash = 0,
+  onOpenRegister,
+  onReopenTurn,
   onUpdatePayments,
   onEditEntry,
   onCancelEntry,
@@ -158,7 +168,7 @@ export function CashRegister({
   const [courierFilter, setCourierFilter] = useState('todos');
   const [closedMessage, setClosedMessage] = useState<string | null>(null);
   const { confirm, ConfirmElement } = useConfirm();
-  const [actionModal, setActionModal] = useState<'sangria' | 'fechar' | 'cancelar' | 'fiado' | null>(null);
+  const [actionModal, setActionModal] = useState<'abrir' | 'sangria' | 'fechar' | 'cancelar' | 'fiado' | null>(null);
   const [actionEntry, setActionEntry] = useState<CashEntry | null>(null);
   const [actionAmount, setActionAmount] = useState(0);
   const [actionReason, setActionReason] = useState('');
@@ -338,7 +348,6 @@ export function CashRegister({
 
   /** Cancelado não entra em nenhum total: não houve dinheiro. */
   const valid = useMemo(() => filtered.filter((entry) => entry.orderStatus !== 'cancelado'), [filtered]);
-  const paid = useMemo(() => valid.filter((entry) => entry.paymentStatus === 'concluido'), [valid]);
 
   const totals = useMemo(() => {
     const byPayment: Record<PaymentMethod, number> = { pix: 0, cartao: 0, dinheiro: 0, fiado: 0 };
@@ -530,6 +539,9 @@ export function CashRegister({
       {tab === 'turno' && (
         <>
           <p className="cat-hint">{copy.cashHint}</p>
+          <p className="rounded-xl border border-solid border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm font-semibold text-[var(--ink-700)]">
+            {registerOpen ? `Caixa aberto · fundo inicial ${brl(openingCash)}` : 'Caixa fechado · pedidos aguardam a próxima abertura'}
+          </p>
 
           <section className="cash-overview" aria-label="Resumo do turno">
             <div className="is-primary"><span>Recebido</span><strong>{brl(totals.received)}</strong></div>
@@ -537,7 +549,7 @@ export function CashRegister({
             <div><span>Taxas de entrega</span><strong>{brl(totals.deliveryFees)}</strong></div>
           </section>
 
-          {onCashMovement && (
+          {registerOpen && onCashMovement && (
             <div className="cash-actions-bar">
               <button type="button" className="cash-outflow-button" onClick={() => { setActionModal('sangria'); setActionAmount(0); setActionReason(''); }}>
                 <span><ArrowUpFromLine size={17} aria-hidden="true" /></span>
@@ -560,7 +572,9 @@ export function CashRegister({
                     {movement.type === 'sangria' ? '− ' : '+ '}{brl(movement.amount)}
                   </strong>
                   {movement.type === 'sangria' && (
-                    <button type="button" className="cash-movement__print" onClick={() => setPrintingMovement({ movement, draft: false })}>
+                    <button type="button" className="cash-movement__print" onClick={() => confirm({ title: 'Imprimir comanda?',
+                      message: `A saída de ${brl(movement.amount)} será enviada à impressora.`, confirmText: 'Imprimir comanda',
+                      cancelText: 'Voltar', isDestructive: false, onConfirm: () => setPrintingMovement({ movement, draft: false }), })}>
                       <Printer size={16} aria-hidden="true" /> Imprimir comanda
                     </button>
                   )}
@@ -710,6 +724,23 @@ export function CashRegister({
             <span><small>Lançamentos</small><strong>{historyFiltered.length}</strong></span>
             <span><small>Histórico total</small><strong>{history.length}</strong></span>
           </section>
+
+          {dateFilter && closures.filter((closure) => toDateInput(closure.createdAt) === dateFilter).map((closure) => (
+            <section key={closure.id} className="mb-3 rounded-xl border border-solid border-[var(--line)] bg-[var(--surface-2)] p-3 text-[var(--ink-900)]">
+              <strong className="block text-sm">Caixa fechado em {new Date(closure.createdAt).toLocaleString('pt-BR')}</strong>
+              <span className="block text-xs text-[var(--ink-500)]">Abertura em espécie: {brl(closure.openingCash ?? 0)} · Conferido: {brl(closure.counted.dinheiro)}</span>
+              {onReopenTurn && (
+                <button type="button" className="cash-entry__edit mt-3" disabled={registerOpen || Boolean(closure.reopenedAt)} onClick={() => confirm({
+                  title: 'Reabrir caixa deste dia?',
+                  message: 'Só é possível reabrir se nenhum caixa estiver aberto. Os lançamentos deste turno voltarão para conferência.',
+                  confirmText: 'Reabrir caixa', isDestructive: false,
+                  onConfirm: () => onReopenTurn(closure.id),
+                })}>
+                  <RotateCcw size={15} aria-hidden="true" /> {closure.reopenedAt ? 'Já reaberto' : registerOpen ? 'Feche o caixa atual primeiro' : 'Reabrir caixa'}
+                </button>
+              )}
+            </section>
+          ))}
 
           {/* ---------------------- Busca e extrato por data ---------------------- */}
           <div className="cash-search">
@@ -877,17 +908,16 @@ export function CashRegister({
           <div className="cash-close__intro">
             <span className="cash-close__icon" aria-hidden="true"><ClipboardCheck size={19} /></span>
             <div className="cash-close__copy">
-              <h4>Conferência do turno</h4>
-              <p>Fechamento cego: conte dinheiro, cartão e PIX.</p>
+              <h4>{registerOpen ? 'Conferência do turno' : 'Próximo turno'}</h4>
+              <p>{registerOpen ? 'Fechamento cego: conte dinheiro, cartão e PIX.' : 'Conte o dinheiro físico antes de começar a receber pedidos.'}</p>
             </div>
           </div>
           <button
             type="button"
             className="phone__sheet-btn is-primary is-block cash-close__button"
-            onClick={handleClose}
-            disabled={paid.length === 0}
+            onClick={registerOpen ? handleClose : () => { setActionAmount(0); setActionModal('abrir'); }}
           >
-            <span>{copy.cashClose}</span><ArrowRight size={17} aria-hidden="true" />
+            <span>{registerOpen ? copy.cashClose : 'Abrir caixa'}</span><ArrowRight size={17} aria-hidden="true" />
           </button>
 
           {closedMessage && <p className="phone__flash">{closedMessage}</p>}
@@ -945,7 +975,8 @@ export function CashRegister({
 
             <div className="cash-order-modal__tools">
               <button type="button" onClick={() => void copyEditingReceipt()}><ClipboardCopy size={17} aria-hidden="true" /><span><strong>Copiar formatação</strong><small>Pronta para colar no WhatsApp</small></span></button>
-              <button type="button" onClick={() => void printEditingReceipt()}><Printer size={17} aria-hidden="true" /><span><strong>Imprimir comanda</strong><small>Usar a impressora conectada</small></span></button>
+              <button type="button" onClick={() => confirm({ title: 'Imprimir comanda?', message: `${editingEntry?.label ?? 'Pedido'} será enviado à impressora conectada.`,
+                confirmText: 'Imprimir comanda', cancelText: 'Voltar', isDestructive: false, onConfirm: () => void printEditingReceipt(), })}><Printer size={17} aria-hidden="true" /><span><strong>Imprimir comanda</strong><small>Usar a impressora conectada</small></span></button>
             </div>
 
             {onEditEntry && (
@@ -1068,6 +1099,7 @@ export function CashRegister({
           <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900">
             <h3 className="m-0 text-lg font-extrabold text-slate-950 dark:text-white">
               {actionModal === 'fechar' && 'Fechamento cego'}
+              {actionModal === 'abrir' && 'Abrir caixa'}
               {actionModal === 'sangria' && 'Registrar saída de dinheiro'}
               {actionModal === 'cancelar' && `Cancelar ${actionEntry?.label ?? 'venda'}`}
               {actionModal === 'fiado' && 'Abater valor fiado'}
@@ -1075,6 +1107,8 @@ export function CashRegister({
             <p className="mb-5 mt-1 text-sm leading-relaxed text-slate-500">
               {actionModal === 'fechar'
                 ? 'Informe apenas os valores contados. O sistema revelará as diferenças somente na área de Gestão.'
+                : actionModal === 'abrir'
+                  ? 'Conte o dinheiro físico que já está no caixa. Esse valor será o fundo inicial do novo turno.'
                 : actionModal === 'cancelar'
                   ? 'A venda continuará no histórico, marcada como cancelada e fora do faturamento.'
                   : actionModal === 'fiado'
@@ -1086,7 +1120,7 @@ export function CashRegister({
               <div className="space-y-3">
                 {(['dinheiro', 'cartao', 'pix'] as const).map((method) => (
                   <label key={method} className="block">
-                    <span className="mb-1 block text-xs font-bold capitalize text-slate-600">{method}</span>
+                    <span className="mb-1 block text-xs font-bold capitalize text-slate-600 dark:text-slate-200">{method}</span>
                     <MoneyInput value={counted[method]} onChange={(value) => setCounted((current) => ({ ...current, [method]: value }))} />
                   </label>
                 ))}
@@ -1099,10 +1133,10 @@ export function CashRegister({
             ) : (
               <div className="space-y-3">
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold text-slate-600">Valor</span>
+                  <span className="mb-1 block text-xs font-bold text-slate-600 dark:text-slate-200">{actionModal === 'abrir' ? 'Dinheiro físico contado no caixa' : 'Valor'}</span>
                   <MoneyInput value={actionAmount} onChange={setActionAmount} />
                 </label>
-                {actionModal !== 'fiado' && (
+                {actionModal !== 'fiado' && actionModal !== 'abrir' && (
                   <label className="block">
                     <span className="mb-1 block text-xs font-bold text-slate-600">Motivo obrigatório</span>
                     <textarea rows={3} value={actionReason} onChange={(event) => setActionReason(event.target.value)} className="w-full resize-none rounded-2xl border border-solid border-slate-200 p-3 text-sm outline-none focus:border-[#F95D2A] focus:ring-2 focus:ring-orange-100" />
@@ -1116,7 +1150,8 @@ export function CashRegister({
                 type="button"
                 className="cash-movement-preview"
                 disabled={actionAmount <= 0 || actionReason.trim().length < 3}
-                onClick={printDraftMovement}
+                onClick={() => confirm({ title: 'Imprimir prévia?', message: 'A prévia da saída será impressa sem registrar a movimentação.',
+                  confirmText: 'Imprimir prévia', cancelText: 'Voltar', isDestructive: false, onConfirm: printDraftMovement, })}
               >
                 <Printer size={17} aria-hidden="true" /> Imprimir prévia da comanda
                 <span>Não registra a saída</span>
@@ -1130,14 +1165,16 @@ export function CashRegister({
               <button
                 type="button"
                 className="rounded-2xl border-0 bg-[#F95D2A] px-4 py-3 text-sm font-extrabold text-white disabled:opacity-40"
-                disabled={actionModal === 'cancelar' ? actionReason.trim().length < 3 : actionModal === 'fechar' ? false : actionAmount <= 0 || (actionModal !== 'fiado' && actionReason.trim().length < 3)}
+                disabled={actionModal === 'cancelar' ? actionReason.trim().length < 3 : actionModal === 'fechar' || actionModal === 'abrir' ? false : actionAmount <= 0 || (actionModal !== 'fiado' && actionReason.trim().length < 3)}
                 onClick={() => {
                   const modal = actionModal;
                   const entry = actionEntry;
                   confirm({
                     title: 'Confirmação final',
                     message: modal === 'fechar'
-                      ? 'Os lançamentos concluídos serão arquivados. Confirma o fechamento do turno?'
+                      ? 'Todos os pedidos do turno sairão das filas e os registros financeiros ficarão no histórico. Confirma o fechamento?'
+                      : modal === 'abrir'
+                        ? `O caixa será aberto com ${brl(actionAmount)} em dinheiro físico. Pedidos agendados serão liberados. Confirmar?`
                       : modal === 'cancelar'
                         ? 'Esta venda ficará fora do faturamento. Deseja confirmar?'
                         : `Confirma ${modal === 'sangria' ? 'a saída de dinheiro' : 'o abatimento'} de ${brl(actionAmount)}?`,
@@ -1145,9 +1182,13 @@ export function CashRegister({
                     isDestructive: true,
                     onConfirm: () => {
                       if (modal === 'fechar') {
-                        onCloseRegister(counted);
-                        setClosedMessage('Turno fechado. As diferenças estão disponíveis somente para a Gestão.');
-                        window.setTimeout(() => setClosedMessage(null), 4000);
+                        void Promise.resolve(onCloseRegister(counted)).then((result) => {
+                          if (result === false) return;
+                          setClosedMessage('Turno fechado. As diferenças estão disponíveis somente para a Gestão.');
+                          window.setTimeout(() => setClosedMessage(null), 4000);
+                        });
+                      } else if (modal === 'abrir') {
+                        onOpenRegister?.(actionAmount);
                       } else if (modal === 'cancelar' && entry && onCancelEntry) onCancelEntry(entry.id, actionReason.trim());
                       else if (modal === 'sangria' && onCashMovement) onCashMovement(modal, actionAmount, actionReason.trim());
                       else if (modal === 'fiado' && entry && onCreditPayment) onCreditPayment(entry.id, actionAmount);

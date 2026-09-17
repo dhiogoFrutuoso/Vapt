@@ -45,6 +45,12 @@ export type EstadoOperacao = {
   cashMovements: CashMovement[];
   cashClosures: CashClosure[];
   auditLog: AuditEntry[];
+  cashOpen: boolean;
+  cashOpenedAt: number | null;
+  openingCash: number;
+  scheduledTables: string[];
+  scheduledTakeouts: TakeoutOrder[];
+  scheduledDeliveries: DeliveryOrder[];
 };
 
 const VAZIO: EstadoOperacao = {
@@ -57,15 +63,23 @@ const VAZIO: EstadoOperacao = {
   cashMovements: [],
   cashClosures: [],
   auditLog: [],
+  cashOpen: false,
+  cashOpenedAt: null,
+  openingCash: 0,
+  scheduledTables: [],
+  scheduledTakeouts: [],
+  scheduledDeliveries: [],
 };
 
 /** Todo comando aceito pela API, com a forma exata de cada um. */
 export type Comando =
   | { tipo: 'mesa.abrir'; mesaId: string }
+  | { tipo: 'mesa.agendar'; mesaId: string }
   | { tipo: 'mesa.status'; mesaId: string; status: TableStatus }
   | { tipo: 'mesa.item.adicionar'; mesaId: string; item: OrderItem }
   | { tipo: 'mesa.item.remover'; mesaId: string; indice: number }
   | { tipo: 'retirada.criar'; customerName: string; phone?: string }
+  | { tipo: 'retirada.agendar'; customerName: string; phone?: string }
   | { tipo: 'retirada.status'; retiradaId: string; status: TableStatus }
   | { tipo: 'retirada.remover'; retiradaId: string }
   | { tipo: 'retirada.item.adicionar'; retiradaId: string; item: OrderItem }
@@ -74,6 +88,16 @@ export type Comando =
   | { tipo: 'comanda.cancelar'; alvo: 'mesa' | 'retirada'; alvoId: string }
   | {
       tipo: 'pedido.criar';
+      customerName: string;
+      phone?: string;
+      items: OrderItem[];
+      payments: PaymentSplit;
+      address: DeliveryOrder['address'];
+      notes?: string;
+      isDelivery?: boolean;
+    }
+  | {
+      tipo: 'pedido.agendar';
       customerName: string;
       phone?: string;
       items: OrderItem[];
@@ -108,6 +132,8 @@ export type Comando =
     }
   | { tipo: 'caixa.cancelar'; lancamentoId: string; motivo?: string }
   | { tipo: 'caixa.fechar'; counted: { dinheiro: number; cartao: number; pix: number } }
+  | { tipo: 'caixa.abrir'; openingCash: number }
+  | { tipo: 'caixa.turno.reabrir'; closureId: string }
   | { tipo: 'caixa.movimento'; movementType: 'sangria'; amount: number; reason: string }
   | { tipo: 'caixa.reabrir'; lancamentoId: string }
   | { tipo: 'fiado.abater'; lancamentoId: string; amount: number }

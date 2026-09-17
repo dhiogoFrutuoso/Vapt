@@ -4,6 +4,7 @@ import { asyncHandler } from '../middlewares/errorHandler.js';
 import { AppProject } from '../models/AppProject.js';
 import { MagicLinkUse } from '../models/MagicLinkUse.js';
 import { Order } from '../models/Order.js';
+import { Operation } from '../models/Operation.js';
 import { MAGIC_TTL_MINUTES, verifyMagicToken } from '../utils/magicLink.js';
 import { emitNewOrder } from '../realtime/io.js';
 
@@ -63,6 +64,10 @@ export const consumeMagicLink = asyncHandler(async (req: Request, res: Response)
   const app = await AppProject.findById(p.a).select('_id status').lean();
   if (!app || app.status === 'pausado') {
     return paraPainel(res, { pedido: 'erro', motivo: 'restaurante_indisponivel' });
+  }
+  const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
+  if (!operation || operation.cashOpen === false) {
+    return paraPainel(res, { pedido: 'erro', motivo: 'caixa_fechado' });
   }
 
   /*
