@@ -49,10 +49,10 @@ const FALLBACK = {
   minVersion: RELEASE_FLOOR,
   buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: 'Uma nova versão do Vapt está pronta para instalar, com melhorias no caixa e nas comandas.',
+  reason: 'Atualize o Vapt para aplicar a correção de espaçamento na tela do caixa.',
   forceUpdate: true,
   downloadUrls: RELEASE_DOWNLOADS,
-  changelog: ['Melhor organização do caixa e do registro de pedidos.', 'Comandas fixas na tela e melhorias na escolha do pagamento.'],
+  changelog: ['Espaço entre o aviso de caixa aberto ou fechado e os cards de valores.', 'Instaladores distribuídos pelo repositório público de releases.'],
 };
 
 function normalizeChangelog(value: string | string[]): string[] {
