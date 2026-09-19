@@ -49,10 +49,15 @@ const FALLBACK = {
   minVersion: RELEASE_FLOOR,
   buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: 'Atualize o Vapt para corrigir a tela branca ao abrir o aplicativo Windows.',
+  reason: 'Atualize o Vapt para usar a localização atual no mapa e as melhorias de atendimento no balcão.',
   forceUpdate: true,
   downloadUrls: RELEASE_DOWNLOADS,
-  changelog: ['Correção da tela branca na inicialização do Windows.', 'Mantida a correção de espaçamento na tela do caixa.'],
+  changelog: [
+    'Localização atual com pino centralizado e botão Minha localização.',
+    'Conversão de delivery para balcão com remoção da taxa e confirmação do pagamento.',
+    'Disponibilidade do cardápio atualizada automaticamente.',
+    'Personalização local por atalho em aparelhos compatíveis e novo login após atualizar o APK.',
+  ],
 };
 
 function normalizeChangelog(value: string | string[]): string[] {
