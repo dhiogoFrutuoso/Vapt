@@ -1,244 +1,99 @@
-import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+/** Build a branding snapshot in a disposable, isolated checkout. Never edit the source tree. */
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID, createHash } from 'node:crypto';
+import sharp from 'sharp';
 
-/**
- * Compila os aplicativos nativos JÁ COM A CARA DO RESTAURANTE.
- *
- * POR QUE ISTO PRECISA SER PRÉ-BUILD
- * ----------------------------------
- * Android, iOS e Windows NÃO deixam o aplicativo trocar o próprio nome ou
- * ícone depois de instalado. Isso não é limitação nossa: o ícone da tela
- * inicial é assinado dentro do pacote, e mudá-lo em tempo de execução seria
- * exatamente o que um aplicativo malicioso faria para se disfarçar de outro.
- *
- * A marca do restaurante, então, precisa entrar ANTES da compilação. Este
- * script lê o cadastro no banco, injeta nome e ícone nos arquivos de
- * configuração, compila, e devolve os arquivos originais ao lugar.
- *
- * O QUE ELE NÃO FAZ
- * -----------------
- * Não mexe no `dist-app`. A interface continua sendo a mesma para todos os
- * clientes e busca a marca da API em tempo de execução — o que é o certo,
- * porque logo e cor mudam quando o dono quiser, sem recompilar nada.
- *
- * O que é imutável no binário é só o que o sistema operacional trava: nome
- * do app e ícone da tela inicial.
- *
- * USO
- * ---
- *   node scripts/build-apps.mjs --slug pitaya-4 --alvo ambos
- *   node scripts/build-apps.mjs --slug pitaya-4 --alvo apk
- *   node scripts/build-apps.mjs --slug pitaya-4 --alvo exe
- *
- * Sem `--slug`, compila com a marca genérica do Vapt.
- */
-
-const aqui = dirname(fileURLToPath(import.meta.url));
-const raizWeb = resolve(aqui, '..');
-const raizProjeto = resolve(raizWeb, '..', '..');
-
-/* ------------------------------------------------------------------ */
-/* Argumentos                                                          */
-/* ------------------------------------------------------------------ */
-
-function arg(nome, padrao = '') {
-  const i = process.argv.indexOf(`--${nome}`);
-  return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : padrao;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const jobFile = process.argv[process.argv.indexOf('--job') + 1];
+if (!process.argv.includes('--job') || !jobFile) throw new Error('Use --job <manifest.json>. O manifesto deve vir da fila autenticada.');
+const job = JSON.parse(readFileSync(resolve(jobFile), 'utf8'));
+for (const field of ['id', 'appId', 'logoId', 'version', 'name']) if (typeof job[field] !== 'string') throw new Error(`Missing ${field}`);
+if (!/^[a-f0-9]{64}$/.test(job.id) || !/^[a-f0-9]{24}$/.test(job.appId) || !/^[a-f0-9]{24}$/.test(job.logoId) ||
+    !/^\d+\.\d+\.\d+$/.test(job.version) || !job.name.trim() || job.name.length > 100 || /[\x00-\x1f]/.test(job.name)) throw new Error('Invalid build snapshot');
+const version = JSON.parse(readFileSync(join(root, 'apps/web/package.json'))).version;
+if (version !== job.version) throw new Error('Source version does not match requested build. Refusing to mislabel a binary.');
+const workspace = join(root, '.native-builds', randomUUID());
+mkdirSync(workspace, { recursive: true });
+const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8' }).split('\0');
+for (const file of files) {
+  if (!file || /^(builds|releases|\.native-builds|\.git)\//.test(file) || !existsSync(join(root, file))) continue;
+  const target = join(workspace, file);
+  mkdirSync(dirname(target), { recursive: true });
+  cpSync(join(root, file), target);
 }
+// Reuse the pinned dependency installation; no downloaded build tools or scripts from restaurant input.
+symlinkSync(join(root, 'node_modules'), join(workspace, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+const web = join(workspace, 'apps/web');
+const runNode = (relative, args, cwd = web) => execFileSync(process.execPath, [join(root, 'node_modules', relative), ...args], { cwd, stdio: 'inherit', env: {
+  ...process.env, VITE_API_URL: process.env.VAPT_BUILD_API_URL || 'https://vapt-api-ashen.vercel.app/api',
+} });
+const api = process.env.VAPT_BUILD_API_URL || 'https://vapt-api-ashen.vercel.app/api';
+const image = await fetch(`${api}/images/${job.logoId}`, { signal: AbortSignal.timeout(30000), redirect: 'error' });
+if (!image.ok) throw new Error('Restaurant logo could not be downloaded. No generic-icon fallback is allowed.');
+const bytes = Buffer.from(await image.arrayBuffer());
+if (bytes.length > 3_000_000) throw new Error('Logo exceeds build input limit');
+const icon = await sharp(bytes, { limitInputPixels: 16_000_000 }).resize(512, 512, { fit: 'contain', background: '#ffffff' }).png().toBuffer();
+const metadata = JSON.stringify({ appId: job.appId, revision: job.id, name: job.name });
+writeFileSync(join(web, 'electron/native-branding.json'), metadata);
+writeFileSync(join(web, 'electron/branding-icon.png'), icon);
+mkdirSync(join(web, 'build'), { recursive: true });
+// ICO supports PNG payloads; generate the container ourselves, with no unpinned CLI dependency.
+const png = await sharp(icon).resize(256, 256).png().toBuffer();
+const ico = Buffer.alloc(22); ico.writeUInt16LE(1, 2); ico.writeUInt16LE(1, 4);
+ico.writeUInt16LE(1, 10); ico.writeUInt16LE(32, 12); ico.writeUInt32LE(png.length, 14); ico.writeUInt32LE(22, 18);
+writeFileSync(join(web, 'build/icon.ico'), Buffer.concat([ico, png]));
+const pkgPath = join(web, 'package.json');
+const pkg = JSON.parse(readFileSync(pkgPath));
+pkg.build.productName = job.name;
+pkg.build.appId = 'com.vapt.equipe';
+pkg.build.win.executableName = 'Vapt Equipe';
+pkg.build.nsis.shortcutName = job.name;
+pkg.build.win.icon = 'build/icon.ico';
+pkg.build.artifactName = 'vapt.exe';
+writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+runNode('vite/bin/vite.js', ['build', '--config', 'vite.app.config.ts', '--mode', 'app']);
 
-const slug = arg('slug');
-const alvo = arg('alvo', 'ambos');
-
-const PADRAO = { appName: 'Vapt Equipe', appId: 'com.vapt.equipe', logoUrl: null };
-
-/* ------------------------------------------------------------------ */
-/* Cadastro do restaurante                                             */
-/* ------------------------------------------------------------------ */
-
-/**
- * Lê nome e logo direto do MongoDB.
- *
- * Usa o driver da API, que já está instalado no monorepo, em vez de uma
- * chamada HTTP: o script roda na máquina de quem compila, e depender da API
- * no ar para gerar um binário adicionaria uma peça que pode estar fora do ar
- * justamente na hora da entrega.
- */
-async function lerRestaurante() {
-  if (!slug) {
-    console.log('  sem --slug: compilando com a marca genérica do Vapt');
-    return PADRAO;
-  }
-
-  const { default: mongoose } = await import('mongoose');
-  const uri = process.env.MONGODB_URI;
-
-  if (!uri) {
-    console.error('\n  MONGODB_URI não definida. Sem ela não dá para ler o cadastro.');
-    console.error('  Rode a partir de apps/api, ou exporte a variável antes.\n');
-    process.exit(1);
-  }
-
-  await mongoose.connect(uri, {
-    dbName: process.env.MONGODB_DB || undefined,
-    serverSelectionTimeoutMS: 8000,
-  });
-
-  const doc = await mongoose.connection
-    .collection('appprojects')
-    .findOne({ slug: slug.toLowerCase() }, { projection: { name: 1, brand: 1 } });
-
-  await mongoose.connection.close();
-
-  if (!doc) {
-    console.error(`\n  Restaurante "${slug}" não encontrado.\n`);
-    process.exit(1);
-  }
-
-  const nome = String(doc.name ?? 'Vapt').trim();
-
-  return {
-    appName: nome,
-    /*
-     * O appId vira `com.vapt.<slug>`. Precisa ser estável e único: mudá-lo
-     * entre versões faz o Android tratar o app como OUTRO aplicativo, e o
-     * funcionário acaba com dois ícones e uma sessão perdida.
-     */
-    appId: `com.vapt.${slug.replace(/[^a-z0-9]/gi, '').toLowerCase()}`,
-    logoUrl: doc.brand?.logo ? String(doc.brand.logo) : null,
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* Injeção                                                             */
-/* ------------------------------------------------------------------ */
-
-const CAPACITOR = join(raizWeb, 'capacitor.config.ts');
-const PACKAGE = join(raizWeb, 'package.json');
-
-/** Guarda o original para devolver depois — inclusive se o build falhar. */
-const originais = new Map();
-
-function guardar(caminho) {
-  if (!originais.has(caminho)) originais.set(caminho, readFileSync(caminho, 'utf8'));
-}
-
-function restaurar() {
-  for (const [caminho, conteudo] of originais) writeFileSync(caminho, conteudo);
-  if (originais.size > 0) console.log('  configurações originais restauradas');
-}
-
-function injetar(marca) {
-  guardar(CAPACITOR);
-  guardar(PACKAGE);
-
-  /* Capacitor: nome e id do pacote Android. */
-  let cap = readFileSync(CAPACITOR, 'utf8');
-  cap = cap.replace(/appId: '[^']*'/, `appId: '${marca.appId}'`);
-  cap = cap.replace(/appName: '[^']*'/, `appName: '${marca.appName.replace(/'/g, "\\'")}'`);
-  writeFileSync(CAPACITOR, cap);
-
-  /* electron-builder: nome do produto e do instalador. */
-  const pkg = JSON.parse(readFileSync(PACKAGE, 'utf8'));
-  pkg.build.appId = marca.appId;
-  pkg.build.productName = marca.appName;
-  pkg.build.nsis = { ...pkg.build.nsis, shortcutName: marca.appName };
-  writeFileSync(PACKAGE, JSON.stringify(pkg, null, 2) + '\n');
-
-  console.log(`  marca injetada: "${marca.appName}" (${marca.appId})`);
-}
-
-/**
- * Baixa o logo e o coloca onde cada empacotador procura o ícone.
- *
- * O Electron aceita PNG direto. O Android precisa dos mipmaps em vários
- * tamanhos, gerados pelo `@capacitor/assets` — e é por isso que o ícone só
- * entra no APK se essa ferramenta estiver instalada. Sem ela, avisamos e
- * seguimos com o ícone padrão em vez de abortar: um binário com o ícone
- * genérico ainda é entregável; nenhum binário não é.
- */
-async function prepararIcone(marca) {
-  if (!marca.logoUrl) return;
-
-  const base = process.env.PUBLIC_BASE_URL || 'https://vapt-api-ashen.vercel.app';
-  const url = `${base}/api/images/${marca.logoUrl}`;
-  const destino = join(raizWeb, 'resources');
-
-  try {
-    const resposta = await fetch(url);
-    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
-
-    mkdirSync(destino, { recursive: true });
-    const bytes = Buffer.from(await resposta.arrayBuffer());
-    writeFileSync(join(destino, 'icon.png'), bytes);
-
-    /* O electron-builder procura em build/icon.png por convenção. */
-    mkdirSync(join(raizWeb, 'build'), { recursive: true });
-    copyFileSync(join(destino, 'icon.png'), join(raizWeb, 'build', 'icon.png'));
-
-    console.log('  logo baixado para resources/icon.png');
-
-    const assets = spawnSync('npx', ['@capacitor/assets', 'generate', '--android'], {
-      cwd: raizWeb,
-      stdio: 'inherit',
-      shell: process.platform === 'win32',
-    });
-
-    if (assets.status !== 0) {
-      console.warn('  @capacitor/assets indisponível: o APK sai com o ícone padrão.');
-      console.warn('  Para o ícone do restaurante: npm i -D @capacitor/assets');
-    }
-  } catch (erro) {
-    console.warn(`  não consegui baixar o logo (${erro.message}); usando o ícone padrão.`);
+// Generate Capacitor scaffolding from the installed, lockfile-pinned version, then restore our native extensions.
+const nativeSource = join(web, 'android');
+const backup = join(workspace, 'native-source');
+cpSync(nativeSource, backup, { recursive: true });
+// cap add needs an absent directory. Move only this explicitly created workspace directory.
+const { renameSync } = await import('node:fs');
+renameSync(nativeSource, join(workspace, 'native-original'));
+runNode('@capacitor/cli/bin/capacitor', ['add', 'android']);
+cpSync(backup, nativeSource, { recursive: true });
+runNode('@capacitor/cli/bin/capacitor', ['sync', 'android']);
+const res = join(nativeSource, 'app/src/main/res');
+const xml = value => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+writeFileSync(join(res, 'values/strings.xml'), `<?xml version="1.0" encoding="utf-8"?><resources><string name="app_name">${xml(job.name)}</string><string name="title_activity_main">${xml(job.name)}</string><string name="package_name">com.vapt.equipe</string><string name="custom_url_scheme">com.vapt.equipe</string></resources>`);
+for (const [density, size] of Object.entries({ mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 })) {
+  mkdirSync(join(res, `mipmap-${density}`), { recursive: true });
+  for (const name of ['ic_launcher', 'ic_launcher_round']) {
+    writeFileSync(join(res, `mipmap-${density}/${name}.png`), await sharp(icon).resize(size, size).png().toBuffer());
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Compilação                                                          */
-/* ------------------------------------------------------------------ */
-
-function rodar(script) {
-  console.log(`\n> npm run ${script}`);
-  const r = spawnSync('npm', ['run', script], {
-    cwd: raizWeb,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  });
-  return r.status === 0;
+mkdirSync(join(res, 'drawable'), { recursive: true });
+writeFileSync(join(res, 'drawable/restaurant_icon.png'), icon);
+for (const name of ['ic_launcher', 'ic_launcher_round']) {
+  mkdirSync(join(res, 'mipmap-anydpi-v26'), { recursive: true });
+  writeFileSync(join(res, `mipmap-anydpi-v26/${name}.xml`), '<?xml version="1.0" encoding="utf-8"?><adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@android:color/white"/><foreground><inset android:drawable="@drawable/restaurant_icon" android:inset="18%"/></foreground></adaptive-icon>');
 }
-
-async function main() {
-  const marca = await lerRestaurante();
-
-  injetar(marca);
-  await prepararIcone(marca);
-
-  let ok = true;
-
-  if (alvo === 'exe' || alvo === 'ambos') ok = rodar('build:win') && ok;
-  if (alvo === 'apk' || alvo === 'ambos') ok = rodar('build:android') && ok;
-
-  restaurar();
-
-  if (!ok) {
-    console.error('\n  Compilação falhou. Veja o log acima.\n');
-    process.exit(1);
-  }
-
-  console.log(`\n  pronto. Binários em ${join(raizProjeto, 'releases')}\n`);
+mkdirSync(join(nativeSource, 'app/src/main/assets'), { recursive: true });
+writeFileSync(join(nativeSource, 'app/src/main/assets/native-branding.json'), metadata);
+execFileSync(process.platform === 'win32' ? 'cmd.exe' : 'sh', process.platform === 'win32'
+  ? ['/d', '/c', 'gradlew.bat assembleRelease --no-daemon'] : ['gradlew', 'assembleRelease', '--no-daemon'],
+  { cwd: nativeSource, stdio: 'inherit', env: process.env });
+runNode('electron-builder/cli.js', ['--win', '--publish', 'never']);
+const output = join(root, '.native-builds', job.id);
+mkdirSync(output, { recursive: true });
+const artifacts = {};
+for (const [extension, source] of Object.entries({ apk: join(nativeSource, 'app/build/outputs/apk/release/app-release.apk'), exe: join(workspace, 'releases/vapt.exe') })) {
+  const data = readFileSync(source);
+  artifacts[extension] = { sha256: createHash('sha256').update(data).digest('hex'), bytes: data.length };
+  writeFileSync(join(output, `vapt.${extension}`), data);
 }
-
-/* Restaura mesmo se algo estourar no meio: deixar o capacitor.config.ts com
-   o nome de um cliente dentro do repositório seria pior que o erro em si. */
-process.on('exit', restaurar);
-process.on('SIGINT', () => {
-  restaurar();
-  process.exit(130);
-});
-
-main().catch((erro) => {
-  console.error(erro);
-  restaurar();
-  process.exit(1);
-});
+writeFileSync(join(output, 'manifest.json'), JSON.stringify({ ...job, lease: undefined, artifacts }, null, 2));
+console.log(`Personalized build ready: ${output}`);

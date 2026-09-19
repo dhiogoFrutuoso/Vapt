@@ -13,6 +13,8 @@ lerna-debug.log*
 # Dependências e Build
 # ==============================================================================
 node_modules/
+.native-builds/
+native-job.json
 dist/
 dist-app/
 release/

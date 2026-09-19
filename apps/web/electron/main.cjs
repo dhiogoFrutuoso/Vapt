@@ -15,6 +15,10 @@ const https = require('node:https');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
+const { createHash } = require('node:crypto');
+const installedBranding = require('./native-branding.json');
+// Branding must not change the existing encrypted session/printer profile path.
+app.setName('Vapt Equipe');
 
 /**
  * Processo principal do aplicativo de desktop (.exe).
@@ -156,9 +160,10 @@ function limparCredenciaisDoCofre() {
   gravarCofre(cofre);
 }
 
-function validarUrlDoInstalador(value) {
+function validarUrlDoInstalador(value, redirect = false) {
   const url = new URL(String(value));
-  if (url.protocol !== 'https:' || !url.pathname.toLowerCase().endsWith('.exe')) {
+  const githubAsset = redirect && ['release-assets.githubusercontent.com', 'objects.githubusercontent.com'].includes(url.hostname);
+  if (url.protocol !== 'https:' || (!githubAsset && !url.pathname.toLowerCase().endsWith('.exe'))) {
     throw new Error('URL de instalador inválida.');
   }
   return url;
@@ -173,7 +178,7 @@ function baixarInstalador(url, destino, webContents, redirecionamentos = 0) {
         try {
           return resolve(
             baixarInstalador(
-              validarUrlDoInstalador(new URL(response.headers.location, url).toString()),
+              validarUrlDoInstalador(new URL(response.headers.location, url).toString(), true),
               destino,
               webContents,
               redirecionamentos + 1
@@ -219,7 +224,7 @@ function baixarInstalador(url, destino, webContents, redirecionamentos = 0) {
   });
 }
 
-async function instalarAtualizacao(evento, value) {
+async function instalarAtualizacao(evento, value, brandingHash) {
   const url = validarUrlDoInstalador(value);
   const destino = path.join(app.getPath('temp'), 'Vapt-Setup-update.exe');
   try {
@@ -230,10 +235,16 @@ async function instalarAtualizacao(evento, value) {
     fs.readSync(arquivo, cabecalho, 0, 2, 0);
     fs.closeSync(arquivo);
     if (cabecalho.toString('ascii') !== 'MZ') throw new Error('O arquivo recebido não é um executável válido.');
+    if (brandingHash !== undefined) {
+      if (!/^[a-f0-9]{64}$/.test(brandingHash) ||
+          createHash('sha256').update(fs.readFileSync(destino)).digest('hex') !== brandingHash) {
+        throw new Error('A integridade do instalador não confere.');
+      }
+    }
 
     /* Se o usuário cancelar o NSIS, não pode reabrir a versão antiga ainda
        autenticada. A atualização bem-sucedida pede novo login uma vez. */
-    limparCredenciaisDoCofre();
+    if (brandingHash === undefined) limparCredenciaisDoCofre();
     const instalador = spawn(destino, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true });
     instalador.unref();
     setTimeout(() => app.quit(), 120);
@@ -288,6 +299,14 @@ function registrarCofre() {
   });
 
   ipcMain.handle('vapt:update:install', instalarAtualizacao);
+  ipcMain.handle('vapt:branding:status', () => ({ ...installedBranding, version: app.getVersion() }));
+  ipcMain.handle('vapt:branding:install', (event, url, hash) => {
+    if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash) ||
+        !/^https:\/\/github\.com\/dhiogoFrutuoso\/Vapt-Releases\/releases\/download\/personalized-[a-f0-9]{64}\/vapt\.exe$/.test(url)) {
+      throw new Error('Instalador personalizado inválido.');
+    }
+    return instalarAtualizacao(event, url, hash);
+  });
   ipcMain.handle('vapt:update:exit', () => {
     limparCredenciaisDoCofre();
     setTimeout(() => app.quit(), 50);
@@ -421,7 +440,8 @@ function criarJanela() {
     fullscreenable: true,
     backgroundColor: '#FAF8F5',
     autoHideMenuBar: true,
-    title: 'Vapt — App da equipe',
+    title: installedBranding.name || 'Vapt — App da equipe',
+    ...(installedBranding.appId ? { icon: path.join(__dirname, 'branding-icon.png') } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
 
@@ -455,6 +475,10 @@ function criarJanela() {
       /* Nada de janela abrindo sozinha por `window.open` sem gesto do usuario. */
       spellcheck: false,
     },
+  });
+
+  janela.on('page-title-updated', (event) => {
+    if (installedBranding.appId) { event.preventDefault(); janela.setTitle(installedBranding.name); }
   });
 
   /*

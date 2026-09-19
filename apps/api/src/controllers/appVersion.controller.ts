@@ -49,14 +49,15 @@ const FALLBACK = {
   minVersion: RELEASE_FLOOR,
   buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: 'Atualize o Vapt para usar a localização atual no mapa e as melhorias de atendimento no balcão.',
+  reason: 'Atualize o Vapt para instalar a versão personalizada do restaurante, com nome e ícone próprios no Android e no Windows.',
   forceUpdate: true,
   downloadUrls: RELEASE_DOWNLOADS,
   changelog: [
     'Localização atual com pino centralizado e botão Minha localização.',
     'Conversão de delivery para balcão com remoção da taxa e confirmação do pagamento.',
     'Disponibilidade do cardápio atualizada automaticamente.',
-    'Personalização local por atalho em aparelhos compatíveis e novo login após atualizar o APK.',
+    'Aplicativo personalizado por atualização real: nome e logo do restaurante, sem atalhos extras.',
+    'Personalização disponível no perfil e obrigatória ao trocar de restaurante numa instalação personalizada.',
   ],
 };
 

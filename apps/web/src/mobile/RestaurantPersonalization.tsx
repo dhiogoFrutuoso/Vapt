@@ -1,65 +1,108 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Store, X } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { useConfirm } from '../components/ConfirmModal';
-import { getImageUrl } from '../lib/api';
+import { deviceApi } from './deviceApi';
+import { useDeviceAuth } from './DeviceAuthContext';
+import { installPersonalizedBuild } from './nativeUpdater';
 
-export const restaurantBranding = registerPlugin<{
-  status(): Promise<{ supported: boolean; appId: string; version: string; pinned: boolean }>;
-  personalize(options: { appId: string; name: string; icon: string }): Promise<{ updated: boolean }>;
-  clear(): Promise<void>;
-}>('VaptBranding');
+type Identity = { appId: string; revision: string; version: string };
+type Artifact = { url: string; sha256: string };
+type Job = { revision: string; version: string; state: 'available' | 'queued' | 'building' | 'failed' | 'ready'; artifacts?: { apk: Artifact; exe: Artifact } };
+const native = registerPlugin<{ status(): Promise<Identity> }>('VaptBranding');
+const desktop = () => (window as unknown as { vaptSecure?: { brandingStatus?: () => Promise<Identity> } }).vaptSecure;
 
-async function shortcutIcon(url: string | null): Promise<string> {
-  if (!url) return '';
-  const img = new Image(); img.crossOrigin = 'anonymous';
-  await new Promise<void>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error('Não foi possível carregar o logotipo. Tente novamente.')), 10000);
-    img.onload = () => { window.clearTimeout(timer); resolve(); };
-    img.onerror = () => { window.clearTimeout(timer); reject(new Error('Não foi possível carregar o logotipo. Tente novamente.')); };
-    img.src = /^https?:\/\//.test(url) ? url : getImageUrl(url)!;
-  });
-  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 192;
-  const ctx = canvas.getContext('2d'); if (!ctx) return '';
-  const size = Math.min(192 / img.width, 192 / img.height);
-  ctx.drawImage(img, (192 - img.width * size) / 2, (192 - img.height * size) / 2, img.width * size, img.height * size);
-  return canvas.toDataURL('image/png').split(',')[1];
-}
-
-export function RestaurantPersonalization({ appId, name, logoUrl, profile = false }: {
+export function RestaurantPersonalization({ appId, name, profile = false }: {
   appId: string; name: string; logoUrl: string | null; profile?: boolean;
 }) {
-  const [available, setAvailable] = useState(false);
-  const [supported, setSupported] = useState(true);
-  const [dismissed, setDismissed] = useState(false);
+  const supported = Capacitor.getPlatform() === 'android' || Boolean(desktop()?.brandingStatus);
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [installerOpened, setInstallerOpened] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(`vapt.branding.dismissed.v2:${appId}`) === 'true'; } catch { return false; }
+  });
+  const { logout } = useDeviceAuth();
   const { confirm, ConfirmElement } = useConfirm();
+  const dialog = useRef<HTMLDialogElement>(null);
+  const alive = useRef(true);
+  const mandatory = Boolean(identity?.appId && identity.appId !== appId);
+  const waiting = job?.state === 'queued' || job?.state === 'building';
+  const installed = Boolean(identity?.revision && job?.revision === identity.revision);
+  const refresh = useCallback(async () => {
+    const status = await (desktop()?.brandingStatus?.() ?? native.status());
+    if (alive.current) setIdentity(status);
+    const current = await deviceApi.get<Job>('/device/native-build');
+    if (alive.current) { setJob(current); setError(''); }
+  }, []);
   useEffect(() => {
-    if (!Capacitor.isPluginAvailable('VaptBranding')) return;
-    let alive = true;
-    void restaurantBranding.status().then(s => { if (alive) { setSupported(s.supported); setAvailable(profile || s.appId !== appId || !s.pinned); } }).catch(() => {});
-    return () => { alive = false; };
-  }, [appId, profile]);
-  if (!available || dismissed) return null;
-  return <section className="restaurant-personalization">
-    <Store size={22} aria-hidden="true" />
-    <div><strong>Seu acesso ao {name}</strong><p>{supported ? 'Adicione um atalho com o nome e o ícone do restaurante neste aparelho. O aplicativo instalado continua sendo o Vapt.' : 'A tela inicial deste aparelho não permite criar atalhos personalizados. A identidade do restaurante continua aplicada dentro do Vapt.'}</p>
-      {supported && <button type="button" disabled={busy} onClick={() => confirm({
-        title: `Personalizar para ${name}?`, message: 'Apenas este aparelho será alterado. Após uma atualização do APK, entre novamente para renovar a personalização. O Android poderá pedir confirmação para adicionar o atalho.',
-        confirmText: 'Personalizar meu aparelho', isDestructive: false, onConfirm: async () => {
-          setBusy(true);
-          try {
-            const icon = await shortcutIcon(logoUrl);
-            const result = await restaurantBranding.personalize({ appId, name, icon });
-            toast.success(result.updated ? 'Atalho do restaurante atualizado.' : 'Solicitação enviada. Confirme o atalho na tela do Android.');
-            setDismissed(true);
-          } catch (error) { toast.error(error instanceof Error ? error.message : 'Não foi possível criar o atalho.'); }
-          finally { setBusy(false); }
-        },
-      })}>{busy ? 'Preparando…' : 'Personalizar este aparelho'}</button>}
+    alive.current = true;
+    if (supported) void refresh().catch(e => { if (alive.current) setError(e.message || 'Não foi possível verificar a personalização.'); });
+    return () => { alive.current = false; };
+  }, [supported, appId, refresh]);
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = window.setInterval(() => void refresh().catch(() => {
+      if (alive.current) setError('Sem conexão. A compilação continua; tentaremos consultar novamente.');
+    }), 8000);
+    return () => window.clearInterval(timer);
+  }, [waiting, refresh]);
+  useEffect(() => {
+    if (mandatory && dialog.current && !dialog.current.open) dialog.current.showModal();
+  }, [mandatory]);
+
+  if (!supported || (!mandatory && !profile && (dismissed || installed))) return null;
+  async function perform() {
+    setBusy(true); setError('');
+    try {
+      if (!identity) { await refresh(); return; }
+      const current = await deviceApi.post<Job>('/device/native-build', {});
+      if (!alive.current) return;
+      setJob(current);
+      if (current.state === 'ready' && current.artifacts) {
+        await installPersonalizedBuild(current.artifacts, current.version, p => {
+          if (alive.current) setProgress(p.percent);
+        });
+        if (alive.current) setInstallerOpened(true);
+      }
+    } catch (e) {
+      if (alive.current) setError(e instanceof Error ? e.message : 'Não foi possível preparar o aplicativo. Tente novamente.');
+    } finally { if (alive.current) { setBusy(false); setProgress(null); } }
+  }
+  const content = <section className="restaurant-personalization">
+    <Store size={24} aria-hidden="true" />
+    <div>
+      <strong id={mandatory ? 'branding-required-title' : undefined}>{mandatory ? `Atualize o aplicativo para ${name}` : `Aplicativo do ${name}`}</strong>
+      <p>{mandatory
+        ? 'Este aparelho tem a versão de outro restaurante. Instale a versão desta conta para continuar. Seus pedidos e dados permanecem no sistema.'
+        : installed ? 'Nome e ícone deste restaurante já estão instalados. Eles serão mantidos mesmo quando você sair da conta.'
+        : 'Use o nome e a logo do restaurante no aplicativo instalado. É uma atualização do Vapt neste aparelho, sem criar outro aplicativo.'}</p>
+      <div role="status" aria-live="polite">
+        {waiting && <p>{job.state === 'queued' ? 'Solicitação na fila de compilação.' : 'Gerando e assinando os instaladores.'} Pode levar alguns minutos. Você pode voltar depois.</p>}
+        {progress !== null && <p>Baixando atualização: {progress}%</p>}
+        {installerOpened && <p>Confirme a atualização no instalador do sistema. Se você cancelou, toque novamente em instalar.</p>}
+      </div>
+      {error && <p role="alert">{error}</p>}
+      {job?.state === 'failed' && <p role="alert">A compilação falhou. Tente novamente; se persistir, entre em contato com o responsável pelo sistema.</p>}
+      {!installed && <button type="button" disabled={busy || waiting} onClick={() => {
+        if (!identity) { void perform(); return; }
+        confirm({ title: `Instalar aplicativo do ${name}?`,
+          message: 'A atualização troca somente o nome e o ícone. O aplicativo poderá fechar durante a instalação. Não desinstale o Vapt: confirme a atualização quando o sistema solicitar.',
+          confirmText: job?.state === 'ready' ? 'Instalar atualização' : 'Preparar aplicativo',
+          isDestructive: false, onConfirm: () => { void perform(); } });
+      }}>{busy ? 'Preparando…' : waiting ? 'Aguardando instaladores…' : !identity ? 'Verificar novamente' : job?.state === 'ready' ? 'Instalar atualização personalizada' : 'Personalizar este aparelho'}</button>}
+      {mandatory && <button type="button" disabled={busy} onClick={() => void logout()}>Sair desta conta</button>}
     </div>
-    {!profile && <button type="button" aria-label="Personalizar depois" disabled={busy} onClick={() => setDismissed(true)}><X size={18} /></button>}
+    {!mandatory && !profile && <button type="button" disabled={busy} aria-label="Personalizar depois" onClick={() => {
+      try { localStorage.setItem(`vapt.branding.dismissed.v2:${appId}`, 'true'); } catch { /* Optional preference. */ }
+      setDismissed(true);
+    }}><X size={20} /></button>}
     {ConfirmElement}
   </section>;
+  return mandatory
+    ? <dialog className="restaurant-personalization-gate" ref={dialog} aria-labelledby="branding-required-title" onCancel={event => event.preventDefault()}>{content}</dialog>
+    : content;
 }

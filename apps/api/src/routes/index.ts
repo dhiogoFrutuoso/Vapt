@@ -79,8 +79,14 @@ import { listDeviceTeam, updateDeviceEmployee } from '../controllers/deviceTeam.
 import { upload } from '../middlewares/upload.js';
 import { adminRoutes } from './adminRoutes.js';
 import { getPublicAppVersion } from '../controllers/appVersion.controller.js';
+import { getNativeBuild, requestNativeBuild, requireBuildWorker, claimNativeBuild, completeNativeBuild } from '../controllers/nativeBuild.controller.js';
 
 export const router = Router();
+
+router.get('/device/native-build', requireDevice, getNativeBuild);
+router.post('/device/native-build', requireDevice, writeLimiter, requestNativeBuild);
+router.post('/internal/native-build/claim', requireBuildWorker, claimNativeBuild);
+router.post('/internal/native-build/complete', requireBuildWorker, completeNativeBuild);
 
 /* ---------------------------- Publico ----------------------------- */
 

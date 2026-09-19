@@ -1,0 +1,71 @@
+name: Personalized native apps
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: personalized-native-apps
+  cancel-in-progress: false
+jobs:
+  queue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      pending: ${{ steps.claim.outputs.pending }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - id: claim
+        name: Claim one authenticated branding snapshot
+        env:
+          VAPT_BUILD_WORKER_KEY: ${{ secrets.VAPT_BUILD_WORKER_KEY }}
+          GH_TOKEN: ${{ secrets.VAPT_RELEASES_TOKEN }}
+        run: |
+          gh api repos/dhiogoFrutuoso/Vapt-Releases --silent
+          node scripts/native-build-worker.mjs claim
+      - uses: actions/upload-artifact@v4
+        if: steps.claim.outputs.pending == 'true'
+        with:
+          name: native-job
+          path: native-job.json
+          retention-days: 1
+  build:
+    needs: queue
+    if: needs.queue.outputs.pending == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-job
+      - run: npm ci
+      - name: Restore the existing Android signing identity
+        shell: pwsh
+        env:
+          KEYSTORE: ${{ secrets.VAPT_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if (-not $env:KEYSTORE) { throw 'Missing original Android signing key' }
+          $signingPath = Join-Path $env:RUNNER_TEMP 'vapt-signing.keystore'
+          [IO.File]::WriteAllBytes($signingPath, [Convert]::FromBase64String($env:KEYSTORE))
+          "VAPT_ANDROID_KEYSTORE_FILE=$signingPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build, verify, publish and complete queue item
+        env:
+          VAPT_BUILD_WORKER_KEY: ${{ secrets.VAPT_BUILD_WORKER_KEY }}
+          VAPT_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.VAPT_ANDROID_KEYSTORE_PASSWORD }}
+          VAPT_ANDROID_KEY_ALIAS: ${{ secrets.VAPT_ANDROID_KEY_ALIAS }}
+          VAPT_ANDROID_KEY_PASSWORD: ${{ secrets.VAPT_ANDROID_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.VAPT_RELEASES_TOKEN }}
+        run: node scripts/native-build-worker.mjs build

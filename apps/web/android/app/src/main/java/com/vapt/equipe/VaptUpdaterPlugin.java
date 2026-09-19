@@ -16,12 +16,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.io.FileInputStream;
+import java.security.MessageDigest;
 
 @CapacitorPlugin(name = "VaptUpdater")
 public class VaptUpdaterPlugin extends Plugin {
     @PluginMethod
     public void downloadAndInstall(PluginCall call) {
         final String rawUrl = call.getString("url");
+        final String expectedHash = call.getString("sha256");
         if (rawUrl == null || rawUrl.isBlank()) {
             call.reject("URL do APK ausente.");
             return;
@@ -72,6 +75,21 @@ public class VaptUpdaterPlugin extends Plugin {
                 }
 
                 if (!partial.renameTo(apk)) throw new IllegalStateException("Não foi possível concluir o arquivo.");
+                if (expectedHash != null) {
+                    if (!expectedHash.matches("[a-f0-9]{64}")) throw new SecurityException("Hash inválido.");
+                    MessageDigest sha = MessageDigest.getInstance("SHA-256");
+                    try (FileInputStream file = new FileInputStream(apk)) {
+                        int count;
+                        while ((count = file.read(buffer)) != -1) sha.update(buffer, 0, count);
+                    }
+                    byte[] digest = sha.digest();
+                    StringBuilder actual = new StringBuilder();
+                    for (byte value : digest) actual.append(String.format("%02x", value));
+                    if (!actual.toString().equals(expectedHash)) {
+                        apk.delete();
+                        throw new SecurityException("A integridade do instalador não confere.");
+                    }
+                }
                 emitProgress(100, transferred, total);
                 openInstaller(apk);
                 call.resolve();
@@ -101,7 +119,6 @@ public class VaptUpdaterPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
 
         getActivity().runOnUiThread(() -> {
-            ((MainActivity) getActivity()).markUpdateInstallerLaunched();
             getActivity().startActivity(intent);
         });
     }

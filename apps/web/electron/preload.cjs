@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('vaptSecure', {
   set: (chave, valor) => ipcRenderer.invoke('vapt:secure:set', String(chave), String(valor)),
   remove: (chave) => ipcRenderer.invoke('vapt:secure:remove', String(chave)),
   installUpdate: (url) => ipcRenderer.invoke('vapt:update:install', String(url)),
+  brandingStatus: () => ipcRenderer.invoke('vapt:branding:status'),
+  installBranding: (url, hash) => ipcRenderer.invoke('vapt:branding:install', String(url), String(hash)),
   exitApp: () => ipcRenderer.invoke('vapt:update:exit'),
   setUpdateGateActive: (active) => ipcRenderer.invoke('vapt:update:gate-active', Boolean(active)),
   onUpdateProgress: (listener) => {
