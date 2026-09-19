@@ -53,6 +53,9 @@ pkg.build.win.executableName = 'Vapt Equipe';
 pkg.build.nsis.shortcutName = job.name;
 pkg.build.win.icon = 'build/icon.ico';
 pkg.build.artifactName = 'vapt.exe';
+// Publication belongs to the queue worker. Disable electron-builder's implicit
+// GitHub provider detection when CI exposes GH_TOKEN inside an isolated checkout.
+pkg.build.publish = null;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 runNode('vite/bin/vite.js', ['build', '--config', 'vite.app.config.ts', '--mode', 'app']);
 
