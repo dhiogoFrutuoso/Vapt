@@ -12,7 +12,21 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VaptUpdaterPlugin.class);
         registerPlugin(VaptPrinterPlugin.class);
         registerPlugin(VaptSecureStoragePlugin.class);
+        registerPlugin(VaptLocationPlugin.class);
+        registerPlugin(VaptBrandingPlugin.class);
+        resetAfterPackageUpdate();
         super.onCreate(savedInstanceState);
+    }
+
+    private void resetAfterPackageUpdate() {
+        android.content.SharedPreferences prefs = getSharedPreferences("vapt.installation", MODE_PRIVATE);
+        String previous = prefs.getString("version", "");
+        String current = BuildConfig.VERSION_NAME;
+        if (!current.equals(previous)) {
+            VaptSecureStoragePlugin.clearSession(getApplicationContext());
+            VaptBrandingPlugin.reset(getApplicationContext());
+            prefs.edit().putString("version", current).commit();
+        }
     }
 
     public void markUpdateInstallerLaunched() {

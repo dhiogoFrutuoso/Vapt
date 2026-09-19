@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { deviceApi } from './deviceApi';
 import type {
@@ -81,45 +81,65 @@ function socketOrigin(): string {
 export function useMenu(token: string | null, appId?: string | null) {
   const [menu, setMenu] = useState<Menu>(VAZIO);
   const [carregando, setCarregando] = useState(true);
+  const [availabilityPending, setAvailabilityPending] = useState<string[]>([]);
+  const pending = useRef(new Map<string, boolean>());
+  const revision = useRef(0);
+  const fetching = useRef(false);
+  const session = useRef(token);
+  session.current = token;
 
   const buscar = useCallback(async () => {
-    if (!token) return;
+    if (!token || fetching.current) return;
+    fetching.current = true;
+    const started = revision.current;
     try {
       const dados = await deviceApi.get<Menu>('/device/menu');
-      setMenu({ ...VAZIO, ...dados });
+      if (session.current === token && started === revision.current) {
+        setMenu({ ...VAZIO, ...dados, products: dados.products.map(product =>
+          pending.current.has(product.id ?? '') ? { ...product, available: pending.current.get(product.id!) } : product) });
+      }
     } finally {
+      fetching.current = false;
       setCarregando(false);
     }
   }, [token]);
 
   useEffect(() => {
     if (!token) return;
-    let vivo = true;
+    const refresh = () => { if (document.visibilityState !== 'hidden') void buscar().catch(() => {}); };
+    refresh();
+    // Socket pode não existir em serverless. A fila local é instantânea;
+    // os outros aparelhos se recuperam automaticamente sem recarregar a tela.
+    const timer = window.setInterval(refresh, 5000);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, [token, buscar]);
 
-    (async () => {
-      try {
-        const dados = await deviceApi.get<Menu>('/device/menu');
-        if (vivo) setMenu({ ...VAZIO, ...dados });
-      } catch {
-        /*
-         * Falhar aqui não derruba o app: sem cardápio, o garçom ainda vê as
-         * mesas abertas e a cozinha ainda vê o que produzir. Só o lançamento
-         * de item novo fica indisponível, e a tela mostra a lista vazia.
-         */
-      } finally {
-        if (vivo) setCarregando(false);
-      }
-    })();
-
-    return () => {
-      vivo = false;
-    };
+  const alterarDisponibilidade = useCallback(async (productId: string, available: boolean) => {
+    if (pending.current.has(productId)) return;
+    pending.current.set(productId, available);
+    revision.current++;
+    setAvailabilityPending([...pending.current.keys()]);
+    setMenu(current => ({ ...current, products: current.products.map(p => p.id === productId ? { ...p, available } : p) }));
+    try {
+      await deviceApi.patch(`/device/menu/products/${productId}/availability`, { available });
+    } catch (error) {
+      if (session.current === token) setMenu(current => ({ ...current, products: current.products.map(p => p.id === productId ? { ...p, available: !available } : p) }));
+      throw error;
+    } finally {
+      revision.current++;
+      pending.current.delete(productId);
+      setAvailabilityPending([...pending.current.keys()]);
+    }
   }, [token]);
 
   useEffect(() => {
     if (!token || !appId) return;
     const socket = io(socketOrigin(), { auth: { token, appId }, transports: ['polling', 'websocket'] });
     socket.on('menu_item_availability_changed', (event: { productId: string; available: boolean }) => {
+      if (pending.current.has(event.productId)) return;
+      revision.current++;
       setMenu((current) => ({
         ...current,
         products: current.products.map((product) =>
@@ -127,11 +147,11 @@ export function useMenu(token: string | null, appId?: string | null) {
         ),
       }));
     });
-    socket.on('team_changed', () => void buscar());
+    socket.on('team_changed', () => void buscar().catch(() => {}));
     return () => {
       socket.close();
     };
   }, [token, appId, buscar]);
 
-  return { menu, carregando, recarregar: buscar };
+  return { menu, carregando, recarregar: buscar, alterarDisponibilidade, availabilityPending };
 }

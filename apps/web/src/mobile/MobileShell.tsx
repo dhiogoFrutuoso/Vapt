@@ -20,6 +20,7 @@ import type { Chave as ChaveTexto } from './i18n';
 import { AppViews } from './AppViews';
 import { useOperation } from './useOperation';
 import { useMenu } from './useMenu';
+import { RestaurantPersonalization } from './RestaurantPersonalization';
 
 /**
  * Casca do app depois do login.
@@ -105,7 +106,7 @@ export function MobileShell() {
     employee?.id ?? null,
     aoRevogar
   );
-  const { menu, recarregar: recarregarMenu } = useMenu(accessToken, appId);
+  const { menu, recarregar: recarregarMenu, alterarDisponibilidade, availabilityPending } = useMenu(accessToken, appId);
 
   const [atualizando, setAtualizando] = useState(false);
 
@@ -120,7 +121,7 @@ export function MobileShell() {
   async function atualizarAgora() {
     setAtualizando(true);
     try {
-      await recarregar();
+      await Promise.all([recarregar(), recarregarMenu()]);
     } finally {
       /* Meio segundo de giro mesmo quando volta instantâneo: sem isso o
          ícone pisca e o toque parece não ter funcionado. */
@@ -455,7 +456,8 @@ export function MobileShell() {
         </header>
 
         {/* ------------------------------ Conteúdo ---------------------------- */}
-        <div className={`mobile-shell__content min-h-0 flex-1 px-4 pb-4 pt-4 md:px-6 md:pb-6 ${rolagemInterna ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
+        <div className={`mobile-shell__content min-h-0 flex-1 px-4 pb-4 pt-4 md:px-6 md:pb-6 ${rolagemInterna ? 'mobile-shell__content--bounded flex flex-col overflow-hidden' : 'overflow-x-hidden overflow-y-auto'}`}>
+          {appId && <RestaurantPersonalization key={`${appId}-${ativa === 'perfil'}`} appId={appId} name={menu.storeName || branding.storeName} logoUrl={menu.branding.logoUrl || branding.logoUrl} profile={ativa === 'perfil'} />}
           {ativa === 'perfil' ? (
             renderPerfil()
           ) : carregandoOperacao ? (
@@ -514,6 +516,8 @@ export function MobileShell() {
                   employeeName={employee.name}
                   equipe={menu.equipe}
                   onTeamChanged={recarregarMenu}
+                  onToggleAvailability={alterarDisponibilidade}
+                  availabilityPending={availabilityPending}
                   permissions={employee.permissions}
                   isDeliveryman={employee.isDeliveryman ?? employee.permissions.includes('entregador')}
                 />

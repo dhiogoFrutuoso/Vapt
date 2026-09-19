@@ -798,6 +798,9 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.mobile-shell__content--bounded > .restaurant-personalization { flex-shrink: 0; max-height: 35%; overflow-y: auto; }
+.mobile-shell__content--bounded > .editor-preview--bounded { flex: 1; height: auto; min-height: 0; }
+
 /* A folha de edição acompanha a janela, não a rolagem da aba. A altura
    medida fica reservada após o último card para que ele continue alcançável. */
 .mobile-shell .phone__sheet--order {

@@ -152,6 +152,7 @@ export function ServiceView({
                     {copy.takeoutBadge} #{takeout.label}
                   </span>
                   <strong className="svc-card__name">{takeout.customerName}</strong>
+                  {takeout.cashEntryId && <span className="svc-card__meta">{takeout.paymentStatus === 'concluido' ? 'Pago · a retirar' : 'Aguardando pagamento'}</span>}
                   <span className="svc-card__meta">
                     {takeout.items.length} {takeout.items.length === 1 ? 'item' : 'itens'}
                   </span>
@@ -279,6 +280,8 @@ export function ServiceView({
           customerName={printing.takeout.customerName}
           phone={printing.takeout.phone}
           items={printing.takeout.items}
+          payments={printing.takeout.payments}
+          notes={printing.takeout.notes}
           createdAt={printing.takeout.createdAt}
           operatorName={operatorName}
           width={80}

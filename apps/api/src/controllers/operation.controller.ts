@@ -237,6 +237,12 @@ const comandoSchema = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('pedido.rejeitar'), pedidoId: z.string().min(1) }),
   z.object({ tipo: z.literal('pedido.avancar'), pedidoId: z.string().min(1) }),
   z.object({ tipo: z.literal('pedido.voltar'), pedidoId: z.string().min(1) }),
+  z.object({
+    tipo: z.literal('pedido.balcao'), pedidoId: z.string().min(1),
+    paymentStatus: z.enum(['pendente', 'concluido']),
+    payments: z.array(payment).max(6).default([]),
+  }),
+  z.object({ tipo: z.literal('retirada.entregar'), retiradaId: z.string().min(1) }),
   z.object({ tipo: z.literal('pedido.cancelar'), pedidoId: z.string().min(1) }),
 
   z.object({
@@ -338,6 +344,7 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'retirada.criar': ['recepcao'],
   'retirada.agendar': ['recepcao'],
   'retirada.status': ['recepcao'],
+  'retirada.entregar': ['recepcao', 'caixa'],
   'retirada.remover': ['administracao'],
   'retirada.item.adicionar': ['recepcao'],
   'retirada.item.remover': ['administracao'],
@@ -352,6 +359,7 @@ const PERMISSAO: Record<Comando['tipo'], string[]> = {
   'pedido.rejeitar': ['administracao'],
   'pedido.avancar': ['entregador'],
   'pedido.voltar': ['administracao'],
+  'pedido.balcao': ['recepcao', 'caixa'],
   'pedido.cancelar': ['administracao'],
 
   'caixa.pagamento': ['caixa'],
@@ -610,7 +618,7 @@ export function aplicar(
   // Historical corrections and scheduling remain possible after closing.
   const permitidoFechado: Comando['tipo'][] = [
     'caixa.abrir', 'caixa.turno.reabrir', 'caixa.editar', 'caixa.cancelar',
-    'mesa.agendar', 'retirada.agendar', 'pedido.agendar',
+    'mesa.agendar', 'retirada.agendar', 'pedido.agendar', 'pedido.balcao',
   ];
   if (!operacao.cashOpen && !permitidoFechado.includes(comando.tipo)) {
     throw new HttpError(409, 'Caixa fechado. Abra o caixa ou agende para a próxima abertura.');
@@ -696,12 +704,19 @@ export function aplicar(
     case 'retirada.status': {
       const retirada = operacao.takeouts.find((t) => t.id === comando.retiradaId);
       if (!retirada) throw new HttpError(404, 'Retirada nao encontrada.');
+      if (retirada.cashEntryId && comando.status === 'livre') {
+        throw new HttpError(409, 'Abra a comanda para confirmar a retirada ou cancelar a venda.');
+      }
       retirada.status = comando.status;
       if (comando.status === 'livre') retirada.set('items', []);
       return null;
     }
 
     case 'retirada.remover': {
+      const retirada = operacao.takeouts.find((t) => t.id === comando.retiradaId);
+      if (retirada?.cashEntryId) {
+        return aplicar(operacao, { tipo: 'comanda.cancelar', alvo: 'retirada', alvoId: retirada.id }, quem, taxaServico, nomes, entregadores, permissoes);
+      }
       operacao.set(
         'takeouts',
         operacao.takeouts.filter((t) => t.id !== comando.retiradaId)
@@ -712,6 +727,7 @@ export function aplicar(
     case 'retirada.item.adicionar': {
       const retirada = operacao.takeouts.find((t) => t.id === comando.retiradaId);
       if (!retirada) throw new HttpError(404, 'Retirada nao encontrada.');
+      if (retirada.cashEntryId) throw new HttpError(409, 'Pedido convertido: corrija os itens no caixa antes de concluir a retirada.');
       retirada.items.push(comando.item as never);
       retirada.status = 'ocupada';
       return null;
@@ -720,6 +736,7 @@ export function aplicar(
     case 'retirada.item.remover': {
       const retirada = operacao.takeouts.find((t) => t.id === comando.retiradaId);
       if (!retirada) throw new HttpError(404, 'Retirada nao encontrada.');
+      if (retirada.cashEntryId) throw new HttpError(409, 'Pedido convertido: corrija os itens no caixa antes de concluir a retirada.');
       if (comando.indice >= retirada.items.length) {
         throw new HttpError(409, 'Este item ja foi removido. Recarregue a comanda.');
       }
@@ -749,6 +766,22 @@ export function aplicar(
        */
       const taxa = pagando && naMesa ? subtotal * taxaServico : 0;
       if (pagando) validarPagamentos(subtotal + taxa, comando.payments);
+
+      // Uma conversão já tem lançamento: atualizar, nunca cobrar/criar duas vezes.
+      if (retirada?.cashEntryId) {
+        const entry = operacao.cashEntries.find((e) => e.id === retirada.cashEntryId);
+        if (!entry) throw new HttpError(409, 'Lançamento não encontrado no caixa atual. Recarregue a operação.');
+        if (pagando && entry.paymentStatus === 'concluido') throw new HttpError(409, 'Este pedido já está pago. Confirme apenas a retirada.');
+        if (pagando && subtotal > 0 && comando.payments.length === 0) throw new HttpError(400, 'Informe o pagamento recebido.');
+        const credito = pagando ? comando.payments.filter(p => p.method === 'fiado').reduce((s, p) => s + p.amount, 0) : 0;
+        entry.set({ payments: pagando ? comando.payments : entry.payments,
+          orderStatus: pagando ? 'feito' : 'cancelado', paymentStatus: pagando ? 'concluido' : 'pendente',
+          creditOriginalAmount: credito, creditPaid: 0, creditStatus: credito > 0 ? 'open' : 'none',
+          closedAt: agora(), editadoEm: agora(), editadoPor: nomeDe(quem) });
+        operacao.set('takeouts', operacao.takeouts.filter(t => t.id !== retirada.id));
+        auditar(pagando ? 'retirada.paga' : 'retirada.cancelada', retirada.id, 'Retirada convertida: lançamento original atualizado, sem duplicação.');
+        return pagando ? 'Pagamento registrado e retirada concluída.' : 'Retirada e venda canceladas. Confira eventual devolução ao cliente.';
+      }
 
       // Cancelamento sem consumo não vira lançamento: não houve dinheiro.
       if (pagando || subtotal > 0) {
@@ -795,6 +828,86 @@ export function aplicar(
 
     /* ---------------------------- Entregas --------------------------- */
 
+    case 'retirada.entregar': {
+      const retirada = operacao.takeouts.find(t => t.id === comando.retiradaId);
+      if (!retirada) throw new HttpError(404, 'Retirada não encontrada.');
+      const entry = operacao.cashEntries.find(e => e.id === retirada.cashEntryId);
+      if (!entry || entry.paymentStatus !== 'concluido' || entry.orderStatus !== 'feito') {
+        throw new HttpError(409, 'Confirme o pagamento na comanda antes de entregar.');
+      }
+      operacao.set('takeouts', operacao.takeouts.filter(t => t.id !== retirada.id));
+      auditar('retirada.entregue', retirada.id, 'Retirada concluída; pagamento já registrado, sem nova cobrança.');
+      return 'Retirada concluída.';
+    }
+
+    case 'pedido.balcao': {
+      const scheduled = operacao.scheduledDeliveries.find(d => d.id === comando.pedidoId);
+      let pedido = scheduled ?? operacao.deliveries.find(d => d.id === comando.pedidoId);
+      // Reabrir um turno recupera o livro-caixa, não recria entregas. Permitir
+      // converter esse lançamento também, sem tocar em turnos ainda fechados.
+      if (!pedido && operacao.cashOpen) {
+        const saved = operacao.cashEntries.find(e => e.id === `c-${comando.pedidoId}` && e.source === 'delivery' && e.orderStatus !== 'cancelado');
+        if (saved) {
+          operacao.deliveries.push({ id: comando.pedidoId, code: saved.label.replace(/^.*#/, '').slice(0, 10),
+            customerName: saved.customerName, phone: saved.phone, items: saved.items, total: saved.total,
+            payments: saved.payments, deliveryFee: saved.deliveryFee, address: saved.address, notes: saved.notes,
+            status: 'entregue', isDelivery: true, createdAt: saved.createdAt } as never);
+          pedido = operacao.deliveries[operacao.deliveries.length - 1];
+        }
+      }
+      if (!pedido) {
+        if ([...operacao.takeouts, ...operacao.scheduledTakeouts].some(t => t.id === `t-${comando.pedidoId}`)) return 'Este pedido já foi convertido para balcão.';
+        throw new HttpError(404, 'Pedido não está na operação. Para corrigir um dia encerrado, reabra o respectivo caixa no Registro.');
+      }
+      if (!scheduled && !operacao.cashOpen) throw new HttpError(409, 'Abra o caixa antes de converter este pedido.');
+      if (scheduled && comando.paymentStatus === 'concluido') throw new HttpError(409, 'Agendamentos aguardam pagamento na abertura do caixa.');
+      const total = somarItens(pedido.items);
+      if (comando.paymentStatus === 'concluido') {
+        if ((total > 0 && !comando.payments.length) || comando.payments.some(p => p.method === 'fiado')) {
+          throw new HttpError(400, 'Para marcar como pago, informe o meio efetivamente recebido, sem fiado.');
+        }
+        validarPagamentos(total, comando.payments);
+      }
+      const cashId = `c-${pedido.id}`;
+      if (operacao.cashArchive.some(e => e.id === cashId)) throw new HttpError(409, 'Reabra o caixa original no Registro antes de converter.');
+      let entry = operacao.cashEntries.find(e => e.id === cashId);
+      const previous = { delivery: pedido.toObject(), cashEntry: entry?.toObject(), operatorId: quem, createdAt: agora() };
+      const takeoutId = `t-${pedido.id}`;
+      const label = `Retirada #${pedido.code}`;
+      if (!scheduled) {
+        if (!entry) {
+          operacao.cashEntries.unshift({ id: cashId, source: 'retirada', label, customerName: pedido.customerName,
+            items: pedido.items, createdAt: pedido.createdAt } as never);
+          entry = operacao.cashEntries[0];
+        }
+        entry.set({ source: 'retirada', label, customerName: pedido.customerName, phone: pedido.phone,
+          notes: pedido.notes, items: pedido.items, subtotal: total, total, serviceFee: 0, deliveryFee: 0,
+          payments: comando.paymentStatus === 'concluido' ? comando.payments : [],
+          paymentStatus: comando.paymentStatus, orderStatus: 'feito', creditStatus: 'none',
+          creditOriginalAmount: 0, creditPaid: 0,
+          deliveredById: '', deliveredByName: '', address: {},
+          conversionPrevious: previous, editadoEm: agora(), editadoPor: nomeDe(quem),
+          closedAt: comando.paymentStatus === 'concluido' ? agora() : null });
+      }
+      (scheduled ? operacao.scheduledTakeouts : operacao.takeouts).unshift({
+        id: takeoutId, label: pedido.code, customerName: pedido.customerName, phone: pedido.phone,
+        status: 'ocupada', items: pedido.items, createdAt: pedido.createdAt, notes: pedido.notes,
+        cashEntryId: scheduled ? '' : cashId, paymentStatus: comando.paymentStatus,
+        payments: comando.paymentStatus === 'concluido' ? comando.payments : [],
+      } as never);
+      for (const [key, value] of operacao.kitchenStatus) {
+        const prefix = `k-delivery-${pedido.id}::`;
+        if (key.startsWith(prefix)) {
+          operacao.kitchenStatus.set(`k-retirada-${takeoutId}::${key.slice(prefix.length)}`, value);
+          operacao.kitchenStatus.delete(key);
+        }
+      }
+      const list = scheduled ? 'scheduledDeliveries' : 'deliveries';
+      operacao.set(list, operacao[list].filter(d => d.id !== pedido.id));
+      auditar('pedido.convertido.balcao', pedido.id, `Entrega #${pedido.code} → balcão. Taxa removida: R$ ${Number(pedido.deliveryFee ?? 0).toFixed(2)}. Novo total: R$ ${total.toFixed(2)}. ${comando.paymentStatus === 'concluido' ? 'Pago' : 'Aguardando pagamento; conferir valores já recebidos'}.`);
+      return scheduled ? 'Retirada agendada para a próxima abertura.' : 'Pedido movido para as retiradas. Taxa removida; confira eventual devolução e valores já recebidos.';
+    }
+
     case 'pedido.criar':
     case 'pedido.agendar': {
       if (comando.tipo === 'pedido.agendar' && operacao.cashOpen) {
@@ -834,6 +947,9 @@ export function aplicar(
     case 'pedido.atualizar': {
       const pedido = operacao.deliveries.find((d) => d.id === comando.pedidoId);
       if (!pedido) throw new HttpError(404, 'Pedido nao encontrado.');
+      if (pedido.isDelivery !== false && comando.isDelivery === false) {
+        throw new HttpError(409, 'Para mudar para balcão, use Tipo de atendimento e confirme o pagamento na Recepção ou no Entregador.');
+      }
       if (pedido.status === 'entregue' && !permissoes.includes('administracao')) {
         throw new HttpError(409, 'Pedido ja entregue nao pode ser alterado.');
       }
@@ -1067,6 +1183,8 @@ export function aplicar(
       lancamento.creditOriginalAmount = fiado;
       lancamento.creditPaid = 0;
       lancamento.creditStatus = fiado > 0 ? 'open' : 'none';
+      const retiradaPaga = operacao.takeouts.find(t => t.cashEntryId === lancamento.id);
+      if (retiradaPaga) retiradaPaga.set({ paymentStatus: 'concluido', payments: lancamento.payments });
       auditar(fiado > 0 ? 'fiado.criado' : 'caixa.pagamento', lancamento.id, fiado > 0
         ? `Crédito de R$ ${fiado.toFixed(2)} registrado para ${lancamento.customerName || lancamento.label}.`
         : `Pagamento de ${lancamento.label} registrado.`);
@@ -1153,6 +1271,7 @@ export function aplicar(
         } as never);
       }
       for (const takeout of operacao.takeouts) {
+        if (takeout.cashEntryId && archivedIds.has(takeout.cashEntryId)) continue;
         if (takeout.items.length === 0) continue;
         operacao.cashEntries.push({
           id: `c-fechamento-retirada-${takeout.id}`, source: 'retirada',
@@ -1332,6 +1451,7 @@ export function aplicar(
         lancamento.set('items', comando.items);
         lancamento.subtotal = somarItens(comando.items);
       }
+      if (lancamento.source === 'retirada' && comando.deliveryFee) throw new HttpError(400, 'Retirada no balcão não tem taxa de entrega.');
       if (comando.deliveryFee !== undefined) lancamento.deliveryFee = comando.deliveryFee;
       if (comando.payments) {
         lancamento.set('payments', comando.payments);
@@ -1355,6 +1475,11 @@ export function aplicar(
         Number(lancamento.serviceFee ?? 0) +
         Number(lancamento.deliveryFee ?? 0);
       if (comando.payments) validarPagamentos(Number(lancamento.total ?? 0), comando.payments);
+      const retiradaEditada = operacao.takeouts.find(t => t.cashEntryId === lancamento.id);
+      if (retiradaEditada) {
+        if (comando.items && !comando.payments) validarPagamentos(Number(lancamento.total), lancamento.payments as never);
+        retiradaEditada.set({ items: lancamento.items, payments: lancamento.payments, paymentStatus: lancamento.paymentStatus });
+      }
 
       lancamento.editadoEm = agora();
       lancamento.editadoPor = quem;
@@ -1377,6 +1502,7 @@ export function aplicar(
       lancamento.orderStatus = 'cancelado';
       lancamento.paymentStatus = 'pendente';
       lancamento.motivoCancelamento = comando.motivo;
+      operacao.set('takeouts', operacao.takeouts.filter(t => t.cashEntryId !== lancamento.id));
       lancamento.editadoEm = agora();
       lancamento.editadoPor = quem;
       auditar('caixa.cancelado', lancamento.id, `${lancamento.label} cancelado: ${comando.motivo || 'sem motivo'}.`);

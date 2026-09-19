@@ -191,16 +191,18 @@ export function ClientMenuPage() {
       transports: ['polling', 'websocket'],
     });
     async function atualizar(event?: { productId?: string; available?: boolean }) {
+      if (event?.productId && typeof event.available === 'boolean') {
+        const { productId, available } = event;
+        setCardapio(current => current ? { ...current, products: current.products.map(p => p.id === productId ? { ...p, available } : p) } : current);
+      }
       try {
         const response = await fetch(`${BASE}/public/apps/${encodeURIComponent(id ?? '')}`);
         const payload = await response.json();
         if (response.ok && payload.ok !== false) {
           const next = payload.data as CardapioPublico;
           setCardapio(next);
-          if (event?.available === false) {
-            const exhausted = next.products.find((product) => product.id === (event.productId ?? ''));
-            if (exhausted) setCart((current) => current.filter((item) => item.name !== exhausted.name));
-          }
+          const exhausted = new Set(next.products.filter(p => p.available === false).map(p => p.name));
+          setCart(current => current.filter(item => !exhausted.has(item.name)));
         }
       } catch {
         /* A próxima reconexão ou recarga recupera o estado; o carrinho atual é preservado. */
@@ -208,7 +210,7 @@ export function ClientMenuPage() {
     }
     socket.on('menu_item_availability_changed', atualizar);
     socket.on('register_status_changed', () => void atualizar());
-    const interval = window.setInterval(() => void atualizar(), 30_000);
+    const interval = window.setInterval(() => { if (document.visibilityState !== 'hidden') void atualizar(); }, 5_000);
     const onFocus = () => void atualizar();
     window.addEventListener('focus', onFocus);
     return () => {

@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { deviceApi, onSessionLost, type Branding, type Employee } from './deviceApi';
 import { deviceStorage } from './deviceStorage';
+import { Capacitor } from '@capacitor/core';
+import { restaurantBranding } from './RestaurantPersonalization';
 
 /**
  * Sessao do funcionario dentro do app.
@@ -78,7 +80,8 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
     setRestoreAttempt((attempt) => attempt + 1);
   }, []);
 
-  const encerrarLocal = useCallback(() => {
+  const encerrarLocal = useCallback((clearPersonalization = true) => {
+    if (clearPersonalization && Capacitor.isPluginAvailable('VaptBranding')) void restaurantBranding.clear().catch(() => {});
     setEmployee(null);
     setBranding(VAPT_BRANDING);
     setAppId(null);
@@ -122,8 +125,8 @@ export function DeviceAuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(currentToken);
       } catch {
         if (vivo) {
-          encerrarLocal();
           const stillStored = (await deviceStorage.getAccess()) || (await deviceStorage.getRefresh());
+          encerrarLocal(!stillStored);
           if (vivo) setSessionUnavailable(Boolean(stillStored));
         }
       } finally {

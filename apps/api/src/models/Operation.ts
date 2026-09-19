@@ -127,6 +127,10 @@ const takeoutSchema = new Schema(
     phone: { type: String, trim: true, maxlength: 30, default: '' },
     status: { type: String, enum: ['livre', 'ocupada', 'pagamento'], default: 'ocupada' },
     items: { type: [orderItemSchema], default: [] },
+    cashEntryId: { type: String, default: '' },
+    notes: { type: String, default: '' },
+    payments: { type: [paymentSchema], default: [] },
+    paymentStatus: { type: String, enum: ['pendente', 'concluido'], default: 'pendente' },
     createdAt: { type: Number, required: true },
   },
   { _id: false }
@@ -181,6 +185,7 @@ const deliverySchema = new Schema(
  */
 const cashEntrySchema = new Schema(
   {
+    conversionPrevious: { type: Schema.Types.Mixed, default: undefined },
     id: { type: String, required: true },
     source: { type: String, enum: ['mesa', 'retirada', 'delivery'], required: true },
     label: { type: String, required: true, trim: true, maxlength: 120 },

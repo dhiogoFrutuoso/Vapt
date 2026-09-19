@@ -37,6 +37,7 @@ type Props = {
   onCashMovement?: (type: 'sangria', amount: number, reason: string) => void;
   /** Abre o pedido de delivery na aba Cliente para incluir itens do cardápio. */
   onEditDeliveryItems?: (entry: CashEntry) => void;
+  renderDeliveryConversion?: (entry: CashEntry) => import('react').ReactNode;
   onCreditPayment?: (id: string, amount: number) => void;
   onReopenEntry?: (id: string) => void;
   onCloseRegister: (counted: { dinheiro: number; cartao: number; pix: number }) => void | Promise<unknown>;
@@ -155,6 +156,7 @@ export function CashRegister({
   onReopenEntry,
   onCloseRegister,
   onEditDeliveryItems,
+  renderDeliveryConversion,
   storeName = 'Vapt',
   storePhone,
   operatorName,
@@ -700,6 +702,11 @@ export function CashRegister({
                   )}
 
                   {/* Fantasma: fica visível, marcado, e fora da soma. */}
+                  {entry.orderStatus !== 'cancelado' && renderDeliveryConversion?.(entry)}
+                  {entry.conversionPrevious && <p className="cat-hint">Convertido de delivery. Taxa removida: {brl(entry.conversionPrevious.delivery?.deliveryFee ?? 0)}.
+                    {entry.conversionPrevious.cashEntry?.paymentStatus === 'concluido' ? ' Havia pagamento registrado antes da conversão: confira os valores antes de cobrar novamente ou devolver a diferença.' : ' Confira eventuais recebimentos anteriores antes de cobrar.'}
+                    {(entry.conversionPrevious.cashEntry?.creditPaid ?? 0) > 0 && ` Abatimentos anteriores de fiado: ${brl(entry.conversionPrevious.cashEntry!.creditPaid!)}.`}
+                  </p>}
                   {entry.orderStatus === 'cancelado' && (
                     <p className="cash-entry__fantasma">
                       Venda cancelada — não entra no faturamento.
@@ -889,6 +896,7 @@ export function CashRegister({
                       )}
                     </div>
 
+                    {entry.orderStatus !== 'cancelado' && renderDeliveryConversion?.(entry)}
                     {entry.orderStatus === 'cancelado' && entry.motivoCancelamento && (
                       <p className="cash-entry__fantasma">Motivo: {entry.motivoCancelamento}</p>
                     )}

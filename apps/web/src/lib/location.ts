@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import type { PermissionStatus } from '@capacitor/geolocation';
 
 export type Coordinates = { lat: number; lng: number };
@@ -22,6 +22,18 @@ function withTimeout<T>(operation: Promise<T>, milliseconds: number): Promise<T>
 }
 
 async function getNativeCoordinates(): Promise<Coordinates> {
+  if (Capacitor.isPluginAvailable('VaptLocation')) {
+    const native = registerPlugin<{ getCurrentPosition(): Promise<{ coords: { latitude: number; longitude: number } }> }>('VaptLocation');
+    try {
+      const { coords } = await native.getCurrentPosition();
+      if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) throw new Error('Posição inválida.');
+      return { lat: coords.latitude, lng: coords.longitude };
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      throw new LocationFailure(code === 'PERMISSION_DENIED' ? 'permission-denied' : code === 'SERVICES_DISABLED' ? 'services-disabled' : 'unavailable',
+        error instanceof Error ? error.message : 'Não foi possível obter a localização. Ajuste o pino no mapa.');
+    }
+  }
   const { Geolocation } = await import('@capacitor/geolocation');
   if (!Capacitor.isPluginAvailable('Geolocation')) {
     throw new LocationFailure('unavailable', 'A localização nativa não está disponível nesta instalação. Atualize o APK e tente novamente.');

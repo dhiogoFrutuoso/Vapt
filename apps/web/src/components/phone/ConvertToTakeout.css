@@ -1,0 +1,20 @@
+.takeout-conversion {
+  margin-block: 12px; padding: 12px; border: 1px solid var(--line, #d1d5db);
+  border-radius: 14px; background: var(--surface, #fff); color: var(--ink-900, #111827);
+}
+.takeout-conversion label { display: flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
+.takeout-conversion__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 8px; }
+.takeout-conversion select { min-width: 0; width: 100%; min-height: 48px; padding: 8px; border: 1px solid var(--line, #9ca3af); border-radius: 10px; background: var(--surface-2, #f3f4f6); color: inherit; font: inherit; font-size: 12px; }
+.takeout-conversion__row > button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 48px; padding: 8px 12px; border: 1px solid var(--line, #d1d5db); border-radius: 10px; background: var(--surface-2, #f3f4f6); color: inherit; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.takeout-conversion__row > button:disabled { opacity: .5; cursor: default; }
+.takeout-conversion .confirm-modal__card { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.takeout-conversion :is(button, select):focus-visible { outline: 2px solid var(--primary, #f95d2a); outline-offset: 3px; }
+.takeout-conversion__details { display: grid; gap: 8px; padding-top: 12px; }
+.takeout-conversion__details label { display: grid; }
+.takeout-conversion__details p { margin: 0; }
+.takeout-conversion__details small { font-size: 12px; line-height: 1.5; }
+.restaurant-personalization { display: flex; align-items: flex-start; gap: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid #cbd5e1; border-radius: 16px; background: #fff; color: #1e293b; }
+.restaurant-personalization > div { flex: 1; min-width: 0; }
+.restaurant-personalization p { font-size: 13px; line-height: 1.5; margin: 6px 0 12px; }
+.restaurant-personalization > button, .restaurant-personalization > div > button { min-height: 48px; border: 1px solid #94a3b8; border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 13px; color: inherit; background: transparent; cursor: pointer; }
+.dark .restaurant-personalization { background: #111a2b; color: #f8fafc; border-color: #475569; }

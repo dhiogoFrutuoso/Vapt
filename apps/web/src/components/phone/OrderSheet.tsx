@@ -11,6 +11,9 @@ import { hasInvalidChangeFor, promotionParts, sumItems, type CategoryItem, type 
 
 /** Comanda normalizada: mesa e retirada usam a mesma tela. */
 export type Ticket = {
+  paid?: boolean;
+  lockedItems?: boolean;
+  notes?: string;
   id: string;
   title: string;
   status: TableStatus;
@@ -20,6 +23,7 @@ export type Ticket = {
 };
 
 type Props = {
+  onConfirmPickup?: () => void;
   ticket: Ticket;
   products: PreviewProduct[];
   promotions?: import('./types').PreviewPromotion[];
@@ -55,6 +59,7 @@ export function OrderSheet({
   onConfirmPayment,
   onCancelOrder,
   onDismiss,
+  onConfirmPickup,
 }: Props) {
   const copy = demo.preview;
   const paymentOptions = [
@@ -361,7 +366,7 @@ export function OrderSheet({
                 <span>{item.name}</span>
                 <span className="phone__sheet-right">
                   {brl(item.price)}
-                  {onRemoveItem && <button type="button" onClick={() => onRemoveItem(index)} aria-label={`Remover ${item.name}`}>
+                  {onRemoveItem && !ticket.lockedItems && <button type="button" onClick={() => onRemoveItem(index)} aria-label={`Remover ${item.name}`}>
                     ✕
                   </button>}
                 </span>
@@ -384,7 +389,10 @@ export function OrderSheet({
             <strong>{brl(total)}</strong>
           </div>
 
-          {ticket.status === 'pagamento' ? (
+          {ticket.notes && <p className="cat-hint">{ticket.notes}</p>}
+          {ticket.paid && onConfirmPickup ? (
+            <div className="phone__sheet-actions"><button type="button" onClick={onConfirmPickup}>Pago · confirmar retirada</button></div>
+          ) : ticket.status === 'pagamento' ? (
             <div className="sheet-pay">
               <span className="sheet-pay__title">{copy.choosePayment}</span>
 
@@ -506,7 +514,7 @@ export function OrderSheet({
             </div>
           ) : (
             <div className="phone__sheet-actions">
-              <button type="button" className="phone__sheet-btn" onClick={() => setMode('cardapio')}>
+              <button type="button" className="phone__sheet-btn" disabled={ticket.lockedItems} title={ticket.lockedItems ? 'Corrija os itens deste pedido no caixa' : undefined} onClick={() => setMode('cardapio')}>
                 + {copy.addItem}
               </button>
               <button

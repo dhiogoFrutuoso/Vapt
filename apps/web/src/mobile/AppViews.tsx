@@ -9,7 +9,7 @@ import { ReceptionView } from '../components/phone/ReceptionView';
 import { KitchenView } from '../components/phone/KitchenView';
 import { AdministrationView } from '../components/phone/AdministrationView';
 import { useConfirm } from '../components/ConfirmModal';
-import { deviceApi } from './deviceApi';
+import { ConvertToTakeout, type TakeoutConversion } from '../components/phone/ConvertToTakeout';
 import { NO_STATION, sumItems, totalEntregue } from '../components/phone/types';
 import type {
   CategoryItem,
@@ -76,6 +76,8 @@ type Props = {
     isDeliveryman: boolean;
   }>;
   onTeamChanged?: () => void | Promise<void>;
+  onToggleAvailability?: (id: string, available: boolean) => Promise<void>;
+  availabilityPending?: string[];
   permissions: string[];
   isDeliveryman: boolean;
 };
@@ -101,6 +103,8 @@ export function AppViews({
   employeeName,
   equipe = [],
   onTeamChanged,
+  onToggleAvailability,
+  availabilityPending,
   permissions,
 }: Props) {
   /* ------------------------- Estado local da tela ------------------------- */
@@ -120,6 +124,8 @@ export function AppViews({
     isDelivery?: boolean;
   } | null>(null);
   const isAdmin = permissions.includes('administracao');
+  const canConvert = isAdmin || permissions.includes('recepcao') || permissions.includes('caixa');
+  const convertToTakeout = (id: string, data: TakeoutConversion) => rodar({ tipo: 'pedido.balcao', pedidoId: id, ...data });
   const { confirm, ConfirmElement } = useConfirm();
 
   function oferecerAgendamento(onConfirm: () => void, assunto = 'pedido') {
@@ -354,6 +360,9 @@ export function AppViews({
           status: openTakeout.status,
           items: openTakeout.items,
           serviceFeeRate: 0,
+          paid: Boolean(openTakeout.cashEntryId && estado.cashEntries.find(e => e.id === openTakeout.cashEntryId)?.paymentStatus === 'concluido'),
+          lockedItems: Boolean(openTakeout.cashEntryId),
+          notes: openTakeout.notes,
         }
       : null;
 
@@ -527,6 +536,8 @@ export function AppViews({
           {!estado.cashOpen && estado.scheduledDeliveries.length > 0 && (
             <p className="cat-hint">{estado.scheduledDeliveries.length} pedido(s) agendado(s) entrarão na recepção e cozinha quando o caixa abrir.</p>
           )}
+          {!estado.cashOpen && canConvert && estado.scheduledDeliveries.filter(d => d.isDelivery !== false).map(order =>
+            <ConvertToTakeout key={order.id} order={order} onConvert={convertToTakeout} scheduled />)}
           <ReceptionView
             deliveries={estado.deliveries}
             defaultFee={deliveryFee}
@@ -539,8 +550,10 @@ export function AppViews({
             operatorName={employeeName}
             products={products}
             categories={categories}
-            onToggleAvailability={isAdmin ? (productId, available) => {
-              void deviceApi.patch(`/device/menu/products/${productId}/availability`, { available })
+            onConvert={canConvert ? convertToTakeout : undefined}
+            availabilityPending={availabilityPending}
+            onToggleAvailability={(isAdmin || permissions.includes('recepcao')) && onToggleAvailability ? (productId, available) => {
+              void onToggleAvailability(productId, available)
                 .then(() => toast.success(available ? 'Produto disponível.' : 'Produto marcado como esgotado.'))
                 .catch((error) => toast.error(error instanceof Error ? error.message : 'Não foi possível alterar o produto.'));
             } : undefined}
@@ -549,6 +562,7 @@ export function AppViews({
         {openTakeout && ticket && (
           <OrderSheet
             ticket={ticket}
+            onConfirmPickup={openTakeout?.cashEntryId ? () => confirm({ title: 'Concluir retirada?', message: 'O pagamento já está registrado. Confirme que o cliente recebeu o pedido.', confirmText: 'Concluir retirada', isDestructive: false, onConfirm: () => void rodar({ tipo: 'retirada.entregar', retiradaId: openTakeout.id }) }) : undefined}
             categories={categories}
             products={products}
             onAddItem={(item) => void adicionarItem(item)}
@@ -679,6 +693,16 @@ export function AppViews({
             if (estado.deliveries.some((delivery) => delivery.id === deliveryId)) editarPedido(deliveryId);
             else toast.error('Esta entrega já foi encerrada e não está mais disponível para incluir itens.');
           } : undefined}
+          renderDeliveryConversion={canConvert ? (entry) => {
+            if (!estado.cashOpen || entry.source !== 'delivery' || !estado.cashEntries.some(e => e.id === entry.id)) return null;
+            const order = estado.deliveries.find(d => `c-${d.id}` === entry.id && d.isDelivery !== false) ?? {
+              id: entry.id.replace(/^c-/, ''), code: entry.label.replace(/^.*#/, '').slice(0, 10),
+              customerName: entry.customerName ?? entry.label, items: entry.items, total: entry.total,
+              payments: entry.payments, deliveryFee: entry.deliveryFee, address: { mode: 'manual' as const },
+              status: 'entregue' as const, createdAt: entry.createdAt, timeLabel: '', distanceLabel: '',
+            };
+            return order ? <ConvertToTakeout order={order} onConvert={convertToTakeout} /> : null;
+          } : undefined}
           storeName={storeName}
           storePhone={storePhone}
           operatorName={employeeName}
@@ -699,6 +723,7 @@ export function AppViews({
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         <DeliveryView
           orders={estado.deliveries}
+          onConvert={canConvert ? convertToTakeout : undefined}
           interactive
           onAdvance={(id) => void rodar({ tipo: 'pedido.avancar', pedidoId: id })}
           onRevert={isAdmin ? (id) => void rodar({ tipo: 'pedido.voltar', pedidoId: id }) : undefined}

@@ -121,6 +121,8 @@ export type Comando =
   | { tipo: 'pedido.rejeitar'; pedidoId: string }
   | { tipo: 'pedido.avancar'; pedidoId: string }
   | { tipo: 'pedido.voltar'; pedidoId: string }
+  | { tipo: 'pedido.balcao'; pedidoId: string; paymentStatus: 'pendente' | 'concluido'; payments: PaymentSplit }
+  | { tipo: 'retirada.entregar'; retiradaId: string }
   | { tipo: 'pedido.cancelar'; pedidoId: string }
   | { tipo: 'caixa.pagamento'; lancamentoId: string; payments: PaymentSplit }
   | {
@@ -160,6 +162,9 @@ export function useOperation(
   const [estado, setEstado] = useState<EstadoOperacao>(VAZIO);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const revision = useRef(0);
+  const pendingCommands = useRef(0);
+  const fetching = useRef(false);
 
   /*
    * A busca fica numa ref para que o socket e a sondagem a chamem sem
@@ -169,13 +174,17 @@ export function useOperation(
   const buscarRef = useRef<() => Promise<void>>(async () => {});
 
   const buscar = useCallback(async () => {
+    if (fetching.current || pendingCommands.current > 0) return;
+    fetching.current = true;
+    const started = revision.current;
     try {
       const dados = await deviceApi.get<EstadoOperacao>('/device/operation');
-      setEstado({ ...VAZIO, ...dados });
+      if (started === revision.current && pendingCommands.current === 0) setEstado({ ...VAZIO, ...dados });
       setErro(null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não foi possível carregar a operação.');
     } finally {
+      fetching.current = false;
       setCarregando(false);
     }
   }, []);
@@ -248,7 +257,7 @@ export function useOperation(
        * `visibilitychange` abaixo já busca.
        */
       if (document.visibilityState === 'visible') void buscarRef.current();
-    }, 30_000);
+    }, 5_000);
 
     const aoVoltar = () => {
       if (document.visibilityState === 'visible') void buscarRef.current();
@@ -264,10 +273,14 @@ export function useOperation(
   /* ------------------------------- Comandos ------------------------------- */
 
   const executar = useCallback(async (comando: Comando): Promise<string | null> => {
-    const dados = await deviceApi.post<Resposta>('/device/operation', comando);
-    const { mensagem, ...novo } = dados;
-    setEstado({ ...VAZIO, ...novo });
-    return mensagem ?? null;
+    pendingCommands.current++;
+    revision.current++;
+    try {
+      const dados = await deviceApi.post<Resposta>('/device/operation', comando);
+      const { mensagem, ...novo } = dados;
+      setEstado({ ...VAZIO, ...novo });
+      return mensagem ?? null;
+    } finally { pendingCommands.current--; revision.current++; }
   }, []);
 
   return { estado, carregando, erro, executar, recarregar: buscar };

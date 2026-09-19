@@ -1060,10 +1060,14 @@
 
 .map-picker-body {
   flex: 1;
+  min-height: 0;
   position: relative;
   z-index: 1;
   background: var(--ink-100);
 }
+
+.map-picker-locate { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; min-height: 44px; }
+.map-picker-header [role="alert"] { margin-top: 8px; }
 
 .map-picker-footer {
   padding: 11px;

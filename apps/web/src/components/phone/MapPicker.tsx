@@ -1,5 +1,7 @@
-import { useState, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { LocateFixed } from 'lucide-react';
+import { getCurrentCoordinates, getLocationFailureMessage, type Coordinates } from '../../lib/location';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -22,9 +24,45 @@ type Props = {
   onCancel: () => void;
 };
 
+function MapPosition({ center, revision, onSelect }: { center: Coordinates; revision: number; onSelect: (coords: Coordinates) => void }) {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    map.setView([center.lat, center.lng], 17, { animate: false });
+  }, [map, center.lat, center.lng, revision]);
+  useMapEvents({ click: e => onSelect({ lat: e.latlng.lat, lng: e.latlng.lng }) });
+  return null;
+}
+
 export function MapPicker({ initialCenter, onConfirm, onCancel }: Props) {
   const [position, setPosition] = useState(initialCenter);
+  const [center, setCenter] = useState(initialCenter);
+  const [revision, setRevision] = useState(0);
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const alive = useRef(true);
   const markerRef = useRef<L.Marker>(null);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => {
+    setPosition(initialCenter);
+    setCenter(initialCenter);
+  }, [initialCenter.lat, initialCenter.lng]);
+
+  async function locate() {
+    setLocating(true);
+    setError(null);
+    try {
+      const coords = await getCurrentCoordinates();
+      if (!alive.current) return;
+      setPosition(coords);
+      setCenter(coords);
+      setRevision(value => value + 1);
+    } catch (cause) {
+      if (alive.current) setError(getLocationFailureMessage(cause));
+    } finally {
+      if (alive.current) setLocating(false);
+    }
+  }
 
   const eventHandlers = useMemo(
     () => ({
@@ -39,20 +77,15 @@ export function MapPicker({ initialCenter, onConfirm, onCancel }: Props) {
     []
   );
 
-  function MapClickHandler() {
-    useMapEvents({
-      click(e) {
-        setPosition({ lat: e.latlng.lat, lng: e.latlng.lng });
-      },
-    });
-    return null;
-  }
-
   return (
     <div className="map-picker-modal">
       <div className="map-picker-header">
-        <h3>Ajuste sua localização</h3>
-        <p>Aproxime o mapa e arraste o pino exatamente para cima da sua casa</p>
+        <h3>Confirme sua localização</h3>
+        <p>O pino começa na posição informada pelo aparelho. Ajuste-o até a entrada do endereço, se precisar.</p>
+        <button type="button" className="phone__sheet-btn map-picker-locate" disabled={locating} onClick={() => void locate()}>
+          <LocateFixed size={18} aria-hidden="true" />{locating ? 'Buscando sua posição…' : 'Minha localização'}
+        </button>
+        {error && <p role="alert">{error}</p>}
       </div>
 
       <div className="map-picker-body">
@@ -66,12 +99,13 @@ export function MapPicker({ initialCenter, onConfirm, onCancel }: Props) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapClickHandler />
+          <MapPosition center={center} revision={revision} onSelect={setPosition} />
           <Marker
             draggable={true}
             eventHandlers={eventHandlers}
             position={[position.lat, position.lng]}
             ref={markerRef}
+            alt="Local de entrega selecionado"
           />
         </MapContainer>
       </div>
@@ -80,7 +114,7 @@ export function MapPicker({ initialCenter, onConfirm, onCancel }: Props) {
         <button type="button" className="btn btn--ghost" onClick={onCancel} style={{ flex: 1 }}>
           Cancelar
         </button>
-        <button type="button" className="btn btn--primary" onClick={() => onConfirm(position)} style={{ flex: 1 }}>
+        <button type="button" className="btn btn--primary" disabled={locating} onClick={() => onConfirm(position)} style={{ flex: 1 }}>
           Confirmar Localização
         </button>
       </div>

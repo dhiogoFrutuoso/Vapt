@@ -153,7 +153,7 @@ export const setDeviceProductAvailability = asyncHandler(async (req: Request, re
   const productId = z.string().min(1).parse(req.params.productId);
   const { available } = z.object({ available: z.boolean() }).parse(req.body);
   const permissions = req.device!.perms ?? [];
-  if (!permissions.includes('administracao')) {
+  if (!permissions.includes('administracao') && !permissions.includes('recepcao')) {
     throw new HttpError(403, 'Sua função não permite alterar o cardápio.');
   }
 

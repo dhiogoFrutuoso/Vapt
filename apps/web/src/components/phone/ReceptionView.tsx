@@ -10,6 +10,7 @@ import { PrintTicket } from './PrintTicket';
 import { printReceipt } from '../../lib/printReceipt';
 import { CategoryGrid } from './CategoryGrid';
 import { IconRenderer } from '../IconRenderer';
+import { ConvertToTakeout, type ConvertHandler } from './ConvertToTakeout';
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   pix: 'PIX',
@@ -34,6 +35,8 @@ function feeToInput(value: number): string {
 }
 
 interface ReceptionViewProps {
+  onConvert?: ConvertHandler;
+  availabilityPending?: string[];
   deliveries: DeliveryOrder[];
   /** Manda o pedido de volta para a aba Cliente, em modo edicao. */
   onEdit?: (id: string) => void;
@@ -59,8 +62,10 @@ function ReceptionOrderItem({
   onEdit,
   deliveryPeople,
   confirm,
+  onConvert,
 }: {
   d: DeliveryOrder;
+  onConvert?: ConvertHandler;
   defaultFee: number;
   onAccept: ReceptionViewProps['onAccept'];
   onReject: ReceptionViewProps['onReject'];
@@ -235,6 +240,7 @@ function ReceptionOrderItem({
         </button>
       </div>
 
+      {d.isDelivery !== false && onConvert && <ConvertToTakeout order={d} onConvert={onConvert} />}
       {dispatchOpen && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Selecionar entregador do pedido ${d.code}`}>
           <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900">
@@ -278,6 +284,8 @@ export function ReceptionView({
   products = [],
   categories = [],
   onToggleAvailability,
+  onConvert,
+  availabilityPending = [],
 }: ReceptionViewProps) {
   const { confirm, ConfirmElement } = useConfirm();
   const [printing, setPrinting] = useState<{ order: DeliveryOrder } | null>(null);
@@ -378,6 +386,7 @@ export function ReceptionView({
               onEdit={onEdit}
               confirm={confirm}
               deliveryPeople={deliveryPeople}
+              onConvert={onConvert}
             />
           ))}
         </ul>
@@ -387,6 +396,15 @@ export function ReceptionView({
         <p className="recep-hint">
           {despachados} {despachados === 1 ? 'pedido já está' : 'pedidos já estão'} com o entregador.
         </p>
+      )}
+      {onConvert && deliveries.some(d => d.status !== 'novo' && d.isDelivery !== false) && (
+        <details className="takeout-conversion">
+          <summary>Alterar atendimento de pedidos despachados ou entregues</summary>
+          {deliveries.filter(d => d.status !== 'novo' && d.isDelivery !== false).map(order => <div key={order.id}>
+            <p><strong>#{order.code} · {order.customerName}</strong></p>
+            <ConvertToTakeout order={order} onConvert={onConvert} />
+          </div>)}
+        </details>
       )}
 
       {printing && (
@@ -450,11 +468,14 @@ export function ReceptionView({
                         <button
                           type="button"
                           className={available ? 'is-available' : 'is-paused'}
+                          disabled={availabilityPending.includes(product.id ?? '')}
+                          role="switch"
+                          aria-checked={available}
                           onClick={() => toggleProduct(product)}
                           aria-label={`${available ? 'Marcar' : 'Retirar'} ${product.name} como ${available ? 'esgotado' : 'disponível'}`}
                         >
                           {available ? <PackageCheck size={17} /> : <PackageX size={17} />}
-                          {available ? 'Disponível' : 'Esgotado'}
+                          {availabilityPending.includes(product.id ?? '') ? 'Salvando…' : available ? 'Disponível' : 'Esgotado'}
                         </button>
                       </li>
                     );

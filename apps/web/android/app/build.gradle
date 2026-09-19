@@ -23,6 +23,7 @@ def signingFile = buildSetting('VAPT_ANDROID_KEYSTORE_FILE')
 def useLegacyDebugSigning = buildSetting('VAPT_LEGACY_DEBUG_SIGNING') == 'true'
 
 android {
+    buildFeatures { buildConfig true }
     namespace "com.vapt.equipe"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {

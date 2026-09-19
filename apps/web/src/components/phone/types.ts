@@ -277,6 +277,10 @@ export type OrderSource = 'mesa' | 'retirada' | 'delivery';
  * fecha e vira lançamento no caixa. A diferença é que a "mesa" é o nome do cliente.
  */
 export type TakeoutOrder = {
+  cashEntryId?: string;
+  notes?: string;
+  payments?: PaymentSplit;
+  paymentStatus?: 'pendente' | 'concluido';
   id: string;
   /** Senha/numero curto mostrado no card. */
   label: string;
@@ -335,6 +339,10 @@ export type CashEntry = {
   creditStatus?: 'none' | 'open' | 'partial' | 'paid';
   creditOriginalAmount?: number;
   creditPaid?: number;
+  conversionPrevious?: {
+    delivery?: { deliveryFee?: number; total?: number };
+    cashEntry?: { paymentStatus?: PaymentProgress; payments?: PaymentSplit; creditPaid?: number };
+  };
   creditPayments?: Array<{
     amount: number;
     operatorId: string;

@@ -4,6 +4,7 @@ import { brl } from '../../lib/format';
 import { addressLabel, mapsUrl, paymentCashBalance, whatsappUrl, type DeliveryOrder, type PaymentMethod, type PaymentSplit } from './types';
 import { useConfirm } from '../ConfirmModal';
 import { Bike, Check, CornerUpLeft, MapPinned, Trash2, UserRoundCog } from 'lucide-react';
+import { ConvertToTakeout, type ConvertHandler } from './ConvertToTakeout';
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro', fiado: 'Fiado',
@@ -15,6 +16,7 @@ function formatPayments(payments: PaymentSplit): string {
 }
 
 type Props = {
+  onConvert?: ConvertHandler;
   orders: DeliveryOrder[];
   interactive: boolean;
   onAdvance: (id: string) => void;
@@ -71,6 +73,7 @@ export function DeliveryView({
   onCancel,
   deliveryPeople = [],
   onReassign,
+  onConvert,
 }: Props) {
   const copy = demo.preview;
   const [tab, setTab] = useState<'pending' | 'done'>('pending');
@@ -78,8 +81,8 @@ export function DeliveryView({
   const [search, setSearch] = useState('');
   const [assignmentDraft, setAssignmentDraft] = useState<Record<string, string>>({});
 
-  const pending = useMemo(() => orders.filter((order) => order.status !== 'entregue' && order.status !== 'novo'), [orders]);
-  const done = useMemo(() => orders.filter((order) => order.status === 'entregue'), [orders]);
+  const pending = useMemo(() => orders.filter((order) => order.isDelivery !== false && order.status !== 'entregue' && order.status !== 'novo'), [orders]);
+  const done = useMemo(() => orders.filter((order) => order.isDelivery !== false && order.status === 'entregue'), [orders]);
 
   const visible = useMemo(() => {
     const base = tab === 'pending' ? pending : done;
@@ -109,7 +112,7 @@ export function DeliveryView({
 
       <div className="phone__section-title">
         <span>{copy.deliveryTitle}</span>
-        <span className="phone__section-count">{orders.length}</span>
+          <span className="phone__section-count">{orders.filter(order => order.isDelivery !== false).length}</span>
       </div>
 
       {/* --------------------- Em andamento x Concluídas --------------------- */}
@@ -272,6 +275,7 @@ export function DeliveryView({
                 </p>
               ) : null}
 
+              {onConvert && <ConvertToTakeout order={order} onConvert={onConvert} />}
               <div className="phone__delivery-actions deliv-actions">
                 <a className="phone__sheet-btn deliv-action" href={mapsUrl(order.address)} target="_blank" rel="noreferrer">
                   <MapPinned size={16} aria-hidden="true" /> {copy.deliveryMaps}
