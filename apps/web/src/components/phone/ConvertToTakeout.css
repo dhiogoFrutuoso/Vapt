@@ -18,7 +18,7 @@
 .restaurant-personalization p { font-size: 13px; line-height: 1.5; margin: 6px 0 12px; }
 .restaurant-personalization > button, .restaurant-personalization > div > button { min-height: 48px; border: 1px solid #94a3b8; border-radius: 10px; padding: 8px 12px; font: inherit; font-size: 13px; color: inherit; background: transparent; cursor: pointer; }
 .dark .restaurant-personalization { background: #111a2b; color: #f8fafc; border-color: #475569; }
-.restaurant-personalization-gate { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 16px; background: transparent; }
+.restaurant-personalization-gate { position: fixed; inset: 0; margin: auto; width: min(560px, calc(100vw - 32px)); height: fit-content; max-height: calc(100dvh - 48px); padding: 0; border: 0; border-radius: 16px; background: transparent; }
 .restaurant-personalization-gate::backdrop { background: rgb(0 0 0 / 80%); }
 .restaurant-personalization-gate .restaurant-personalization { margin: 0; }
 .restaurant-personalization button:disabled { opacity: .6; cursor: wait; }

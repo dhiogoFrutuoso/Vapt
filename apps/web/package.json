@@ -1,6 +1,6 @@
 {
   "name": "@vapt/web",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "type": "module",
   "description": "Aplicativo da equipe do Vapt — PDV, cozinha e recepção.",
