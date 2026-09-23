@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, createHash } from 'node:crypto';
 import sharp from 'sharp';
+import { renderRestaurantIcon, renderAdaptiveRestaurantIcon, adaptiveIconXml } from './restaurant-icon.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const jobFile = process.argv[process.argv.indexOf('--job') + 1];
@@ -35,7 +36,7 @@ const image = await fetch(`${api}/images/${job.logoId}`, { signal: AbortSignal.t
 if (!image.ok) throw new Error('Restaurant logo could not be downloaded. No generic-icon fallback is allowed.');
 const bytes = Buffer.from(await image.arrayBuffer());
 if (bytes.length > 3_000_000) throw new Error('Logo exceeds build input limit');
-const icon = await sharp(bytes, { limitInputPixels: 16_000_000 }).resize(512, 512, { fit: 'contain', background: '#ffffff' }).png().toBuffer();
+const icon = await renderRestaurantIcon(bytes);
 const metadata = JSON.stringify({ appId: job.appId, revision: job.id, name: job.name });
 writeFileSync(join(web, 'electron/native-branding.json'), metadata);
 writeFileSync(join(web, 'electron/branding-icon.png'), icon);
@@ -79,10 +80,10 @@ for (const [density, size] of Object.entries({ mdpi: 48, hdpi: 72, xhdpi: 96, xx
   }
 }
 mkdirSync(join(res, 'drawable'), { recursive: true });
-writeFileSync(join(res, 'drawable/restaurant_icon.png'), icon);
+writeFileSync(join(res, 'drawable/restaurant_icon.png'), await renderAdaptiveRestaurantIcon(icon));
 for (const name of ['ic_launcher', 'ic_launcher_round']) {
   mkdirSync(join(res, 'mipmap-anydpi-v26'), { recursive: true });
-  writeFileSync(join(res, `mipmap-anydpi-v26/${name}.xml`), '<?xml version="1.0" encoding="utf-8"?><adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@android:color/white"/><foreground><inset android:drawable="@drawable/restaurant_icon" android:inset="18%"/></foreground></adaptive-icon>');
+  writeFileSync(join(res, `mipmap-anydpi-v26/${name}.xml`), adaptiveIconXml);
 }
 mkdirSync(join(nativeSource, 'app/src/main/assets'), { recursive: true });
 writeFileSync(join(nativeSource, 'app/src/main/assets/native-branding.json'), metadata);

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
+import { createHash } from 'node:crypto';
+import { NATIVE_RELEASE_VERSION } from '../src/config/nativeRelease.js';
 import { AppProject } from '../src/models/AppProject.js';
 import { NativeBuild } from '../src/models/NativeBuild.js';
 import { requireBuildWorker, nativeBuildWorkerKey, getNativeBuild, requestNativeBuild, completeNativeBuild } from '../src/controllers/nativeBuild.controller.js';
@@ -35,6 +37,8 @@ test('status is tenant-derived, content-addressed, and hides lease/signing data'
     assert.equal(requestedApp, appId);
     assert.match(first.data.revision, /^[a-f0-9]{64}$/);
     assert.equal(first.data.revision, second.data.revision);
+    const oldPaddedRevision = createHash('sha256').update(JSON.stringify({ appId, name: 'Restaurante A', logoId, version: NATIVE_RELEASE_VERSION })).digest('hex');
+    assert.notEqual(first.data.revision, oldPaddedRevision, 'old padded installers must not be reused');
     assert.equal(first.data.lease, undefined);
     assert.equal(first.data.artifacts, undefined);
   } finally { mock.restoreAll(); }

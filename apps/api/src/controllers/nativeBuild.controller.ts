@@ -25,7 +25,9 @@ async function snapshot(appId: string) {
   if (!app) throw new HttpError(404, 'Restaurante não encontrado.');
   if (!app.brand?.logo) throw new HttpError(409, 'Adicione a logo do restaurante antes de personalizar o aplicativo.');
   const data = { appId, name: app.name, logoId: String(app.brand.logo), version: NATIVE_RELEASE_VERSION };
-  return { ...data, _id: createHash('sha256').update(JSON.stringify(data)).digest('hex') };
+  // Invalidate previously published padded icons without replacing immutable
+  // release assets or changing the app version/session for a branding-only fix.
+  return { ...data, _id: createHash('sha256').update(JSON.stringify({ ...data, iconRevision: 2 })).digest('hex') };
 }
 function publicJob(job: any, revision: string) {
   return { revision, state: job?.state ?? 'available', version: NATIVE_RELEASE_VERSION,

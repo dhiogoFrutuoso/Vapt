@@ -26,6 +26,8 @@ Segredos no repositório privado Vapt:
 
 ## Build local de validação
 
+Os ícones usam recorte central proporcional (`cover`), sem barras brancas ou margens artificiais. A imagem preenche a camada de fundo do ícone adaptativo Android; o sistema aplica seu próprio formato. Imagens retangulares podem perder conteúdo nas extremidades. Transparência é composta sobre a cor dominante da imagem. A revisão de ícone faz parte da chave de cache: corrigir apenas a composição não reutiliza instaladores antigos nem exige logout por mudança da versão base.
+
 `node apps/web/scripts/build-apps.mjs --job <manifest.json>` cria um checkout temporário em `.native-builds/`, gera o Android pelo Capacitor fixado no lockfile e usa `sharp` para os ícones. Não altera packageId, fontes ou configurações do checkout original. O manifesto contém `id`, `appId`, `name`, `logoId`, `version`. A versão precisa corresponder ao package.json. Assinatura Android e SDK/JDK devem estar configurados.
 
 ## Release base
