@@ -19,10 +19,11 @@ export async function adminGuard(req: Request, _res: Response, next: NextFunctio
     const payload = verifyAccessToken(token);
     if (!payload) throw new HttpError(401, 'Sessão expirada. Entre novamente.');
     
-    const user = await User.findById(payload.sub).select('isAdmin status').lean();
+    const user = await User.findById(payload.sub).select('isAdmin status role email').lean();
     if (!user) throw new HttpError(401, 'Conta não encontrada.');
     if (user.status !== 'ativo') throw new HttpError(403, 'Conta suspensa.');
     if (user.isAdmin !== true) throw new HttpError(403, 'Acesso negado. Privilégios de administrador necessários.');
+    req.user = { id: String(user._id), role: user.role, email: user.email, isAdmin: true };
     
     next();
   } catch (error) {

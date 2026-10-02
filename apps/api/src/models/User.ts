@@ -92,6 +92,8 @@ const userSchema = new Schema(
     plan: { type: String, default: null },
     planStartDate: { type: Date, default: null },
     planEndDate: { type: Date, default: null },
+    planBillingDay: { type: Number, default: null, min: 1, max: 31 },
+    subscriptionRevision: { type: Number, default: 0, select: false },
     lastLoginAt: { type: Date, default: null },
 
     /* ---------------------- Login com Google ---------------------- */

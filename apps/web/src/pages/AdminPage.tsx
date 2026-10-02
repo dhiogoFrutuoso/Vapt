@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { api, type AuthUser } from '../lib/api';
+import { SubscriptionBillingPanel } from '../components/SubscriptionBillingPanel';
+import { billingDateOf, subscriptionDue } from '../lib/subscriptionDates';
 import {
   Shield,
   Search,
@@ -61,6 +63,8 @@ type UserCardProps = {
 /** Card de usuário na grade principal. */
 function UserCard({ user: u, onSelect }: UserCardProps) {
   const isActive = u.status === 'ativo';
+  const due = subscriptionDue(u);
+  const overdue = due.days !== null && due.days < 0;
 
   return (
     <button
@@ -68,12 +72,13 @@ function UserCard({ user: u, onSelect }: UserCardProps) {
       onClick={() => onSelect(u)}
       className="group relative flex items-center gap-4 rounded-3xl bg-white p-6 text-left shadow-soft transition duration-200 ease-smooth hover:-translate-y-1 hover:shadow-soft-lg"
     >
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream-100">
+      <div className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-cream-100 ${overdue ? 'ring-2 ring-red-500 ring-offset-2' : ''}`}>
         {u.photoUrl ? (
-          <img src={u.photoUrl} alt="" className="h-full w-full object-cover" />
+          <img src={u.photoUrl} alt="" className="h-full w-full rounded-full object-cover" />
         ) : (
           <UserIcon size={24} className="text-ink-300" />
         )}
+        {overdue && <span aria-label="Assinatura vencida" className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500" />}
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col justify-center">
@@ -88,11 +93,12 @@ function UserCard({ user: u, onSelect }: UserCardProps) {
           )}
         </div>
         <p className="truncate text-sm text-ink-500">{u.email}</p>
+        {u.plan && <p className={`mt-2 text-xs font-semibold ${overdue ? 'text-red-700' : 'text-ink-500'}`}>{u.plan} · {due.label}</p>}
       </div>
 
       <div
         className={`absolute right-6 top-6 h-3 w-3 rounded-full ring-4 ${
-          isActive ? 'bg-emerald-500 ring-emerald-500/20' : 'bg-red-500 ring-red-500/20'
+          isActive && !overdue ? 'bg-emerald-500 ring-emerald-500/20' : 'bg-red-500 ring-red-500/20'
         }`}
         aria-hidden="true"
       />
@@ -112,9 +118,20 @@ export function AdminPage() {
   const [search, setSearch] = useState('');
   const [isSubscribed, setIsSubscribed] = useState('');
   const [plan, setPlan] = useState('');
+  const [expiration, setExpiration] = useState('');
 
   // Modal
   const [selectedUser, setSelectedUser] = useState<AuthUser | null>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const profileOpen = selectedUser !== null;
+  useEffect(() => {
+    if (!profileOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    profileRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return () => { document.body.style.overflow = previousOverflow; previousFocus?.focus(); };
+  }, [profileOpen]);
 
   // Modal Form State
   const [formPlan, setFormPlan] = useState('');
@@ -126,8 +143,8 @@ export function AdminPage() {
   useEffect(() => {
     if (selectedUser) {
       setFormPlan(selectedUser.plan || '');
-      setFormStartDate(selectedUser.planStartDate ? new Date(selectedUser.planStartDate).toISOString().split('T')[0] : '');
-      setFormEndDate(selectedUser.planEndDate ? new Date(selectedUser.planEndDate).toISOString().split('T')[0] : '');
+      setFormStartDate(selectedUser.planStartDate ? billingDateOf(selectedUser.planStartDate) : '');
+      setFormEndDate(selectedUser.planEndDate ? billingDateOf(selectedUser.planEndDate) : '');
     }
   }, [selectedUser]);
 
@@ -139,8 +156,12 @@ export function AdminPage() {
       try {
         // limit = 1000 ensures we bring a large block of users to filter locally
         const data = await api.getAdminUsers(1, 1000, '', '', '');
+        const users = [...data.users];
+        for (let next = 2; mounted && next <= data.totalPages; next++) {
+          users.push(...(await api.getAdminUsers(next, 1000, '', '', '')).users);
+        }
         if (mounted && data) {
-          setAllUsers(data.users || []);
+          setAllUsers(users);
         }
       } catch (err) {
         console.error('Erro ao buscar usuários:', err);
@@ -174,15 +195,20 @@ export function AdminPage() {
 
       // Event-Driven Array Filtering for plan
       const matchPlan = plan === '' || (plan === 'Sem plano' ? !u.plan : u.plan === plan);
+      const due = subscriptionDue(u).days;
+      const matchExpiration = !expiration || (Boolean(u.plan) && (
+        expiration === 'all' || (expiration === 'overdue' && due !== null && due < 0) ||
+        (expiration === 'soon' && due !== null && due >= 0 && due <= 7) ||
+        (expiration === 'valid' && due !== null && due >= 0)));
 
-      return matchSearch && matchStatus && matchPlan;
+      return matchSearch && matchStatus && matchPlan && matchExpiration;
     });
-  }, [allUsers, search, isSubscribed, plan]);
+  }, [allUsers, search, isSubscribed, plan, expiration]);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, isSubscribed, plan]);
+  }, [search, isSubscribed, plan, expiration]);
 
   // Client-side pagination
   const totalUsers = filteredUsers.length;
@@ -191,7 +217,7 @@ export function AdminPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedUser(null);
+      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) setSelectedUser(null);
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -208,7 +234,7 @@ export function AdminPage() {
       toast.success('Plano atualizado com sucesso!');
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao atualizar o plano.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar o plano.');
     } finally {
       setSavingPlan(false);
     }
@@ -280,6 +306,13 @@ export function AdminPage() {
             <option value="Completo">Completo</option>
             <option value="Sem plano">Sem plano</option>
           </select>
+          <select aria-label="Vencimentos" value={expiration} onChange={e => setExpiration(e.target.value)} style={selectArrowStyle} className="w-full rounded-full bg-white px-5 py-3.5 pr-12 text-base shadow-soft outline-none focus:ring-2 focus:ring-brand md:w-auto">
+            <option value="">Vencimentos: sem filtro</option>
+            <option value="all">Todas as assinaturas</option>
+            <option value="overdue">Já vencidas</option>
+            <option value="soon">Vencem em até 7 dias</option>
+            <option value="valid">Dentro do prazo</option>
+          </select>
         </div>
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -339,6 +372,15 @@ export function AdminPage() {
           onClick={() => setSelectedUser(null)}
         >
           <div
+            role="dialog" aria-modal="true" aria-label="Perfil do usuário"
+            ref={profileRef}
+            onKeyDown={event => {
+              if (event.key !== 'Tab' || document.querySelector('dialog[open]')) return;
+              const elements = Array.from(profileRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href]') || []).filter(el => el.getClientRects().length);
+              const first = elements[0], last = elements[elements.length - 1];
+              if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+              else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+            }}
             className="relative flex max-h-[85vh] w-[95%] max-w-md flex-col overflow-x-hidden overflow-y-auto rounded-[28px] bg-white shadow-soft-xl md:max-w-2xl"
             onClick={(e) => e.stopPropagation()}
           >
@@ -431,8 +473,9 @@ export function AdminPage() {
 
                 <div className="mb-6 grid grid-cols-1 gap-5">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-ink-700">Plano Ativo</label>
+                    <label htmlFor="subscription-plan" className="mb-2 block text-sm font-semibold text-ink-700">Plano Ativo</label>
                     <select
+                      id="subscription-plan"
                       value={formPlan}
                       onChange={(e) => setFormPlan(e.target.value)}
                       className="w-full cursor-pointer rounded-xl border border-black/10 bg-cream-100 px-4 py-3.5 text-base text-ink-900 outline-none transition-shadow duration-200 focus:ring-2 focus:ring-brand"
@@ -447,8 +490,9 @@ export function AdminPage() {
                   {formPlan && formPlan !== 'Sem plano' && (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="mb-2 block text-sm font-semibold text-ink-700">Data de Início</label>
+                        <label htmlFor="subscription-start" className="mb-2 block text-sm font-semibold text-ink-700">Data de Início</label>
                         <input
+                          id="subscription-start"
                           type="date"
                           value={formStartDate}
                           onChange={(e) => setFormStartDate(e.target.value)}
@@ -456,8 +500,9 @@ export function AdminPage() {
                         />
                       </div>
                       <div>
-                        <label className="mb-2 block text-sm font-semibold text-ink-700">Data de Fim (Prazo)</label>
+                        <label htmlFor="subscription-end" className="mb-2 block text-sm font-semibold text-ink-700">Data de Fim (Prazo)</label>
                         <input
+                          id="subscription-end"
                           type="date"
                           value={formEndDate}
                           onChange={(e) => setFormEndDate(e.target.value)}
@@ -485,6 +530,10 @@ export function AdminPage() {
                   </button>
                 </div>
               </div>
+              <SubscriptionBillingPanel key={selectedUser.id} user={selectedUser} onUpdate={updated => {
+                setAllUsers(current => current.map(u => u.id === updated.id ? updated : u));
+                setSelectedUser(updated);
+              }} />
             </div>
           </div>
         </div>

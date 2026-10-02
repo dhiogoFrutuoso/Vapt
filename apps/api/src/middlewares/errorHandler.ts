@@ -25,6 +25,9 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
 
   const anyErr = err as { code?: number; message?: string };
+  if ((err as { name?: string })?.name === 'MulterError') {
+    return res.status(400).json({ ok: false, error: 'Arquivo excede o limite permitido ou há arquivos demais.' });
+  }
   if (anyErr?.code === 11000) {
     return res.status(409).json({ ok: false, error: 'Registro duplicado' });
   }

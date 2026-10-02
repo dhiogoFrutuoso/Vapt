@@ -18,6 +18,7 @@ export default {
     './index.app.html',
     './src/main.app.tsx',
     './src/pages/AdminPage.tsx',
+    './src/components/SubscriptionBillingPanel.tsx',
     './src/pages/EditorPage.tsx',
     './src/components/EditorPreview.tsx',
     './src/components/phone/**/*.tsx',

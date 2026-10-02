@@ -131,7 +131,8 @@ export function DashboardPage() {
   const hasCompleto = userPlan.includes('completo') || userPlan.includes('master');
   const hasDelivery = hasCompleto || userPlan.includes('delivery');
   const hasSalao = hasCompleto || userPlan.includes('salão') || userPlan.includes('salao') || userPlan.includes('sal\u00e3o');
-  const canCreateOfficial = hasCompleto || hasDelivery || hasSalao;
+  const existingOfficial = !user?.isAdmin && apps.some(app => app.appPlanType?.startsWith('OFICIAL_'));
+  const canCreateOfficial = !existingOfficial && (hasCompleto || hasDelivery || hasSalao || user?.isAdmin === true);
 
   const [createStep, setCreateStep] = useState<1 | 2>(1); // 1: Choose Type, 2: Setup Name & Submit
   const [selectedAppType, setSelectedAppType] = useState<'TESTE' | 'OFICIAL' | null>(null);
@@ -309,13 +310,18 @@ export function DashboardPage() {
       finalAppPlanType = `TESTE_${selectedSubPlan}`;
     } else {
       if (!canCreateOfficial) {
-        toast.error('Você precisa assinar um plano para criar um Aplicativo Oficial.');
+        toast.error(existingOfficial ? 'Sua assinatura já possui um restaurante oficial. Acesse o aplicativo existente.' : 'Você precisa assinar um plano para criar um Aplicativo Oficial.');
         setCreating(false);
         return;
       }
       finalAppPlanType = `OFICIAL_${selectedSubPlan}`;
     }
 
+    if (!user?.isAdmin && apps.some(app => app.appPlanType === finalAppPlanType)) {
+      toast.error('Você já possui um aplicativo deste plano. Acesse o aplicativo existente.');
+      setCreating(false);
+      return;
+    }
     try {
       const newApp = await api.createApp({
         name: newAppName.trim(),
@@ -327,7 +333,7 @@ export function DashboardPage() {
       navigate(`/painel/app/${newApp.id}`);
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao criar aplicativo.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar aplicativo.');
       setCreating(false);
     }
   }
@@ -825,8 +831,9 @@ export function DashboardPage() {
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: '#111', fontWeight: '700' }}>Aplicativo Oficial</h3>
                         <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
                           Crie seu app de produção vinculado à sua assinatura. 
-                          {!canCreateOfficial ? ' (Requer Upgrade)' : ` (Liberado: ${planToEvaluate})`}
+                          {existingOfficial ? ' (Restaurante já criado)' : !canCreateOfficial ? ' (Requer assinatura)' : ` (Liberado: ${planToEvaluate})`}
                         </p>
+                        {existingOfficial && <p style={{ margin: '8px 0 0', color: '#333', fontSize: '0.85rem' }}>Cada assinatura permite um restaurante oficial. Acesse o seu em Meus Aplicativos; não é necessário criar outro ao renovar.</p>}
                       </div>
                     </div>
 

@@ -121,6 +121,7 @@ export type AuthUser = {
   plan?: string | null;
   planStartDate?: string | null;
   planEndDate?: string | null;
+  planBillingDay?: number | null;
   createdAt: string | null;
   lastLoginAt: string | null;
   /** 'local' | 'google' | 'both' — como esta conta consegue entrar. */
@@ -130,6 +131,12 @@ export type AuthUser = {
   /** Derivado na API. Decide se o card de troca de senha aparece. */
   hasPassword?: boolean;
   onboardingCompleted?: boolean;
+};
+
+export type SubscriptionEntry = {
+  _id: string; month: string; kind: 'payment' | 'waiver' | 'adjustment'; plan: string;
+  paymentDate: string; previousEnd: string | null; newEnd: string | null;
+  note: string; receiptName?: string | null; createdAt: string;
 };
 
 export type RegisterInput = {
@@ -531,6 +538,19 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ plan, planStartDate, planEndDate }),
     }),
+
+  subscriptionHistory: (id: string, month = '') =>
+    request<{ entries: SubscriptionEntry[] }>(`/admin/users/${id}/subscription-history${month ? `?month=${encodeURIComponent(month)}` : ''}`),
+  recordInvoice: (id: string, body: FormData) =>
+    request<{ user: AuthUser; entry: SubscriptionEntry }>(`/admin/users/${id}/subscription-invoices`, { method: 'POST', headers: {}, body }),
+  downloadReceipt: async (id: string, entry: SubscriptionEntry) => {
+    const response = await fetch(apiUrl(`/admin/users/${id}/subscription-invoices/${encodeURIComponent(entry._id)}/receipt`), { credentials: 'include' });
+    if (!response.ok) throw new Error('Não foi possível baixar o comprovante. Verifique sua sessão.');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url; link.download = entry.receiptName || 'comprovante'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
 
   impersonateUser: (id: string) =>
     request<{ token: string, adminToken: string, user: AuthUser }>(`/admin/impersonate/${id}`, { method: 'POST' }),

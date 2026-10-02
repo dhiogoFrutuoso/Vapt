@@ -18,13 +18,14 @@ function cookieOptions(): CookieOptions {
 export async function listUsers(req: Request, res: Response) {
 
       try {
-        const page = parseInt(req.query.page as string) || 1;
-          const limit = parseInt(req.query.limit as string) || 1000;
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+          const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 1000));
           const search = (req.query.search as string) || '';
           const isSubscribed = req.query.isSubscribed as string;
           const plan = req.query.plan as string;
 
           const query: any = {};
+          if (plan) query.plan = plan === 'Sem plano' ? null : plan;
           
           if (search) {
             query.$or = [
@@ -64,59 +65,6 @@ export async function listUsers(req: Request, res: Response) {
 
       } catch (error: any) {
         console.error('[API Error - listUsers]:', error);
-        
-        if (error.name === 'ZodError') {
-          return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });
-        }
-        
-        if (error.status) {
-          return res.status(error.status).json({ ok: false, error: error.message, message: error.message });
-        }
-
-        if (error.code === 11000) {
-          return res.status(409).json({ ok: false, error: 'Registro duplicado', message: 'Registro duplicado' });
-        }
-
-        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-          return res.status(401).json({ message: "Sessão expirada ou inválida." });
-        }
-        
-        return res.status(500).json({ message: "Erro interno no servidor.", error: error.message || "Erro desconhecido" });
-      }
-}
-
-export async function updateUserPlan(req: Request, res: Response) {
-
-      try {
-        const { id } = req.params;
-          const { plan, planStartDate, planEndDate } = req.body;
-
-          const user = await User.findById(id);
-          if (!user) {
-            return res.status(404).json({ ok: false, error: 'Usuário não encontrado.' });
-          }
-
-          user.set('plan', plan || null);
-          user.set('planStartDate', planStartDate ? new Date(planStartDate) : null);
-          user.set('planEndDate', planEndDate ? new Date(planEndDate) : null);
-
-          await user.save();
-
-          const userObject = user.toObject();
-          const mappedUser = {
-            ...userObject,
-            id: String(userObject._id),
-            photoUrl: userObject.photo ? `${env.publicUrl}/api/images/${String(userObject.photo)}` : null,
-          };
-
-          res.json({
-            ok: true,
-            data: { user: mappedUser },
-            message: 'Plano atualizado com sucesso.'
-          });
-
-      } catch (error: any) {
-        console.error('[API Error - updateUserPlan]:', error);
         
         if (error.name === 'ZodError') {
           return res.status(400).json({ ok: false, error: 'Dados invalidos', details: error.issues });

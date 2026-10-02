@@ -12,6 +12,7 @@ import { uniqueSlug } from '../utils/codes.js';
 import { toWebpBase64 } from '../services/imageProcessor.js';
 import { env } from '../config/env.js';
 import { planAccess, roleAllowed, rolePermissions } from '../utils/planAccess.js';
+import { createWithinRestaurantQuota } from '../services/restaurantQuota.js';
 
 const createAppSchema = z.object({
   name: z.string().min(1, 'Informe o nome do aplicativo.').max(80),
@@ -43,7 +44,7 @@ export const createApp = async (req: Request, res: Response) => {
                     return exists !== null;
                   });
 
-                  const app = new AppProject({
+                  const appData = {
                     owner: ownerId,
                     name,
                     slug,
@@ -60,9 +61,10 @@ export const createApp = async (req: Request, res: Response) => {
                       { name: 'Caixeiro', permissions: ['caixa'] },
                       { name: 'Entregador', permissions: ['entregador'] },
                     ].map(role => ({ ...role, permissions: rolePermissions(appPlanType, role.permissions) })).filter(role => role.permissions.length),
-                  });
+                  };
 
-                  await app.save();
+                  const app = await createWithinRestaurantQuota(ownerId, appPlanType, req.user!.isAdmin === true,
+                    session => new AppProject(appData).save({ session }));
 
                   res.status(201).json({ ok: true, data: (app as any).toSummary() });
 
