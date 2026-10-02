@@ -8,6 +8,7 @@ import { signMagicPayload, MAGIC_TTL_MINUTES } from '../utils/magicLink.js';
 import { z } from 'zod';
 import { Operation } from '../models/Operation.js';
 import { emitNewOrder } from '../realtime/io.js';
+import { planAccess } from '../utils/planAccess.js';
 
 /**
  * Cardapio publico do restaurante — o que o cliente final ve.
@@ -41,7 +42,7 @@ const imageUrl = (id: unknown) => (id ? `${env.publicUrl}/api/images/${String(id
  * um pedido que ninguem recebe e pior do que a pagina nao abrir.
  */
 function garantirCardapioPublico(app: Record<string, any>): void {
-  if (!String(app.appPlanType ?? '').startsWith('OFICIAL')) {
+  if (!planAccess(app.appPlanType).official || !planAccess(app.appPlanType).delivery) {
     throw new HttpError(404, 'Este cardapio ainda nao foi publicado.');
   }
   if (app.status === 'pausado') {
@@ -82,7 +83,7 @@ export const getPublicApp = asyncHandler(async (req: Request, res: Response) => 
       slug: app.slug,
       name: app.name,
       businessType: app.businessType,
-      cashOpen: operation ? operation.cashOpen !== false : false,
+      cashOpen: !planAccess(app.appPlanType).cash || (operation ? operation.cashOpen !== false : false),
 
       branding: {
         storeName: app.name,
@@ -184,7 +185,7 @@ export const createMagicLink = asyncHandler(async (req: Request, res: Response) 
   if (!app) throw new HttpError(404, 'Restaurante nao encontrado.');
   garantirCardapioPublico(app);
   const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
-  if (!operation || operation.cashOpen === false) {
+  if (planAccess(app.appPlanType).cash && (!operation || operation.cashOpen === false)) {
     throw new HttpError(409, 'Caixa fechado. Use o cardápio para agendar o pedido para a próxima abertura.');
   }
 
@@ -372,7 +373,7 @@ export const createPublicOrder = asyncHandler(async (req: Request, res: Response
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const operacao = (await Operation.findOne({ app: app._id }))
       ?? new Operation({ app: app._id, cashOpen: false });
-    scheduled = !operacao.cashOpen;
+    scheduled = planAccess(app.appPlanType).cash && !operacao.cashOpen;
     if (scheduled && !body.scheduleForOpening) {
       throw new HttpError(409, 'O restaurante encerrou o atendimento hoje. Escolha agendar para a próxima abertura.');
     }

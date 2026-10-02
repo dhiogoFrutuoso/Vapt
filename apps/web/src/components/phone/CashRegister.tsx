@@ -14,6 +14,7 @@ import { printReceipt } from '../../lib/printReceipt';
 import { CashMovementTicket } from './CashMovementTicket';
 
 type Props = {
+  deliveryEnabled?: boolean;
   entries: CashEntry[];
   /** Turnos ja fechados. So a sub-aba "Registro" enxerga. */
   archive?: CashEntry[];
@@ -141,6 +142,7 @@ function matchesSearch(entry: CashEntry, term: string): boolean {
  */
 export function CashRegister({
   entries,
+  deliveryEnabled = true,
   archive = [],
   closures = [],
   registerOpen = true,
@@ -465,7 +467,7 @@ export function CashRegister({
         <span>{copy.cashFilterSource}</span>
         <select value={source} onChange={(event) => setSource(event.target.value as 'todos' | OrderSource)}>
           <option value="todos">{copy.cashFilterAll}</option>
-          {copy.cashSources.map((option) => (
+          {copy.cashSources.filter(option => deliveryEnabled || option.value !== 'delivery').map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -485,7 +487,7 @@ export function CashRegister({
         </select>
       </label>
 
-      {couriers.length > 0 && (
+      {deliveryEnabled && couriers.length > 0 && (
         <label className="cash-filter">
           <span>Entregador</span>
           <select
@@ -540,15 +542,15 @@ export function CashRegister({
 
       {tab === 'turno' && (
         <>
-          <p className="cat-hint">{copy.cashHint}</p>
+          <p className="cat-hint">{deliveryEnabled ? copy.cashHint : 'Confira os pagamentos de mesas e retiradas e encerre o turno.'}</p>
           <p className="mb-2 rounded-xl border border-solid border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-sm font-semibold text-[var(--ink-700)]">
             {registerOpen ? `Caixa aberto · fundo inicial ${brl(openingCash)}` : 'Caixa fechado · pedidos aguardam a próxima abertura'}
           </p>
 
-          <section className="cash-overview" aria-label="Resumo do turno">
+          <section className="cash-overview" aria-label="Resumo do turno" style={!deliveryEnabled ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' } : undefined}>
             <div className="is-primary"><span>Recebido</span><strong>{brl(totals.received)}</strong></div>
             <div><span>Pendente</span><strong>{brl(totals.pending)}</strong></div>
-            <div><span>Taxas de entrega</span><strong>{brl(totals.deliveryFees)}</strong></div>
+            {deliveryEnabled && <div><span>Taxas de entrega</span><strong>{brl(totals.deliveryFees)}</strong></div>}
           </section>
 
           {registerOpen && onCashMovement && (

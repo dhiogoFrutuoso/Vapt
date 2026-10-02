@@ -29,6 +29,8 @@ export type DevicePayload = {
   sid: string;
   /** Permissoes da funcao no momento da emissao (RBAC das abas). */
   perms: string[];
+  /** Current database value, populated by requireDevice, never trusted from JWT. */
+  planType?: string;
   /** Prazo absoluto da sessão; a rotação não o estende. */
   sessionExpiresAt: number;
 };

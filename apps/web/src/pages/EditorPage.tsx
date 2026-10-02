@@ -526,10 +526,8 @@ export function EditorPage() {
 
   const isDark = editorTheme === 'escuro';
   const planType = app.appPlanType || 'TESTE_COMPLETO';
-  const isDeliveryOnly = planType.includes('DELIVERY');
-  const isSalaoOnly = planType.includes('SALAO');
-  const showDelivery = !isSalaoOnly;
-  const showRoom = !isDeliveryOnly;
+  const showDelivery = /^(TESTE|OFICIAL)_(DELIVERY|COMPLETO)$/.test(planType);
+  const showRoom = /^(TESTE|OFICIAL)_(SALAO|COMPLETO)$/.test(planType);
   const isFullscreen = viewMode === 'fullscreen';
 
   return (
@@ -556,9 +554,9 @@ export function EditorPage() {
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
               {isDark ? 'Claro' : 'Escuro'}
             </button>
-            <Link to={`/painel/app/${app._id}/planos`} className="studio-pill studio-pill--success">
+            {!planType.startsWith('OFICIAL_') && <Link to={`/painel/app/${app._id}/planos`} className="studio-pill studio-pill--success">
               Contratar Plano
-            </Link>
+            </Link>}
           </div>
         </header>
       )}
@@ -870,7 +868,7 @@ export function EditorPage() {
                     <strong>{p.name}</strong>
                     <span>
                       {p.type === 'combo' ? 'Combo' : 'Desconto'} · R$ {p.promotionalPrice.toFixed(2)}
-                      {p.expiresOnRegisterClose && ' · até fechar o caixa'}
+                      {showRoom && p.expiresOnRegisterClose && ' · até fechar o caixa'}
                     </span>
                   </div>
                   <div className="studio-item__actions">
@@ -917,8 +915,7 @@ export function EditorPage() {
                 <span>
                   <strong style={{ display: 'block', color: 'var(--studio-ink)' }}>O entregador recebe por entrega</strong>
                   <span className="studio-hint" style={{ margin: 0 }}>
-                    Ligado, o fechamento de caixa separa o valor dos pedidos das taxas de entrega — é o valor que o
-                    recepcionista acerta com o entregador no fim do turno.
+                    As taxas de entrega ficam identificadas separadamente para o acerto com o entregador.
                   </span>
                 </span>
               </label>
@@ -1045,10 +1042,10 @@ export function EditorPage() {
             {viewMode !== 'fullscreen' && (
               <p className="studio-stage__hint">
                 <Lightbulb size={16} color="#f59e0b" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-                Interaja com o aplicativo para testar cardápio, mesas e entregas.
+                {planType.startsWith('OFICIAL_') ? 'Prévia das áreas incluídas no plano do restaurante.' : 'Experimente as áreas incluídas neste plano de teste.'}
               </p>
             )}
-            {viewMode === 'fullscreen' && <p className="studio-stage__hint">Simulador em tela cheia</p>}
+            {viewMode === 'fullscreen' && <p className="studio-stage__hint">Prévia em tela cheia</p>}
             <div className="studio-view-toggle" role="group" aria-label="Modo de visualização">
               <button
                 type="button"
@@ -1090,7 +1087,7 @@ export function EditorPage() {
                 tables={liveTables}
                 deliveryFee={app.delivery?.fee ?? 0}
                 courierPaidPerDelivery={Boolean(app.delivery?.courierPaidPerDelivery)}
-                initialDeliveries={SAMPLE_DELIVERIES}
+                initialDeliveries={showDelivery ? SAMPLE_DELIVERIES : []}
                 showRoomTab={showRoom}
                 showDeliveryTab={showDelivery}
                 liveBadge={true}
@@ -1122,6 +1119,7 @@ export function EditorPage() {
 
       {isPromoModalOpen && app && (
         <PromotionsModal
+          cashEnabled={showRoom}
           isOpen={isPromoModalOpen}
           onClose={() => setIsPromoModalOpen(false)}
           onSave={handleSavePromo}

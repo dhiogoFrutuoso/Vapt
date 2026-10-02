@@ -111,7 +111,9 @@ export function EditorPreview({
   onCloseRegister,
   waiterCommissionRate,
 }: Props) {
-  const [view, setView] = useState<View>(showDeliveryTab ? 'menu' : 'salao');
+  const [selectedView, setView] = useState<View>(showDeliveryTab ? 'menu' : 'salao');
+  const view = ((!showDeliveryTab && (selectedView === 'menu' || selectedView === 'entrega')) ||
+    (!showRoomTab && (selectedView === 'salao' || selectedView === 'caixa'))) ? 'recepcao' : selectedView;
 
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -550,7 +552,7 @@ export function EditorPreview({
   const kitchenTickets = useMemo<KitchenTicket[]>(() => {
     const list: KitchenTicket[] = [];
 
-    for (const table of tables) {
+    for (const table of showRoomTab ? tables : []) {
       const items = table.items ?? [];
       if (table.status === 'livre' || items.length === 0) continue;
       list.push({
@@ -575,7 +577,7 @@ export function EditorPreview({
       });
     }
 
-    for (const order of deliveries) {
+    for (const order of showDeliveryTab ? deliveries : []) {
       // Entregue ja saiu da cozinha; o resto ainda interessa a producao.
       if (order.status === 'entregue' || order.items.length === 0) continue;
       list.push({
@@ -589,7 +591,7 @@ export function EditorPreview({
     }
 
     return list;
-  }, [tables, takeouts, deliveries]);
+  }, [tables, takeouts, deliveries, showRoomTab, showDeliveryTab]);
 
   function kitchenStatusOf(ticketId: string, station: string): KitchenStatus {
     return kitchenStatus[`${ticketId}::${station}`] ?? 'recebido';
@@ -767,6 +769,7 @@ export function EditorPreview({
                 serviceFeeRate={waiterCommissionRate ?? 0}
               />
               <ReceptionView
+                showDelivery={showDeliveryTab}
                 deliveries={deliveries}
                 defaultFee={deliveryFee}
                 deliveryPeople={[{ id: 'demo-entregador', name: 'Entregador demo' }]}
@@ -811,9 +814,10 @@ export function EditorPreview({
           </>
         )}
 
-        {view === 'caixa' && (
+        {showRoomTab && view === 'caixa' && (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <CashRegister
+              deliveryEnabled={showDeliveryTab}
               entries={cashEntries}
               archive={cashArchive}
               courierPaidPerDelivery={courierPaidPerDelivery}
@@ -896,7 +900,7 @@ export function EditorPreview({
           </button>
         )}
 
-        {showDeliveryTab && (
+        {(showDeliveryTab || showRoomTab) && (
           <button
             type="button"
             role="tab"
@@ -932,7 +936,7 @@ export function EditorPreview({
           {kitchenPending > 0 && <span className="phone__tab-dot" aria-hidden="true" />}
         </button>
 
-        <button
+        {showRoomTab && <button
           type="button"
           role="tab"
           aria-selected={view === 'caixa'}
@@ -940,7 +944,7 @@ export function EditorPreview({
           onClick={() => setView('caixa')}
         >
           <Wallet size={14} /> Caixa
-        </button>
+        </button>}
 
         {showDeliveryTab && (
           <button

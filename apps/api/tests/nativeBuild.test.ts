@@ -63,6 +63,13 @@ test('multiple employees requesting the same brand share an existing build', asy
   } finally { mock.restoreAll(); }
 });
 
+test('exhausted personalization attempts return an actionable failure, not a no-op success', async () => {
+  mock.method(AppProject, 'findById', () => query({ name: 'A', brand: { logo: logoId } }));
+  mock.method(NativeBuild, 'findById', () => query({ state: 'failed', attempts: 3 }));
+  try { await assert.rejects(invoke(requestNativeBuild), (e: any) => e.status === 409 && /suporte/.test(e.message)); }
+  finally { mock.restoreAll(); }
+});
+
 test('completion rejects foreign download hosts and mismatched artifact revisions', async () => {
   const id = 'a'.repeat(64), hash = 'b'.repeat(64);
   const base = { id, lease: '11111111-1111-4111-8111-111111111111', state: 'ready' };

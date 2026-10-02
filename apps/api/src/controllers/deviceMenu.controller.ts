@@ -5,6 +5,7 @@ import { AppProject } from '../models/AppProject.js';
 import { HttpError } from '../utils/httpError.js';
 import { z } from 'zod';
 import { emitMenuItemAvailabilityChanged } from '../realtime/io.js';
+import { planAccess, effectivePermissions } from '../utils/planAccess.js';
 
 /**
  * Cardápio e configuração de operação, para o app da equipe.
@@ -33,7 +34,7 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
   const appId = req.device!.app;
 
   const app = (await AppProject.findById(appId)
-    .select('name brand delivery dining categories products promotions stations businessType employees roles')
+    .select('name brand delivery dining categories products promotions stations businessType employees roles appPlanType')
     .lean()) as Record<string, any> | null;
 
   if (!app) throw new HttpError(404, 'Aplicativo nao encontrado.');
@@ -46,6 +47,9 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
     ok: true,
     data: {
       storeName: app.name,
+      appPlanType: app.appPlanType,
+      allowedTabs: planAccess(app.appPlanType).tabs,
+      permissions: req.device!.perms,
       businessType: app.businessType,
 
       branding: {
@@ -57,11 +61,11 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
       },
 
       delivery: {
-        enabled: delivery.enabled !== false,
-        fee: Number(delivery.fee ?? 0),
-        minOrder: Number(delivery.minOrder ?? 0),
+        enabled: planAccess(app.appPlanType).delivery && delivery.enabled !== false,
+        fee: planAccess(app.appPlanType).delivery ? Number(delivery.fee ?? 0) : 0,
+        minOrder: planAccess(app.appPlanType).delivery ? Number(delivery.minOrder ?? 0) : 0,
         estimatedMinutes: Number(delivery.estimatedMinutes ?? 35),
-        courierPaidPerDelivery: delivery.courierPaidPerDelivery === true,
+        courierPaidPerDelivery: planAccess(app.appPlanType).delivery && delivery.courierPaidPerDelivery === true,
         whatsapp: String(delivery.whatsapp ?? '').replace(/\D/g, ''),
       },
 
@@ -71,7 +75,7 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
          * cem convida a um erro de duas ordens de grandeza na conta da mesa.
          */
         waiterCommissionRate:
-          dining.isWaiterCommissionEnabled === true
+          planAccess(app.appPlanType).dining && dining.isWaiterCommissionEnabled === true
             ? Number(dining.waiterCommissionPercentage ?? 10) / 100
             : 0,
       },
@@ -130,13 +134,13 @@ export const getDeviceMenu = asyncHandler(async (req: Request, res: Response) =>
           const role = (app.roles ?? []).find(
             (r: Record<string, any>) => String(r._id) === String(e.roleId)
           );
-          const permissions = (role?.permissions ?? []).map(String);
+          const permissions = effectivePermissions(app.appPlanType, (role?.permissions ?? []).map(String));
           return {
             id: String(e._id),
             name: String(e.name ?? ''),
             roleName: String(role?.name ?? 'Sem tag'),
             permissions,
-            isDeliveryman: e.isDeliveryman === true || permissions.includes('entregador'),
+            isDeliveryman: planAccess(app.appPlanType).delivery && (e.isDeliveryman === true || role?.permissions?.includes('entregador')),
           };
         }),
 

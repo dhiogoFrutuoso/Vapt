@@ -453,7 +453,7 @@ export const api = {
     request<AppSummary>('/apps', { method: 'POST', body: JSON.stringify(input) }),
   deleteApp: (id: string) => 
     request<{ deleted: true }>(`/apps/${id}`, { method: 'DELETE' }),
-  updateApp: (id: string, updates: Partial<AppProjectFull>) => 
+  updateApp: (id: string, updates: Omit<Partial<AppProjectFull>, 'delivery'> & { delivery?: Partial<AppProjectFull['delivery']> }) =>
     request<AppProjectFull>(`/apps/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
 
   addCategory: (id: string, input: { name: string; imageBase64?: string }) =>

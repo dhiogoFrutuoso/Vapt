@@ -69,6 +69,7 @@ import {
 
 import { authLimiter, writeLimiter } from '../middlewares/rateLimiter.js';
 import { requireAuth } from '../middlewares/requireAuth.js';
+import { requireAppPlan } from '../middlewares/requireAppPlan.js';
 import { requireDevice, requirePermission } from '../middlewares/requireDevice.js';
 import {
   getOperation,
@@ -195,7 +196,7 @@ router.post('/apps', requireAuth, writeLimiter, createApp);
 router.get('/apps', requireAuth, listApps);
 router.delete('/apps/:id', requireAuth, writeLimiter, deleteApp);
 router.get('/apps/:id', requireAuth, getApp);
-router.patch('/apps/:id', requireAuth, writeLimiter, updateApp);
+router.patch('/apps/:id', requireAuth, requireAppPlan, writeLimiter, updateApp);
 router.post('/apps/:id/categories', requireAuth, writeLimiter, addCategory);
 router.patch('/apps/:id/categories/:categoryId', requireAuth, writeLimiter, updateCategory);
 router.delete('/apps/:id/categories/:categoryId', requireAuth, removeCategory);
@@ -205,10 +206,10 @@ router.delete('/apps/:id/products/:productId', requireAuth, removeProduct);
 router.post('/apps/:id/stations', requireAuth, writeLimiter, addStation);
 router.patch('/apps/:id/stations/:stationId', requireAuth, writeLimiter, updateStation);
 router.delete('/apps/:id/stations/:stationId', requireAuth, removeStation);
-router.post('/apps/:id/tables', requireAuth, writeLimiter, addTable);
-router.patch('/apps/:id/tables/:tableId', requireAuth, writeLimiter, updateTable);
-router.delete('/apps/:id/tables/:tableId', requireAuth, removeTable);
-router.post('/apps/:id/plan', requireAuth, writeLimiter, requestPlan);
+router.post('/apps/:id/tables', requireAuth, requireAppPlan, writeLimiter, addTable);
+router.patch('/apps/:id/tables/:tableId', requireAuth, requireAppPlan, writeLimiter, updateTable);
+router.delete('/apps/:id/tables/:tableId', requireAuth, requireAppPlan, removeTable);
+router.post('/apps/:id/plan', requireAuth, requireAppPlan, writeLimiter, requestPlan);
 
 router.post('/apps/:id/roles', requireAuth, writeLimiter, addRole);
 router.patch('/apps/:id/roles/:roleId', requireAuth, writeLimiter, updateRole);
@@ -227,7 +228,7 @@ router.post('/apps/:id/promotions', requireAuth, writeLimiter, addPromotion);
 router.patch('/apps/:id/promotions/:promoId', requireAuth, writeLimiter, updatePromotion);
 router.delete('/apps/:id/promotions/:promoId', requireAuth, writeLimiter, removePromotion);
 
-router.post('/apps/:id/cash/close', requireAuth, writeLimiter, closeCashRegister);
+router.post('/apps/:id/cash/close', requireAuth, requireAppPlan, writeLimiter, closeCashRegister);
 
 // Orders
 router.post('/orders', writeLimiter, createOrder);

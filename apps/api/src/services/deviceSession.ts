@@ -208,7 +208,7 @@ export async function rotateSession(params: {
    * sem depender de alguem ter lembrado de revogar a sessao.
    */
   const { AppProject } = await import('../models/AppProject.js');
-  const app = await AppProject.findById(session.app).select('roles employees status').lean();
+  const app = await AppProject.findById(session.app).select('roles employees status appPlanType').lean();
 
   const employee = app?.employees?.find(
     (e: { _id?: unknown }) => String(e._id) === String(session.employeeId)
@@ -223,7 +223,8 @@ export async function rotateSession(params: {
   }
 
   const role = app.roles?.find((r: { _id?: unknown }) => String(r._id) === String(employee.roleId));
-  const permissions: string[] = (role?.permissions ?? []).map(String);
+  const { legacyPermissions } = await import('../utils/planAccess.js');
+  const permissions: string[] = legacyPermissions(app.appPlanType, (role?.permissions ?? []).map(String));
 
   const novoRefresh = generateRefreshToken();
   const agora = new Date();

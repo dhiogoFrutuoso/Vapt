@@ -4,6 +4,7 @@ import { getImageUrl } from '../lib/api';
 import { FiX, FiClock, FiCalendar, FiTag, FiBox, FiTrash2 } from 'react-icons/fi';
 
 type PromotionsModalProps = {
+  cashEnabled?: boolean;
   isOpen: boolean;
   onClose: () => void;
   onSave: (promo: Partial<Promotion>) => Promise<void>;
@@ -12,7 +13,7 @@ type PromotionsModalProps = {
   editingPromo?: Promotion | null;
 };
 
-export function PromotionsModal({ isOpen, onClose, onSave, products = [], categories = [], editingPromo }: PromotionsModalProps) {
+export function PromotionsModal({ cashEnabled = true, isOpen, onClose, onSave, products = [], categories = [], editingPromo }: PromotionsModalProps) {
   const [type, setType] = useState<'combo' | 'discount'>(editingPromo?.type || 'discount');
   const [name, setName] = useState(editingPromo?.name || '');
   const [description, setDescription] = useState(editingPromo?.description || '');
@@ -46,7 +47,7 @@ export function PromotionsModal({ isOpen, onClose, onSave, products = [], catego
   }, [type, comboTotal, promotionalPrice]);
   
   const [durationMode, setDurationMode] = useState<'today' | '2days' | '1week' | 'custom'>(
-    editingPromo?.expiresOnRegisterClose ? 'today' : 'custom'
+    cashEnabled && editingPromo?.expiresOnRegisterClose ? 'today' : 'custom'
   );
   const [customDate, setCustomDate] = useState<string>(
     editingPromo?.validUntil ? new Date(editingPromo.validUntil).toISOString().slice(0, 16) : ''
@@ -413,7 +414,7 @@ export function PromotionsModal({ isOpen, onClose, onSave, products = [], catego
                 { id: '2days', icon: FiCalendar, label: '2 Dias' },
                 { id: '1week', icon: FiCalendar, label: '1 Semana' },
                 { id: 'custom', icon: FiCalendar, label: 'Data Exata' }
-              ].map(opt => {
+              ].filter(opt => cashEnabled || opt.id !== 'today').map(opt => {
                 const isActive = durationMode === opt.id;
                 const Icon = opt.icon;
                 return (

@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { AppProject } from '../models/AppProject.js';
 import { generateEmployeeCode } from '../utils/codes.js';
+import { legacyPermissions, planAccess } from '../utils/planAccess.js';
 
 /**
  * Busca e emissao de codigos de funcionario.
@@ -65,7 +66,7 @@ export async function findEmployeeByCode(code: string): Promise<EmployeeMatch | 
   if (normalizado.length !== 6) return null;
 
   const app = await AppProject.findOne({ 'employees.accessCode': normalizado })
-    .select('name brand code roles employees status')
+    .select('name brand code roles employees status appPlanType')
     .lean();
 
   if (!app) return null;
@@ -101,9 +102,9 @@ export async function findEmployeeByCode(code: string): Promise<EmployeeMatch | 
     employeeId: String(employee._id),
     employeeName: employee.name,
     roleName: role?.name ?? 'Sem funcao',
-    permissions: (role?.permissions ?? []).map(String),
+    permissions: legacyPermissions(app.appPlanType, (role?.permissions ?? []).map(String)),
     isDeliveryman:
-      employee.isDeliveryman === true || (role?.permissions ?? []).map(String).includes('entregador'),
+      planAccess(app.appPlanType).delivery && (employee.isDeliveryman === true || (role?.permissions ?? []).map(String).includes('entregador')),
     blocked: employee.blocked === true,
     onboardingCompleted: employee.onboardingCompleted === true,
     profile: {

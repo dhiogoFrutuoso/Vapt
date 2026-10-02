@@ -316,7 +316,7 @@ export const deviceMe = asyncHandler(async (req: Request, res: Response) => {
       employeeId: req.device.sub,
       appId: req.device.app,
       deviceId: req.device.did,
-      permissions: req.device.perms,
+      permissions: (await import('../utils/planAccess.js')).legacyPermissions(req.device.planType, req.device.perms),
     },
   });
 });

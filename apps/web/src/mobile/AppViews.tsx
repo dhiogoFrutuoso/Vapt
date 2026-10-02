@@ -25,6 +25,7 @@ import type {
 } from '../components/phone/types';
 import type { PedidoImportado } from '../lib/parseWhatsappOrder';
 import type { Comando, EstadoOperacao } from './useOperation';
+import { planAccess } from '../lib/planAccess';
 
 /**
  * As seis áreas de operação, ligadas ao servidor.
@@ -46,6 +47,7 @@ import type { Comando, EstadoOperacao } from './useOperation';
  */
 
 type Props = {
+  appPlanType?: string;
   aba: 'cliente' | 'recepcao' | 'salao' | 'cozinha' | 'caixa' | 'entregador' | 'administracao';
   estado: EstadoOperacao;
   executar: (comando: Comando) => Promise<string | null>;
@@ -83,6 +85,7 @@ type Props = {
 };
 
 export function AppViews({
+  appPlanType,
   aba,
   estado,
   executar,
@@ -123,8 +126,9 @@ export function AppViews({
     deliveryFee?: number;
     isDelivery?: boolean;
   } | null>(null);
+  const access = planAccess(appPlanType);
   const isAdmin = permissions.includes('administracao');
-  const canConvert = isAdmin || permissions.includes('recepcao') || permissions.includes('caixa');
+  const canConvert = access.delivery && (isAdmin || permissions.includes('recepcao') || permissions.includes('caixa'));
   const convertToTakeout = (id: string, data: TakeoutConversion) => rodar({ tipo: 'pedido.balcao', pedidoId: id, ...data });
   const { confirm, ConfirmElement } = useConfirm();
 
@@ -539,6 +543,7 @@ export function AppViews({
           {!estado.cashOpen && canConvert && estado.scheduledDeliveries.filter(d => d.isDelivery !== false).map(order =>
             <ConvertToTakeout key={order.id} order={order} onConvert={convertToTakeout} scheduled />)}
           <ReceptionView
+            showDelivery={access.delivery}
             deliveries={estado.deliveries}
             defaultFee={deliveryFee}
             deliveryPeople={equipe.filter((person) => person.isDeliveryman)}
@@ -662,6 +667,7 @@ export function AppViews({
     return (
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <CashRegister
+          deliveryEnabled={access.delivery}
           entries={estado.cashEntries}
           archive={estado.cashArchive}
           closures={estado.cashClosures}
@@ -688,7 +694,7 @@ export function AppViews({
             ? (id) => void rodar({ tipo: 'caixa.reabrir', lancamentoId: id })
             : undefined}
           onCloseRegister={(counted) => rodar({ tipo: 'caixa.fechar', counted })}
-          onEditDeliveryItems={isAdmin ? (entry) => {
+          onEditDeliveryItems={isAdmin && access.delivery ? (entry) => {
             const deliveryId = entry.id.replace(/^c-/, '');
             if (estado.deliveries.some((delivery) => delivery.id === deliveryId)) editarPedido(deliveryId);
             else toast.error('Esta entrega já foi encerrada e não está mais disponível para incluir itens.');
@@ -712,7 +718,7 @@ export function AppViews({
   }
 
   if (aba === 'administracao') {
-    return <AdministrationView estado={estado} equipe={equipe} currentEmployeeId={employeeId} currentEmployeeName={employeeName} storeName={storeName} storePhone={storePhone} onTeamChanged={onTeamChanged} />;
+    return <AdministrationView cashEnabled={access.cash} estado={estado} equipe={equipe} currentEmployeeId={employeeId} currentEmployeeName={employeeName} storeName={storeName} storePhone={storePhone} onTeamChanged={onTeamChanged} />;
   }
 
   /* ------------------------------ Entregador ------------------------------ */

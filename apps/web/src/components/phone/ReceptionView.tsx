@@ -35,6 +35,7 @@ function feeToInput(value: number): string {
 }
 
 interface ReceptionViewProps {
+  showDelivery?: boolean;
   onConvert?: ConvertHandler;
   availabilityPending?: string[];
   deliveries: DeliveryOrder[];
@@ -272,6 +273,7 @@ function ReceptionOrderItem({
 }
 
 export function ReceptionView({
+  showDelivery = true,
   deliveries,
   defaultFee = 0,
   deliveryPeople = [],
@@ -333,7 +335,7 @@ export function ReceptionView({
 
   return (
     <div className="phone__body">
-      <p className="phone__role">Recepção · retiradas e despacho</p>
+      <p className="phone__role">{showDelivery ? 'Recepção · retiradas e despacho' : 'Recepção · retiradas e cardápio'}</p>
 
       {onToggleAvailability && products.length > 0 && (
         <button
@@ -363,7 +365,7 @@ export function ReceptionView({
         </ul>
       </>}
 
-      <div className="phone__section-title reception-dispatch-title">
+      {showDelivery && <><div className="phone__section-title reception-dispatch-title">
         Despache de entregas
         <span className="phone__section-count">{novos.length}</span>
       </div>
@@ -407,6 +409,7 @@ export function ReceptionView({
         </details>
       )}
 
+      </>}
       {printing && (
         createPortal(<PrintTicket
           storeName={storeName}

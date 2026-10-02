@@ -8,6 +8,8 @@ import { api, getImageUrl, type AppSummary, type AppProjectFull } from '../lib/a
 import { useConfirm } from '../components/ConfirmModal';
 import { ChefHat, ChevronDown, Copy, Download, Edit3, Image as ImageIcon, LayoutDashboard, Lock, LogOut, Phone, Plus, Rocket, Save, Search, Settings, Shield, Smartphone, Store, TestTube, Trash2, Users, X } from 'lucide-react';
 import { fileToResizedDataUrl } from '../lib/image';
+import { planAccess } from '../lib/planAccess';
+import './app-settings.css';
 
 /*
  * Estilos das secoes novas de configuracao.
@@ -152,8 +154,29 @@ export function DashboardPage() {
    * um codigo de acesso que nao abre lugar nenhum.
    */
   const settingsIsOficial = (fullApp?.appPlanType ?? '').startsWith('OFICIAL');
+  const settingsAccess = planAccess(fullApp?.appPlanType);
   const [savingSettings, setSavingSettings] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const settingsDialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!settingsAppId) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const frame = requestAnimationFrame(() => settingsDialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (document.querySelector('.confirm-modal')) return;
+      if (event.key === 'Escape') setSettingsAppId(null);
+      if (event.key !== 'Tab') return;
+      const controls = [...(settingsDialogRef.current?.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea') ?? [])]
+        .filter(el => !el.hasAttribute('disabled') && el.getClientRects().length > 0);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(frame); document.body.style.overflow = overflow; document.removeEventListener('keydown', onKey); previousFocus?.focus(); };
+  }, [settingsAppId]);
 
   // Form State for "Geral"
   const [formName, setFormName] = useState('');
@@ -192,7 +215,7 @@ export function DashboardPage() {
     { id: 'entregador', label: 'Entregador' },
     { id: 'cozinha', label: 'Cozinheiro' },
     { id: 'administracao', label: 'Administrador' },
-  ];
+  ].filter(permission => settingsAccess.tabs.some(tab => tab === permission.id));
   const [isAddingRole, setIsAddingRole] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editingRoleName, setEditingRoleName] = useState('');
@@ -368,24 +391,24 @@ export function DashboardPage() {
     if (!fullApp) return;
     setSavingSettings(true);
     try {
-      const updates: Partial<AppProjectFull> = {
+      const updates: Parameters<typeof api.updateApp>[1] = {
         name: formName,
         brand: {
           ...fullApp.brand,
           tagline: formTagline,
           primaryColor: formPrimaryColor,
         },
-        delivery: {
+        delivery: settingsAccess.delivery ? {
           ...fullApp.delivery,
           whatsapp: formWhatsapp,
           enabled: formDeliveryEnabled,
           courierPaidPerDelivery: formCourierPaid,
-        },
-        dining: {
+        } : { whatsapp: formWhatsapp },
+        ...(settingsAccess.dining ? { dining: {
           ...fullApp.dining,
           isWaiterCommissionEnabled: formCommissionOn,
           waiterCommissionPercentage: formCommissionPct,
-        },
+        } } : {}),
       };
       if (formLogoBase64) {
         updates.brand!.logoBase64 = formLogoBase64;
@@ -916,7 +939,7 @@ export function DashboardPage() {
       {/* Modal de Configurações do App */}
       {settingsAppId && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(17, 17, 17, 0.6)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem', transition: 'opacity 0.3s ease' }}>
-          <div style={{ backgroundColor: '#fff', borderRadius: '24px', width: '100%', maxWidth: '700px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px -12px rgba(0,0,0,0.18)' }}>
+          <div ref={settingsDialogRef} className="app-settings-dialog" role="dialog" aria-modal="true" aria-label="Configurações do aplicativo" style={{ backgroundColor: '#fff', borderRadius: '24px', width: '100%', maxWidth: '960px', maxHeight: '90dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 48px -12px rgba(0,0,0,0.18)' }}>
             
             {/* Modal Header */}
             <header style={{ padding: '1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -924,7 +947,7 @@ export function DashboardPage() {
                 <Settings color="#666" size={24} />
                 Configurações do Aplicativo
               </h2>
-              <button onClick={() => setSettingsAppId(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '4px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+              <button aria-label="Fechar configurações" onClick={() => setSettingsAppId(null)} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '4px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                 <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
               </button>
             </header>
@@ -964,7 +987,7 @@ export function DashboardPage() {
                     uma pagina que nao abre e o APK a um login que nao entra. */}
                 {settingsIsOficial ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', padding: '1rem 1.5rem', borderBottom: '1px solid rgba(0,0,0,0.05)', backgroundColor: '#FFF8F6' }}>
-                    <a
+                    {settingsAccess.delivery && <><a
                       href={`/cliente/${fullApp.slug || settingsAppId}`}
                       target="_blank"
                       rel="noreferrer"
@@ -986,6 +1009,7 @@ export function DashboardPage() {
                     >
                       <Copy size={16} /> Copiar link do cardápio
                     </button>
+                    </>}
 
                     <a
                       href="/apk"
@@ -1052,7 +1076,7 @@ export function DashboardPage() {
                       </div>
 
                       {/* ----------------------- Entrega ----------------------- */}
-                      <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
+                      {settingsAccess.delivery && <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
                         <h3 style={secaoTitulo}>Entrega</h3>
 
                         <label style={campoChave}>
@@ -1067,7 +1091,7 @@ export function DashboardPage() {
                           <input type="checkbox" disabled={!formDeliveryEnabled} checked={formCourierPaid} onChange={e => setFormCourierPaid(e.target.checked)} style={caixaMarcar} />
                           <span>
                             <strong style={chaveTitulo}>Entregador recebe por entrega</strong>
-                            <span style={chaveAjuda}>O caixa separa a taxa em vez de somá-la ao faturamento.</span>
+                            <span style={chaveAjuda}>As taxas são separadas do valor dos produtos para o acerto com o entregador.</span>
                           </span>
                         </label>
 
@@ -1075,10 +1099,10 @@ export function DashboardPage() {
                           O valor da entrega é definido na aba <strong>Recepção</strong>, pedido a
                           pedido — endereço perto e endereço longe não custam o mesmo.
                         </p>
-                      </div>
+                      </div>}
 
                       {/* ------------------------ Salão ------------------------ */}
-                      <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
+                      {settingsAccess.dining && <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem', marginBottom: '1.5rem' }}>
                         <h3 style={secaoTitulo}>Salão</h3>
 
                         <label style={campoChave}>
@@ -1095,7 +1119,7 @@ export function DashboardPage() {
                             <input type="number" min={0} max={100} value={formCommissionPct} onChange={e => setFormCommissionPct(Number(e.target.value) || 0)} style={campoTexto} />
                           </div>
                         )}
-                      </div>
+                      </div>}
 
                       <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '1.5rem' }}>
                         <button type="submit" disabled={savingSettings} style={{ padding: '14px 28px', borderRadius: '99px', border: 'none', background: '#F95D2A', color: '#fff', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 14px rgba(249, 93, 42, 0.3)' }}>
@@ -1106,17 +1130,19 @@ export function DashboardPage() {
                   )}
 
                   {settingsIsOficial && settingsTab === 'equipe' && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-start' }}>
+                    <div className="app-settings-team">
                       {/* Funções (Roles) */}
                       <div style={{ flex: 1, backgroundColor: '#FAFAFA', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}><Shield size={20} color="#F95D2A" /> Tags de função</h3>
                         
                         <form onSubmit={handleAddRole} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.5rem', backgroundColor: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                          <input type="text" placeholder="Nome da tag (ex.: Recepcionista Garçom)" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = '#F95D2A'} onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'} />
+                          <label className="app-settings-field">Nome da tag
+                            <input type="text" placeholder="Ex.: Atendimento" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                          </label>
                           
                           <div>
                             <strong style={{ display: 'block', fontSize: '0.85rem', color: '#333', marginBottom: '8px', fontWeight: '600' }}>Permissões de Acesso:</strong>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div className="app-settings-permissions">
                               {PERMISSIONS.map(p => (
                                 <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer', color: newRolePermissions.includes(p.id) ? '#C2410C' : '#444', border: `1px solid ${newRolePermissions.includes(p.id) ? '#FDBA74' : '#E5E7EB'}`, background: newRolePermissions.includes(p.id) ? '#FFF7ED' : '#fff', borderRadius: '999px', padding: '9px 12px', fontWeight: 700 }}>
                                   <input 
@@ -1186,7 +1212,9 @@ export function DashboardPage() {
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '1rem', color: '#111', display: 'flex', alignItems: 'center', gap: '8px' }}><Users size={20} color="#F95D2A" /> Funcionários</h3>
                         
                         <form onSubmit={handleAddEmployee} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '1.5rem', backgroundColor: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                          <input type="text" placeholder="Nome do funcionário" value={newEmpName} onChange={e => setNewEmpName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} onFocus={(e) => e.target.style.borderColor = '#F95D2A'} onBlur={(e) => e.target.style.borderColor = 'rgba(0,0,0,0.1)'} />
+                          <label className="app-settings-field">Nome do funcionário
+                            <input type="text" autoComplete="name" placeholder="Ex.: Ana Paula" value={newEmpName} onChange={e => setNewEmpName(e.target.value)} required style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                          </label>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6B7280' }}>Selecione uma tag</span>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }} role="radiogroup" aria-label="Tag do funcionário">

@@ -11,6 +11,7 @@ import { asyncHandler } from '../middlewares/errorHandler.js';
 import { uniqueSlug } from '../utils/codes.js';
 import { toWebpBase64 } from '../services/imageProcessor.js';
 import { env } from '../config/env.js';
+import { planAccess, roleAllowed, rolePermissions } from '../utils/planAccess.js';
 
 const createAppSchema = z.object({
   name: z.string().min(1, 'Informe o nome do aplicativo.').max(80),
@@ -28,6 +29,15 @@ export const createApp = async (req: Request, res: Response) => {
                     ownerId = targetUserId;
                   }
 
+                  if (planAccess(appPlanType).official && !req.user!.isAdmin) {
+                    const owner = await User.findById(ownerId).select('plan planEndDate status').lean();
+                    const subscription = String(owner?.plan ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                    const complete = subscription.includes('completo') || subscription.includes('master');
+                    const entitled = complete || (appPlanType.endsWith('_DELIVERY') && subscription.includes('delivery')) || (appPlanType.endsWith('_SALAO') && subscription.includes('salao'));
+                    if (!entitled || owner?.status !== 'ativo' || (owner.planEndDate && owner.planEndDate.getTime() <= Date.now())) {
+                      throw new HttpError(403, 'Sua assinatura não permite criar este aplicativo oficial.');
+                    }
+                  }
                   const slug = await uniqueSlug(name, async (s) => {
                     const exists = await AppProject.exists({ slug: s });
                     return exists !== null;
@@ -49,7 +59,7 @@ export const createApp = async (req: Request, res: Response) => {
                       { name: 'Cozinheiro', permissions: ['cozinha'] },
                       { name: 'Caixeiro', permissions: ['caixa'] },
                       { name: 'Entregador', permissions: ['entregador'] },
-                    ],
+                    ].map(role => ({ ...role, permissions: rolePermissions(appPlanType, role.permissions) })).filter(role => role.permissions.length),
                   });
 
                   await app.save();
@@ -145,6 +155,8 @@ export const getApp = async (req: Request, res: Response) => {
                   if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
                   // Filtra promoções vencidas para não enviar promoções expiradas no passado
+                  app.roles = (app.roles ?? []).map((role: any) => ({ ...role, permissions: rolePermissions(app.appPlanType, role.permissions) })).filter((role: any) => role.permissions.length);
+                  if (!planAccess(app.appPlanType).dining) app.tables = [];
                   const now = new Date();
                   app.promotions = (app.promotions || []).filter((p: any) => {
                     if (p.validUntil && new Date(p.validUntil) < now) return false;
@@ -817,6 +829,7 @@ export const addRole = async (req: Request, res: Response) => {
                   if (!app) throw HttpError.notFound('App nao encontrado');
 
                   const body = roleBodySchema.parse(req.body);
+                  if (!roleAllowed(app.appPlanType, body.permissions)) throw new HttpError(403, 'A tag contém áreas não incluídas neste plano.');
                   const newRole = body;
                   app.roles.push(newRole as any);
                   await app.save();
@@ -856,6 +869,7 @@ export const updateRole = async (req: Request, res: Response) => {
                   if (!role) throw HttpError.notFound('Funcao nao encontrada');
 
                   const body = roleBodySchema.partial().parse(req.body);
+                  if (body.permissions && !roleAllowed(app.appPlanType, body.permissions)) throw new HttpError(403, 'A tag contém áreas não incluídas neste plano.');
                   if (body.name !== undefined) role.name = body.name;
                   if (body.permissions !== undefined) {
                     role.permissions = body.permissions;
@@ -954,6 +968,7 @@ export const addEmployee = async (req: Request, res: Response) => {
                   const body = employeeBodySchema.parse(req.body);
                   const roleExists = app.roles.id(body.roleId);
                   if (!roleExists) throw HttpError.badRequest('Funcao invalida');
+                  if (!rolePermissions(app.appPlanType, roleExists.permissions).length) throw new HttpError(403, 'Esta função não está incluída neste plano.');
 
                   const accessCode = await generateUniqueEmployeeCode();
                   const newEmployee = {
@@ -1005,8 +1020,9 @@ export const updateEmployee = async (req: Request, res: Response) => {
                   if (body.roleId !== undefined) {
                     const role = app.roles.id(body.roleId);
                     if (!role) throw HttpError.badRequest('Funcao invalida');
+                    if (!rolePermissions(app.appPlanType, role.permissions).length) throw new HttpError(403, 'Esta função não está incluída no plano.');
                     emp.roleId = role._id;
-                    emp.isDeliveryman = role.permissions.includes('entregador');
+                    emp.isDeliveryman = planAccess(app.appPlanType).delivery && role.permissions.includes('entregador');
                     roleChanged = true;
                   }
                   
@@ -1061,6 +1077,7 @@ export const addPromotion = async (req: Request, res: Response) => {
 
                   if (!app) throw HttpError.notFound('Aplicativo não encontrado.');
 
+                  if (!planAccess(app.appPlanType).cash && data.expiresOnRegisterClose) throw new HttpError(403, 'Este plano não possui fechamento de caixa. Escolha uma data para a promoção.');
                   const newPromo = {
                     type: data.type,
                     name: data.name,
@@ -1112,6 +1129,7 @@ export const updatePromotion = async (req: Request, res: Response) => {
                   if (promoIndex === -1) throw HttpError.notFound('Promoção não encontrada.');
 
                   const promo = app.promotions[promoIndex] as any;
+                  if (!planAccess(app.appPlanType).cash && data.expiresOnRegisterClose) throw new HttpError(403, 'Este plano não possui fechamento de caixa. Escolha uma data para a promoção.');
 
                   if (data.type !== undefined) promo.type = data.type;
                   if (data.name !== undefined) promo.name = data.name;

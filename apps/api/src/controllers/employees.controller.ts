@@ -5,6 +5,7 @@ import { revokeAllForEmployee, listActiveSessions } from '../services/deviceSess
 import { emitSessionRevoked } from '../realtime/io.js';
 import { generateUniqueEmployeeCode } from '../services/employeeLookup.js';
 import { HttpError } from '../utils/httpError.js';
+import { effectivePermissions, planAccess } from '../utils/planAccess.js';
 
 /**
  * Gestão da equipe pelo dono do restaurante.
@@ -47,9 +48,9 @@ export const listEmployees = asyncHandler(async (req: Request, res: Response) =>
         name: e.name,
         roleId: String(e.roleId),
         roleName: role?.name ?? 'Sem funcao',
-        permissions: (role?.permissions ?? []).map(String),
+        permissions: effectivePermissions(app.appPlanType, (role?.permissions ?? []).map(String)),
         isDeliveryman:
-          e.isDeliveryman === true || (role?.permissions ?? []).map(String).includes('entregador'),
+          planAccess(app.appPlanType).delivery && (e.isDeliveryman === true || (role?.permissions ?? []).map(String).includes('entregador')),
         accessCode: e.accessCode ?? null,
         blocked: e.blocked === true,
         blockedAt: e.blockedAt ?? null,

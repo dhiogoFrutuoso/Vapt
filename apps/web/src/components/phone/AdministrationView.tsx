@@ -3,7 +3,6 @@ import toast from 'react-hot-toast';
 import {
   ArrowLeft,
   Banknote,
-  Bike,
   CalendarRange,
   ChevronRight,
   CircleDollarSign,
@@ -42,6 +41,7 @@ type TeamRole = { id: string; name: string; permissions: string[] };
 type DeviceTeam = { employees: TeamMember[]; roles: TeamRole[] };
 
 type Props = {
+  cashEnabled?: boolean;
   estado: EstadoOperacao;
   equipe: TeamMember[];
   currentEmployeeId?: string;
@@ -124,7 +124,7 @@ function MetricButton({ label, value, hint, Icon, onClick }: {
   );
 }
 
-export function AdministrationView({ estado, equipe, currentEmployeeId, currentEmployeeName, storeName = 'Vapt', storePhone, onTeamChanged }: Props) {
+export function AdministrationView({ cashEnabled = true, estado, equipe, currentEmployeeId, currentEmployeeName, storeName = 'Vapt', storePhone, onTeamChanged }: Props) {
   const { confirm, ConfirmElement } = useConfirm();
   const [panel, setPanel] = useState<Panel>(null);
   const [closureFrom, setClosureFrom] = useState('');
@@ -404,21 +404,22 @@ export function AdministrationView({ estado, equipe, currentEmployeeId, currentE
     <div className="phone__body management-page">
       <header className="management-hero">
         <span className="management-hero__icon"><ShieldCheck size={22} aria-hidden="true" /></span>
-        <div><p>Gestão financeira</p><h2>Visão do restaurante</h2><small>Indicadores, conferências e trilha de auditoria</small></div>
+        <div><p>{cashEnabled ? 'Gestão financeira' : 'Gestão da operação'}</p><h2>Visão do restaurante</h2><small>Indicadores, equipe e trilha de auditoria</small></div>
       </header>
 
       <section className="management-summary" aria-label="Indicadores financeiros e operacionais">
-        <MetricButton label="Receita hoje" value={brl(revenueToday)} hint={`${closedToday.length} venda(s) concluída(s)`} Icon={CircleDollarSign} onClick={() => setPanel('receita')} />
+        {cashEnabled && <><MetricButton label="Receita hoje" value={brl(revenueToday)} hint={`${closedToday.length} venda(s) concluída(s)`} Icon={CircleDollarSign} onClick={() => setPanel('receita')} />
         <MetricButton label="Fiado em aberto" value={brl(saldoFiado)} hint={`${fiados.length} conta(s) pendente(s)`} Icon={Banknote} onClick={() => setPanel('fiado')} />
         <MetricButton label="Saídas no turno" value={brl(outflowTotal)} hint={`${outflows.length} movimentação(ões)`} Icon={TrendingDown} onClick={() => setPanel('saidas')} />
-        <MetricButton label="Pedidos em curso" value={String(activeOrders.length)} hint="Fila operacional ativa" Icon={Bike} onClick={() => setPanel('pedidos')} />
+        </>}
+        <MetricButton label="Pedidos em curso" value={String(activeOrders.length)} hint="Fila operacional ativa" Icon={ClipboardList} onClick={() => setPanel('pedidos')} />
       </section>
 
-      <button type="button" className="management-closures-cta" onClick={() => setPanel('fechamentos')}>
+      {cashEnabled && <button type="button" className="management-closures-cta" onClick={() => setPanel('fechamentos')}>
         <span><CalendarRange size={20} aria-hidden="true" /></span>
         <span><strong>Ver todos os fechamentos de caixa</strong><small>{estado.cashClosures.length} fechamento(s), com filtros e diferenças</small></span>
         <ChevronRight size={19} aria-hidden="true" />
-      </button>
+      </button>}
 
       <section className="management-section">
         <header><div><span>Operação</span><h3>Controle e segurança</h3></div></header>
@@ -429,7 +430,7 @@ export function AdministrationView({ estado, equipe, currentEmployeeId, currentE
         </div>
       </section>
 
-      {estado.cashClosures[0] && (
+      {cashEnabled && estado.cashClosures[0] && (
         <button type="button" className="management-last-close" onClick={() => setPanel('fechamentos')}>
           <span className="management-last-close__title"><ReceiptText size={18} /> Último fechamento</span>
           <strong>{new Date(estado.cashClosures[0].createdAt).toLocaleString('pt-BR')}</strong>

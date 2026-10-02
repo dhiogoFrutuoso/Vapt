@@ -17,6 +17,9 @@ import type {
  */
 
 export type Menu = {
+  appPlanType?: string;
+  allowedTabs?: string[];
+  permissions?: string[];
   storeName: string;
   branding: {
     logoUrl: string | null;

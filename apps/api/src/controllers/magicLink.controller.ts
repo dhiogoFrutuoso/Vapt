@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { AppProject } from '../models/AppProject.js';
+import { planAccess } from '../utils/planAccess.js';
+import { HttpError } from '../utils/httpError.js';
 import { MagicLinkUse } from '../models/MagicLinkUse.js';
 import { Order } from '../models/Order.js';
 import { Operation } from '../models/Operation.js';
@@ -61,12 +63,13 @@ export const consumeMagicLink = asyncHandler(async (req: Request, res: Response)
     });
   }
 
-  const app = await AppProject.findById(p.a).select('_id status').lean();
+  const app = await AppProject.findById(p.a).select('_id status appPlanType').lean();
   if (!app || app.status === 'pausado') {
     return paraPainel(res, { pedido: 'erro', motivo: 'restaurante_indisponivel' });
   }
   const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
-  if (!operation || operation.cashOpen === false) {
+  if (app && (!planAccess(app.appPlanType).delivery || !planAccess(app.appPlanType).official)) throw new HttpError(403, 'Este plano não oferece pedidos públicos.');
+  if (planAccess(app.appPlanType).cash && (!operation || operation.cashOpen === false)) {
     return paraPainel(res, { pedido: 'erro', motivo: 'caixa_fechado' });
   }
 

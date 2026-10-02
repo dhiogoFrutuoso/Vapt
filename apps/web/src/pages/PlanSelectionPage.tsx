@@ -18,6 +18,10 @@ export function PlanSelectionPage() {
           api.getApp(id),
           api.getPlans()
         ]);
+        if (appData.appPlanType?.startsWith('OFICIAL_')) {
+          navigate(`/painel/app/${id}`, { replace: true });
+          return;
+        }
         setApp(appData);
         setPlans(plansData);
       } catch (err) {

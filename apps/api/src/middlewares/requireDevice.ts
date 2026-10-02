@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { HttpError } from '../utils/httpError.js';
 import { verifyDeviceAccessToken, type DevicePayload } from '../utils/deviceToken.js';
 import { AppProject } from '../models/AppProject.js';
+import { effectivePermissions } from '../utils/planAccess.js';
 
 /**
  * Autentica requisicoes vindas do app da equipe.
@@ -56,7 +57,7 @@ export async function requireDevice(req: Request, _res: Response, next: NextFunc
     /* A permissão efetiva vem do cadastro atual, não do snapshot do JWT.
        Assim uma tag removida fecha a rota na requisição seguinte. */
     const app = await AppProject.findOne({ _id: payload.app, 'employees._id': payload.sub })
-      .select('employees roles status')
+      .select('employees roles status appPlanType')
       .lean();
     if (!app || app.status === 'pausado') {
       return next(new HttpError(401, 'Este acesso não está mais disponível.'));
@@ -66,7 +67,7 @@ export async function requireDevice(req: Request, _res: Response, next: NextFunc
       return next(new HttpError(401, 'Seu acesso foi bloqueado.'));
     }
     const role = (app.roles ?? []).find((item) => String(item._id) === String(employee.roleId));
-    req.device = { ...payload, perms: (role?.permissions ?? []).map(String) };
+    req.device = { ...payload, planType: app.appPlanType, perms: effectivePermissions(app.appPlanType, (role?.permissions ?? []).map(String)) };
     return next();
   } catch (error) {
     return next(error);

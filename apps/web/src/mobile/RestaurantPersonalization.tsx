@@ -8,11 +8,11 @@ import { installPersonalizedBuild } from './nativeUpdater';
 
 type Identity = { appId: string; revision: string; version: string };
 type Artifact = { url: string; sha256: string };
-type Job = { revision: string; version: string; state: 'available' | 'queued' | 'building' | 'failed' | 'ready'; artifacts?: { apk: Artifact; exe: Artifact } };
+type Job = { revision: string; version: string; canRetry?: boolean; state: 'available' | 'queued' | 'building' | 'failed' | 'ready'; artifacts?: { apk: Artifact; exe: Artifact } };
 const native = registerPlugin<{ status(): Promise<Identity> }>('VaptBranding');
 const desktop = () => (window as unknown as { vaptSecure?: { brandingStatus?: () => Promise<Identity> } }).vaptSecure;
 
-export function RestaurantPersonalization({ appId, name, profile = false }: {
+export function RestaurantPersonalization({ appId, name, logoUrl, profile = false }: {
   appId: string; name: string; logoUrl: string | null; profile?: boolean;
 }) {
   const supported = Capacitor.getPlatform() === 'android' || Boolean(desktop()?.brandingStatus);
@@ -32,6 +32,7 @@ export function RestaurantPersonalization({ appId, name, profile = false }: {
   const mandatory = Boolean(identity?.appId && identity.appId !== appId);
   const waiting = job?.state === 'queued' || job?.state === 'building';
   const installed = Boolean(identity?.revision && job?.revision === identity.revision);
+  const missingLogo = !logoUrl;
   const refresh = useCallback(async () => {
     const status = await (desktop()?.brandingStatus?.() ?? native.status());
     if (alive.current) setIdentity(status);
@@ -86,14 +87,19 @@ export function RestaurantPersonalization({ appId, name, profile = false }: {
         {installerOpened && <p>Confirme a atualização no instalador do sistema. Se você cancelou, toque novamente em instalar.</p>}
       </div>
       {error && <p role="alert">{error}</p>}
-      {job?.state === 'failed' && <p role="alert">A compilação falhou. Tente novamente; se persistir, entre em contato com o responsável pelo sistema.</p>}
-      {!installed && <button type="button" disabled={busy || waiting} onClick={() => {
-        if (!identity) { void perform(); return; }
+      {missingLogo && <p role="status">O responsável precisa adicionar a logo em Configurações do Aplicativo → Aparência e Contato, no site. Depois, volte aqui para verificar.</p>}
+      {job?.state === 'failed' && <p role="alert">{job.canRetry === false ? 'As tentativas de compilação foram esgotadas. Entre em contato com o suporte para liberar uma nova tentativa.' : 'A compilação falhou. Você pode tentar novamente.'}</p>}
+      {!installed && <button type="button" disabled={busy || waiting || job?.canRetry === false} onClick={() => {
+        if (missingLogo || !identity || !job) {
+          setBusy(true);
+          void refresh().catch(e => setError(e.message || 'Não foi possível verificar.')).finally(() => setBusy(false));
+          return;
+        }
         confirm({ title: `Instalar aplicativo do ${name}?`,
           message: 'A atualização troca somente o nome e o ícone. O aplicativo poderá fechar durante a instalação. Não desinstale o Vapt: confirme a atualização quando o sistema solicitar.',
           confirmText: job?.state === 'ready' ? 'Instalar atualização' : 'Preparar aplicativo',
           isDestructive: false, onConfirm: () => { void perform(); } });
-      }}>{busy ? 'Preparando…' : waiting ? 'Aguardando instaladores…' : !identity ? 'Verificar novamente' : job?.state === 'ready' ? 'Instalar atualização personalizada' : 'Personalizar este aparelho'}</button>}
+      }}>{busy ? 'Verificando…' : waiting ? 'Aguardando instaladores…' : missingLogo ? 'Já adicionei a logo, verificar' : !identity || !job ? 'Verificar novamente' : job?.state === 'ready' ? 'Instalar atualização personalizada' : 'Personalizar este aparelho'}</button>}
       {mandatory && <button type="button" disabled={busy} onClick={() => void logout()}>Sair desta conta</button>}
     </div>
     {!mandatory && !profile && <button type="button" disabled={busy} aria-label="Personalizar depois" onClick={() => {

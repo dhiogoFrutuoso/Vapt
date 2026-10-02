@@ -5,6 +5,7 @@ import { AppProject } from '../models/AppProject.js';
 import { Operation, type OperationDoc } from '../models/Operation.js';
 import { HttpError } from '../utils/httpError.js';
 import { emitOperationChanged } from '../realtime/io.js';
+import { commandAllowed, planAccess } from '../utils/planAccess.js';
 
 /**
  * Operação do restaurante: um endpoint de leitura e um de comando.
@@ -444,7 +445,7 @@ type Carregada = {
 };
 
 async function carregar(appId: string): Promise<Carregada> {
-  const app = await AppProject.findById(appId).select('tables dining employees roles').lean();
+  const app = await AppProject.findById(appId).select('tables dining employees roles appPlanType').lean();
   if (!app) throw new HttpError(404, 'Aplicativo nao encontrado.');
 
   /*
@@ -462,6 +463,19 @@ async function carregar(appId: string): Promise<Carregada> {
 
   let operacao = await Operation.findOne({ app: appId });
   if (!operacao) operacao = new Operation({ app: appId, tables: [], cashOpen: false });
+  // Delivery has no cash-register module: active restaurants can serve orders.
+  if (!planAccess(app.appPlanType).cash && planAccess(app.appPlanType).delivery) {
+    operacao.cashOpen = true;
+    // Release orders scheduled under the old cash-dependent Delivery policy.
+    if (operacao.scheduledTakeouts.length) {
+      operacao.set('takeouts', [...operacao.scheduledTakeouts, ...operacao.takeouts]);
+      operacao.set('scheduledTakeouts', []);
+    }
+    if (operacao.scheduledDeliveries.length) {
+      operacao.set('deliveries', [...operacao.scheduledDeliveries, ...operacao.deliveries]);
+      operacao.set('scheduledDeliveries', []);
+    }
+  }
 
   const cadastradas = (app.tables ?? []) as unknown as Array<Record<string, unknown>>;
   const porId = new Map(operacao.tables.map((t) => [t.id, t]));
@@ -529,30 +543,35 @@ async function carregar(appId: string): Promise<Carregada> {
 }
 
 /** Devolve o estado como o aplicativo espera consumir. */
-function serializar(operacao: OperationDoc, permissions: string[] = [], employeeId = '') {
+export function serializar(operacao: OperationDoc, permissions: string[] = [], employeeId = '', planType?: string) {
+  const access = planAccess(planType);
   const admin = permissions.includes('administracao');
   const can = (...needed: string[]) => admin || needed.some((permission) => permissions.includes(permission));
-  const deliveries = can('cliente', 'recepcao', 'cozinha', 'entregador')
+  const deliveries = access.delivery && can('cliente', 'recepcao', 'cozinha', 'entregador')
     ? permissions.includes('entregador') && !admin && !permissions.includes('recepcao') && !permissions.includes('cozinha')
       ? operacao.deliveries.filter((delivery) => delivery.assignedCourierId === employeeId || (!delivery.assignedCourierId && delivery.deliveredById === employeeId))
       : operacao.deliveries
     : [];
   return {
-    tables: can('salao', 'cozinha') ? operacao.tables : [],
+    tables: access.dining && can('salao', 'cozinha') ? operacao.tables : [],
     takeouts: can('recepcao', 'cozinha') ? operacao.takeouts : [],
     deliveries,
-    cashEntries: can('caixa') ? operacao.cashEntries : [],
-    cashArchive: can('caixa') ? operacao.cashArchive : [],
-    cashMovements: can('caixa') ? operacao.cashMovements : [],
-    cashClosures: can('caixa') ? operacao.cashClosures : [],
+    cashEntries: access.cash && can('caixa') ? operacao.cashEntries : [],
+    cashArchive: access.cash && can('caixa') ? operacao.cashArchive : [],
+    cashMovements: access.cash && can('caixa') ? operacao.cashMovements : [],
+    cashClosures: access.cash && can('caixa') ? operacao.cashClosures : [],
     cashOpen: operacao.cashOpen,
     cashOpenedAt: operacao.cashOpenedAt,
-    openingCash: operacao.openingCash,
-    scheduledTables: can('salao') ? operacao.scheduledTables : [],
+    openingCash: access.cash ? operacao.openingCash : 0,
+    scheduledTables: access.dining && can('salao') ? operacao.scheduledTables : [],
     scheduledTakeouts: can('recepcao') ? operacao.scheduledTakeouts : [],
-    scheduledDeliveries: can('recepcao') ? operacao.scheduledDeliveries : [],
-    auditLog: admin ? operacao.auditLog : [],
-    kitchenStatus: can('cozinha') ? Object.fromEntries(operacao.kitchenStatus ?? new Map()) : {},
+    scheduledDeliveries: access.delivery && can('recepcao') ? operacao.scheduledDeliveries : [],
+    auditLog: admin ? operacao.auditLog.filter(event =>
+      (access.cash || !/^(caixa|fiado)[.:]/.test(event.action)) &&
+      (access.delivery || !/^(pedido|entrega)[.:]/.test(event.action)) &&
+      (access.dining || !/^mesa[.:]/.test(event.action))) : [],
+    kitchenStatus: can('cozinha') ? Object.fromEntries([...(operacao.kitchenStatus ?? new Map())].filter(([key]) =>
+      (access.dining || !key.startsWith('k-mesa-')) && (access.delivery || !key.startsWith('k-delivery-')))) : {},
     lastClosedAt: operacao.lastClosedAt,
     lastClosedBy: operacao.lastClosedBy,
   };
@@ -578,7 +597,7 @@ export const getOperation = asyncHandler(async (req: Request, res: Response) => 
     }
   }
 
-  return res.json({ ok: true, data: serializar(operacao, req.device!.perms, req.device!.sub) });
+  return res.json({ ok: true, data: serializar(operacao, req.device!.perms, req.device!.sub, req.device!.planType) });
 });
 
 /* ------------------------------------------------------------------ */
@@ -1522,6 +1541,7 @@ export function aplicar(
 
 export const runOperationCommand = asyncHandler(async (req: Request, res: Response) => {
   const comando = comandoSchema.parse(req.body);
+  if (!commandAllowed(req.device!.planType, comando)) throw new HttpError(403, 'Esta função não está incluída no plano do restaurante.');
 
   const exigidas = PERMISSAO[comando.tipo];
   const minhas = req.device!.perms ?? [];
@@ -1556,7 +1576,7 @@ export const runOperationCommand = asyncHandler(async (req: Request, res: Respon
     try {
       await operacao.save();
       emitOperationChanged(appId, { tipo: comando.tipo, por: quem });
-      return res.json({ ok: true, data: { ...serializar(operacao, minhas, quem), mensagem } });
+      return res.json({ ok: true, data: { ...serializar(operacao, minhas, quem, req.device!.planType), mensagem } });
     } catch (erro) {
       const nome = (erro as { name?: string })?.name;
       if (nome !== 'VersionError' && nome !== 'ParallelSaveError') throw erro;

@@ -4,13 +4,15 @@ import { AppProject } from '../models/AppProject.js';
 import { HttpError } from '../utils/httpError.js';
 import { asyncHandler } from '../middlewares/errorHandler.js';
 import { Operation } from '../models/Operation.js';
+import { planAccess } from '../utils/planAccess.js';
 
 export const createOrder = async (req: Request, res: Response) => {
           try {
             const app = await AppProject.findById(req.body.appId);
                   if (!app) throw HttpError.notFound('App não encontrado');
+                  if (!planAccess(app.appPlanType).delivery || !planAccess(app.appPlanType).official || app.status === 'pausado') throw new HttpError(403, 'Este restaurante não recebe pedidos públicos.');
                   const operation = await Operation.findOne({ app: app._id }).select('cashOpen').lean();
-                  if (!operation || operation.cashOpen === false) {
+                  if (planAccess(app.appPlanType).cash && (!operation || operation.cashOpen === false)) {
                     throw new HttpError(409, 'Caixa fechado. Pedidos só são aceitos após a abertura.');
                   }
 
@@ -52,6 +54,10 @@ export const getOrders = async (req: Request, res: Response) => {
           try {
             const { appId, status } = req.query;
                   if (!appId) throw HttpError.badRequest('appId é obrigatório');
+                  if (typeof appId !== 'string') throw HttpError.badRequest('appId inválido');
+                  const app = await AppProject.findOne({ _id: appId, owner: req.user!.id }).select('appPlanType').lean();
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado');
+                  if (!planAccess(app.appPlanType).delivery) throw new HttpError(403, 'Pedidos de delivery não estão incluídos neste plano.');
                   
                   const query: any = { appId };
                   if (status) query.status = status;
@@ -86,6 +92,9 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
           try {
             const order = await Order.findById(req.params.id);
                   if (!order) throw HttpError.notFound('Pedido não encontrado');
+                  const app = await AppProject.findOne({ _id: order.appId, owner: req.user!.id }).select('appPlanType').lean();
+                  if (!app) throw HttpError.notFound('Aplicativo não encontrado');
+                  if (!planAccess(app.appPlanType).delivery) throw new HttpError(403, 'Pedidos de delivery não estão incluídos neste plano.');
 
                   if (req.body.status) order.status = req.body.status;
                   if (req.body.deliveryFee !== undefined) {

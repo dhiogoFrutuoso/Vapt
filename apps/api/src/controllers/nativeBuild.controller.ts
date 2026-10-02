@@ -31,6 +31,7 @@ async function snapshot(appId: string) {
 }
 function publicJob(job: any, revision: string) {
   return { revision, state: job?.state ?? 'available', version: NATIVE_RELEASE_VERSION,
+    canRetry: job?.state !== 'failed' || Number(job?.attempts ?? 0) < 3,
     artifacts: job?.state === 'ready' ? job.artifacts : undefined };
 }
 export const getNativeBuild = asyncHandler(async (req, res) => {
@@ -43,7 +44,10 @@ export const getNativeBuild = asyncHandler(async (req, res) => {
 export const requestNativeBuild = asyncHandler(async (req, res) => {
   const data = await snapshot(req.device!.app);
   // IDs are content-addressed; concurrent employees share the same build.
-  const existing = await NativeBuild.findById(data._id).select('_id').lean();
+  const existing = await NativeBuild.findById(data._id).select('_id state attempts').lean();
+  if (existing?.state === 'failed' && existing.attempts >= 3) {
+    throw new HttpError(409, 'A personalização falhou após três tentativas. O suporte precisa verificar a compilação antes de tentar novamente.');
+  }
   if (!existing && await NativeBuild.countDocuments({ appId: data.appId, createdAt: { $gt: new Date(Date.now() - 86400_000) } }) >= 5) {
     throw new HttpError(429, 'Limite de personalizações do restaurante atingido hoje. Tente amanhã.');
   }

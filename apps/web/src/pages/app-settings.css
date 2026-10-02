@@ -1,0 +1,21 @@
+.app-settings-dialog > header,
+.app-settings-dialog > div:not(:last-child) { flex-shrink: 0; }
+.app-settings-dialog > div:last-child { min-height: 0; overscroll-behavior: contain; }
+.app-settings-dialog input:not([type='checkbox']):not([type='color']) { min-width: 0; }
+.app-settings-dialog > header button { min-width: 44px; min-height: 44px; }
+.app-settings-team { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.app-settings-team > div { min-width: 0; }
+.app-settings-team > div:last-child { grid-column: 1 / -1; }
+.app-settings-permissions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 10px; }
+.app-settings-dialog form > div > div { min-width: 0; }
+.app-settings-dialog label input[type='checkbox'] { flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) { .app-settings-dialog * { transition: none !important; } }
+@media (max-width: 760px) {
+  .app-settings-team { grid-template-columns: minmax(0, 1fr); }
+  .app-settings-team > div { padding: 16px !important; }
+  .app-settings-dialog > header { padding: 16px !important; }
+  .app-settings-dialog > div { padding-left: 16px !important; padding-right: 16px !important; }
+  .app-settings-dialog form > div { flex-wrap: wrap; }
+}
+.app-settings-field { display: grid; gap: 8px; font-size: .85rem; font-weight: 600; color: #333; }
+.app-settings-dialog :is(input, button):focus-visible { outline: 2px solid #c74116; outline-offset: 2px; }
