@@ -49,15 +49,15 @@ const FALLBACK = {
   minVersion: RELEASE_FLOOR,
   buildId: RELEASE_FLOOR,
   tenantBuilds: {},
-  reason: 'Atualize o Vapt para instalar a versão personalizada do restaurante, com nome e ícone próprios no Android e no Windows.',
+  reason: 'Atualize o Vapt para mostrar apenas as abas incluídas no plano do restaurante, também para Administradores.',
   forceUpdate: true,
   downloadUrls: RELEASE_DOWNLOADS,
   changelog: [
-    'Localização atual com pino centralizado e botão Minha localização.',
-    'Conversão de delivery para balcão com remoção da taxa e confirmação do pagamento.',
-    'Disponibilidade do cardápio atualizada automaticamente.',
-    'Aplicativo personalizado por atualização real: nome e logo do restaurante, sem atalhos extras.',
-    'Personalização disponível no perfil e obrigatória ao trocar de restaurante numa instalação personalizada.',
+    'Administrador tem acesso completo somente às áreas do plano contratado.',
+    'Salão + Caixa sem Cliente e Entregador; Delivery sem Salão e Caixa.',
+    'Cozinha disponível em todos os planos, conforme a função do funcionário.',
+    'Delivery recebe pedidos sem depender da abertura do caixa.',
+    'Correções de permissões e da orientação para personalizar o aplicativo.',
   ],
 };
 

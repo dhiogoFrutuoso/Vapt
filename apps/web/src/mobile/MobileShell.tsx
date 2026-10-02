@@ -21,7 +21,7 @@ import { AppViews } from './AppViews';
 import { useOperation } from './useOperation';
 import { useMenu } from './useMenu';
 import { RestaurantPersonalization } from './RestaurantPersonalization';
-import { planAccess } from '../lib/planAccess';
+import { visibleAppTabs } from '../lib/planAccess';
 
 /**
  * Casca do app depois do login.
@@ -133,10 +133,10 @@ export function MobileShell() {
   /** Só as abas da função. Uma função sem permissões cai direto no perfil. */
   const permissions = menu.permissions ?? employee?.permissions ?? [];
   const visiveis = useMemo(
-    () => ABAS.filter((aba) =>
-      (menu.allowedTabs ?? (menu.appPlanType ? planAccess(menu.appPlanType).tabs : [] )).some(tab => tab === aba.chave) &&
-      (permissions.includes('administracao') || permissions.includes(aba.chave))
-    ),
+    () => {
+      const allowed = visibleAppTabs(menu.appPlanType, permissions, menu.allowedTabs);
+      return ABAS.filter(aba => allowed.some(tab => tab === aba.chave));
+    },
     [permissions, menu.allowedTabs, menu.appPlanType]
   );
 
@@ -145,11 +145,11 @@ export function MobileShell() {
   /* Guard de rota também no cliente: revogação de tag nunca deixa uma aba
      antiga renderizada enquanto a nova sessão é propagada. */
   useEffect(() => {
-    if (!menu.allowedTabs) return;
+    if (!menu.appPlanType) return;
     if (ativa === 'perfil' || visiveis.some((aba) => aba.chave === ativa)) return;
     setAtiva(visiveis[0]?.chave ?? 'perfil');
     toast('Seu acesso a essa área foi atualizado.');
-  }, [ativa, visiveis, menu.allowedTabs]);
+  }, [ativa, visiveis, menu.appPlanType]);
 
   /* Barras fixas saem do fluxo. Reservar a altura real (inclusive safe area e
      escala do funcionário) evita que o primeiro e o último card fiquem atrás
